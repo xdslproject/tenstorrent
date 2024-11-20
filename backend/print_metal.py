@@ -2,7 +2,8 @@ from typing import Optional
 
 from xdsl.dialects.builtin import ModuleOp, Operation
 from xdsl.dialects.func import FuncOp
-from xdsl.dialects.arith import Constant, Addi, Muli, SignlessIntegerBinaryOperation
+from xdsl.dialects.arith import Constant, Addi, Muli, SignlessIntegerBinaryOperation, IndexCastOp
+from xdsl.dialects.scf import For, Yield
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
 
@@ -19,7 +20,7 @@ class PrintMetal:
             Muli: "*"
         }
 
-        self._skip = [Constant, Alloc, Load, Addi, Muli]
+        self._skip = [Constant, Alloc, Load, Addi, Muli, IndexCastOp, Yield]
 
     def print_block(self, block: Block):
         operation = block.ops.first
@@ -31,6 +32,10 @@ class PrintMetal:
 
             elif isinstance(operation, Store):
                 self.print_assignment(operation)
+                operation = operation.next_op
+
+            elif isinstance(operation, For):
+                self.print_for_loop(operation)
                 operation = operation.next_op
 
             # skip constants on their own, will be picked up later if used
@@ -57,14 +62,23 @@ class PrintMetal:
         self.print(f"void {func.sym_name.data}() {'{'}")
 
         self._indent += 1
-        self.print_function_body(func)
+        self.print_body(func)
         self._indent -= 1
 
         self.print("}")
 
+    def print_for_loop(self, loop: For):
+        i = self.create_fresh_variable('i')
+        self.print(f"for (int {i} = 0; {i} < 5; {i}++) {'{'}")
 
-    def print_function_body(self, func: FuncOp):
-        body: Region = func.body
+        self._indent += 1
+        self.print_body(loop)
+        self._indent -= 1
+
+        self.print("}")
+
+    def print_body(self, parent: FuncOp | For):
+        body: Region = parent.body
 
         for block in body.blocks:
             self.print_block(block)
