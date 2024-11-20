@@ -28,10 +28,21 @@ def overwriting_binop():
     a = 5
     a = a + 1
 
+@data_in
+def nested_binops():
+    a = 1 + 2 * 3 + 4
+
+# TODO: Constructs we should handle
+#     for loops
+#     floating points
+#     casting operations (/) -> Python implicit, C++ explicit
+#     if statements
+#     TT-related features
+
 
 single_assignment()
 multiple_assignment()
 simple_binop()
 read_variable()
 overwriting_binop()
-
+nested_binops()

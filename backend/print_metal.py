@@ -2,7 +2,7 @@ from typing import Optional
 
 from xdsl.dialects.builtin import ModuleOp, Operation
 from xdsl.dialects.func import FuncOp
-from xdsl.dialects.arith import Constant, Addi, SignlessIntegerBinaryOperation
+from xdsl.dialects.arith import Constant, Addi, Muli, SignlessIntegerBinaryOperation
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
 
@@ -15,10 +15,11 @@ class PrintMetal:
         self._indent = 0
         self._names = {}  # Load -> Variable Name
         self._op_to_sym = {
-            Addi: "+"
+            Addi: "+",
+            Muli: "*"
         }
 
-        self._skip = [Constant, Alloc, Load, Addi]
+        self._skip = [Constant, Alloc, Load, Addi, Muli]
 
     def print_block(self, block: Block):
         operation = block.ops.first

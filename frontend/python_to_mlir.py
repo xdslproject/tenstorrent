@@ -6,6 +6,8 @@ from xdsl.dialects.func import FuncOp
 from xdsl.ir import Operation, Region, Block, SSAValue, OpResult
 from typing import Dict, List, Optional, cast, Tuple
 
+from xdsl.irdl import IRDLOperation
+
 from frontend.memref_context import MemrefContext
 
 DoubleOp = Tuple[Operation, Operation]
@@ -23,6 +25,26 @@ class PythonToMLIR(ast.NodeVisitor):
         self.ssa_to_op: Dict[SSAValue, Operation] = {}  # SSA ref -> creator op
 
         self.operations: List[Operation] | ModuleOp = []
+
+        self._operations: Dict[bool, Dict[type(ast.operator), type(IRDLOperation)]] = {
+            False: {
+                ast.Add: arith.Addi,
+                ast.Mult: arith.Muli
+            },
+            True: {
+                ast.Add: arith.Addf,
+                ast.Mult: arith.Mulf
+            }
+        }
+
+    def get_operation(self, node) -> type:
+        assert isinstance(node, ast.BinOp)
+        # TODO: will need to check if either child is floating point (recursively)
+        #     maybe handle strings etc but unlikely to need
+
+        is_float = False
+        return self._operations[is_float][type(node.op)]
+
 
     def generic_visit(self, node):
         print("Missing handling for: " + node.__class__.__name__)
@@ -71,8 +93,6 @@ class PythonToMLIR(ast.NodeVisitor):
         assert isinstance(dest, ast.Name)
         var_name = dest.id
 
-        # TODO: If first time seeing variable name, create memory space
-        #     otherwise refer to prev memory space
         # create a memref
         # seen = var_name in self.symbol_table
         seen = var_name in self.symbol_table.dictionary
@@ -112,7 +132,8 @@ class PythonToMLIR(ast.NodeVisitor):
         l_val: OpResult = lhs.results[0]
         r_val: OpResult = rhs.results[0]
 
-        return arith.Addi(
+        op_constructor = self.get_operation(node)
+        return op_constructor(
             l_val,
             r_val,
             None
