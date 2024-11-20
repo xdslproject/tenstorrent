@@ -32,6 +32,12 @@ def overwriting_binop():
 def nested_binops():
     a = 1 + 2 * 3 + 4
 
+@data_in
+def for_loop():
+    # semantics: each iteration create a new memref, and assign a constant to it
+    for i in range(0, 5):
+        a = 1
+
 # TODO: Constructs we should handle
 #     for loops
 #     floating points
@@ -46,3 +52,4 @@ simple_binop()
 read_variable()
 overwriting_binop()
 nested_binops()
+for_loop()

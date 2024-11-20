@@ -1,8 +1,10 @@
 import ast
 
-from xdsl.dialects import builtin, func, arith, memref
-from xdsl.dialects.builtin import IntegerAttr, IntegerType, FunctionType, MemRefType, ModuleOp
+from xdsl.dialects import builtin, func, arith, memref, scf
+from xdsl.dialects.arith import Constant
+from xdsl.dialects.builtin import IntegerAttr, IntegerType, FunctionType, MemRefType, ModuleOp, IndexType
 from xdsl.dialects.func import FuncOp
+from xdsl.dialects.memref import Store
 from xdsl.ir import Operation, Region, Block, SSAValue, OpResult
 from typing import Dict, List, Optional, cast, Tuple
 
@@ -14,6 +16,17 @@ DoubleOp = Tuple[Operation, Operation]
 TripleOp = Tuple[Operation, Operation, Operation]
 
 
+def get_vars_assigned_to(ops: List[Operation]) -> List[SSAValue]:
+    variables = []
+
+    for op in ops:
+        if isinstance(op, Store):
+            variable = op.operands[0]
+            variables.append(variable)
+
+    return variables
+
+
 class PythonToMLIR(ast.NodeVisitor):
     """
     Parses a Python AST to create operations from the tt_data, tt_compute,
@@ -22,7 +35,6 @@ class PythonToMLIR(ast.NodeVisitor):
     def __init__(self):
         super().__init__()
         self.symbol_table = MemrefContext()  # variable names -> memref
-        self.ssa_to_op: Dict[SSAValue, Operation] = {}  # SSA ref -> creator op
 
         self.operations: List[Operation] | ModuleOp = []
 
@@ -118,7 +130,7 @@ class PythonToMLIR(ast.NodeVisitor):
         int_32 = IntegerAttr(data, IntegerType(32))
         return arith.Constant(int_32)
 
-    def visit_BinOp(self, node) -> Operation:
+    def visit_BinOp(self, node: ast.BinOp) -> Operation:
         lhs: Operation = self.visit(node.left)  # operation that created a, same operation returned from visit_Assign
         rhs: Operation = self.visit(node.right)
 
@@ -139,10 +151,57 @@ class PythonToMLIR(ast.NodeVisitor):
             None
         )
 
-    def visit_Name(self, node) -> Operation:
+    def visit_Name(self, node: ast.Name) -> Operation:
         location = self.symbol_table[node.id]
         load = memref.Load.get(location, [])
         return load
+
+    def visit_For(self, node: ast.For):
+        contents: List[Operation] = []
+        for statement in node.body:
+            result = self.visit(statement)
+            if isinstance(result, tuple):
+                contents.extend(result)
+            else:
+                contents.append(result)
+
+        from_expr = self.visit(node.iter.args[0])
+        to_expr = self.visit(node.iter.args[1])
+
+        start = arith.IndexCastOp(from_expr, IndexType())
+        end = arith.IndexCastOp(to_expr, IndexType())
+
+        # lb, up, step, iteration arguments, body
+        step = arith.Constant.create(
+            properties={
+                "value": IntegerAttr.from_index_int_value(1)
+            },
+            result_types=[IndexType()]
+        )
+
+        iter_args = get_vars_assigned_to(contents)
+
+        block_arg_types = [IndexType()]
+        block_args = []
+        for ssa_val in iter_args:
+            block_arg_types.append(ssa_val.type)
+            block_args.append(ssa_val)
+
+        yield_stmt = scf.Yield(*block_args)
+
+        block = Block(arg_types=block_arg_types)
+        block.add_ops(contents + [yield_stmt])
+
+        body = Region()
+        body.add_block(block)
+
+        return from_expr, to_expr, start, end, step, scf.For(
+            start.results[0],
+            end.results[0],
+            step.results[0],
+            iter_args,
+            body
+        )
 
     def register_symbol(self, symbol: str, memory: memref.Alloc):
         self.symbol_table[symbol] = memory
