@@ -37,9 +37,6 @@ from xdsl.ir import Block, Region, SSAValue, OpResult
 #
 #     return operation.operands[0] is ssa_value and operation.operands[1] is ssa_mem
 
-def skip(operation: Operation) -> bool:
-    return type(operation) in [Constant, Alloc, Load]
-
 
 class PrintMetal:
     """
@@ -52,7 +49,7 @@ class PrintMetal:
             Addi: "+"
         }
 
-        self._skip = [Constant, Alloc, Load]
+        self._skip = [Constant, Alloc, Load, Addi]
 
     def print_block(self, block: Block):
         operation = block.ops.first
@@ -70,13 +67,6 @@ class PrintMetal:
             elif type(operation) in self._skip:
                 operation = operation.next_op
                 continue
-
-            elif isinstance(operation, Addi):
-                self.print_binary_op(operation)
-                visited = False
-                while not visited:
-                    visited = isinstance(operation, Store)
-                    operation = operation.next_op
 
             else:
                 self.print(f"UNHANDLED OPERATION: {operation.__class__.__name__}")

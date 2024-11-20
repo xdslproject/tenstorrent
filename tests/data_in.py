@@ -14,9 +14,6 @@ def multiple_assignment():
 
 @data_in
 def simple_binop():
-    # TODO: think about how to handle this case
-    # think have to handle just binary operation, constant on its own probably
-    # isnt valid C/C++ code?
     a = 2 + 3  # Assign (BinOp (Const Const))
 
 
@@ -36,8 +33,8 @@ def overwriting_binop():
 
 
 single_assignment()
-# multiple_assignment()
-# simple_binop()
+multiple_assignment()
+simple_binop()
 # read_variable()
 # overwriting_binop()
 
