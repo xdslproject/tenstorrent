@@ -7,37 +7,6 @@ from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
 
 
-# def is_decl_init(operation: Operation):
-#     """
-#     Checks whether we have three operations in a row comprising a declaration
-#     and initialisation, e.g.
-#
-#     ```
-#     %0 = arith.constant 5
-#     %1 = memref.alloc()
-#     memref.store %0, %1[]
-#     """
-#     # check constant and save ssa value
-#     if not isinstance(operation, Constant):
-#         return False
-#
-#     ssa_value = operation.results[0]
-#     operation = operation.next_op
-#
-#     # check next exists and is alloc, save ssa value
-#     if operation is None or not isinstance(operation, Alloc):
-#         return False
-#
-#     ssa_mem = operation.results[0]
-#     operation = operation.next_op
-#
-#     # check next exists and is store and uses prev ssa values
-#     if operation is None or not isinstance(operation, Store):
-#         return False
-#
-#     return operation.operands[0] is ssa_value and operation.operands[1] is ssa_mem
-
-
 class PrintMetal:
     """
     Prints the Tenstorrent Metal API (C) given a list of xDSL operations
@@ -60,7 +29,7 @@ class PrintMetal:
                 operation = operation.next_op
 
             elif isinstance(operation, Store):
-                self.print_decl_init(operation)
+                self.print_assignment(operation)
                 operation = operation.next_op
 
             # skip constants on their own, will be picked up later if used
@@ -99,21 +68,21 @@ class PrintMetal:
         for block in body.blocks:
             self.print_block(block)
 
-    def print_decl_init(self, operation: Store):
-        # TODO: update to use store operation
-        variable_name = self.create_fresh_variable()
 
-        # we have a store operation and variable name,
-        # need the value being written to it
-        # TODO: this ssa_value could be a constant, binary op, etc
-        ssa_value = operation.operands[0]
-        destination = operation.operands[1]
+    def print_assignment(self, op: Store):
+        loc = op.operands[1]
+        fresh = loc not in self._names
 
+        # find what is being written to our location
+        ssa_value = op.operands[0]
         result = self.get_value(ssa_value)
 
-        # retrieve where we are storing to
-        self._names[destination] = variable_name
-        self.print(f"std::int32_t {variable_name} = {result};")
+        var_name = self.create_fresh_variable() if fresh else self._names[loc]
+        type_decl = "std::int32_t " if fresh else ""
+
+        self._names[loc] = var_name
+        self.print(f"{type_decl}{var_name} = {result};")
+
 
     def create_fresh_variable(self, base='a') -> str:
         names = self._names.values()
@@ -172,15 +141,6 @@ class PrintMetal:
                 raise Exception(f"Unhandled type: {operation.__class__} in binary_op_string")
 
         return f"{values[0]} {op_str} {values[1]}"
-
-    def print_assignment(self, store: Store):
-        # if allocate and then store -> new location -> print_decl_init
-        # if store on its own then write to location
-        destination = store.operands[1]
-        if destination not in self._names:
-            self.print_decl_init(store)
-        else:
-            raise Exception(f"Not implemented yet: overwriting existing vairables")
 
     @property
     def _prefix(self):

@@ -27,14 +27,11 @@ def read_variable():
 def overwriting_binop():
     a = 5
     a = a + 1
-    # TODO: incorrect, should replace value of a0
-    #     actually incorrect in the SSA gen, allocates new memory for a instead
-    #     of reusing its location
 
 
 single_assignment()
 multiple_assignment()
 simple_binop()
-# read_variable()
-# overwriting_binop()
+read_variable()
+overwriting_binop()
 
