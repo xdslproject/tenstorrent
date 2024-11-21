@@ -16,17 +16,6 @@ DoubleOp = Tuple[Operation, Operation]
 TripleOp = Tuple[Operation, Operation, Operation]
 
 
-def get_vars_assigned_to(ops: List[Operation]) -> List[SSAValue]:
-    variables = []
-
-    for op in ops:
-        if isinstance(op, Store):
-            variable = op.operands[0]
-            variables.append(variable)
-
-    return variables
-
-
 class PythonToMLIR(ast.NodeVisitor):
     """
     Parses a Python AST to create operations from the tt_data, tt_compute,
@@ -179,18 +168,10 @@ class PythonToMLIR(ast.NodeVisitor):
             result_types=[IndexType()]
         )
 
-        iter_args = get_vars_assigned_to(contents)
+        contents.append(scf.Yield())
 
-        block_arg_types = [IndexType()]
-        block_args = []
-        for ssa_val in iter_args:
-            block_arg_types.append(ssa_val.type)
-            block_args.append(ssa_val)
-
-        yield_stmt = scf.Yield(*block_args)
-
-        block = Block(arg_types=block_arg_types)
-        block.add_ops(contents + [yield_stmt])
+        block = Block(arg_types=[IndexType()])
+        block.add_ops(contents)
 
         body = Region()
         body.add_block(block)
@@ -199,7 +180,7 @@ class PythonToMLIR(ast.NodeVisitor):
             start.results[0],
             end.results[0],
             step.results[0],
-            iter_args,
+            [],
             body
         )
 
