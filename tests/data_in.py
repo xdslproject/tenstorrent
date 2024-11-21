@@ -28,22 +28,34 @@ def overwriting_binop():
     a = 5
     a = a + 1
 
+
 @data_in
 def nested_binops():
     a = 1 + 2 * 3 + 4
 
+
 @data_in
 def for_loop():
     # semantics: each iteration create a new memref, and assign a constant to it
+    #            may wish to deallocate in the future but unneeded for now
     for i in range(0, 5):
         a = 1
 
+
+@data_in
+def for_loop_use_i():
+    for i in range(3, 5):
+        a = i
+
+
 # TODO: Constructs we should handle
-#     for loops
+#     for loops: updating global values
 #     floating points
 #     casting operations (/) -> Python implicit, C++ explicit
 #     if statements
 #     TT-related features
+#     Note: in Python, loops and if-statement blocks don't create a new scope
+#     so every variable declared in a loop is like declaring out of loop in C++
 
 
 single_assignment()

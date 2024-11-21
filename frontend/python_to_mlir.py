@@ -11,9 +11,7 @@ from typing import Dict, List, Optional, cast, Tuple
 from xdsl.irdl import IRDLOperation
 
 from frontend.memref_context import MemrefContext
-
-DoubleOp = Tuple[Operation, Operation]
-TripleOp = Tuple[Operation, Operation, Operation]
+from frontend.util import flatten
 
 
 class PythonToMLIR(ast.NodeVisitor):
@@ -38,6 +36,9 @@ class PythonToMLIR(ast.NodeVisitor):
             }
         }
 
+    def visit(self, node: ast.AST | ast.stmt | ast.expr) -> List[Operation]:
+        return [ob for ob in flatten(super().visit(node))]
+
     def get_operation(self, node) -> type:
         assert isinstance(node, ast.BinOp)
         # TODO: will need to check if either child is floating point (recursively)
@@ -51,43 +52,41 @@ class PythonToMLIR(ast.NodeVisitor):
         print("Missing handling for: " + node.__class__.__name__)
         raise Exception(f"Unhandled construct, no parser provided: {node.__class__.__name__}")
 
-    def visit_Module(self, node):
-        operations: list[Operation] = []
+    def visit_Module(self, node) -> List[Operation]:
+        operations: List[Operation] = []
 
         # at the 'module' level should just be a single function def
         for child in node.body:
-            op = self.visit(child)
-            operations.append(op)
+            ops = self.visit(child)
+            operations.extend(ops)
 
         # after all processing is done, wrap in module operation
         self.operations = builtin.ModuleOp(operations)
+        return [self.operations]
 
-    def visit_FunctionDef(self, node) -> FuncOp:
-        operations: list[Operation] = []
+    def visit_FunctionDef(self, node) -> List[Operation]:
+        operations: List[Operation] = []
 
         # set the current scope
         self.operations = operations
 
         for child in node.body:
-            op = self.visit(child)
-            if isinstance(op, Operation):
-                operations.append(op)
-            if isinstance(op, Tuple):
-                operations.extend(op)
+            ops = self.visit(child)
+            operations.extend(ops)
 
         block = Block(operations)
         region = Region(block)
 
         # return some function definition with contents
-        return func.FuncOp(
+        return [func.FuncOp(
             node.name,
             FunctionType.from_lists([], []),
             region
-        )
+        )]
 
-    def visit_Assign(self, node) -> DoubleOp | TripleOp:
+    def visit_Assign(self, node) -> List[Operation]:
         # visit RHS, e.g. Constant in 'a = 0'
-        rhs: Operation = self.visit(node.value)
+        rhs: Operation = self.visit(node.value)[0]
 
         # get the variable name to store the result in
         dest = node.targets[0]
@@ -110,18 +109,18 @@ class PythonToMLIR(ast.NodeVisitor):
         # want to return whatever we wish to insert in our list of operations
         # return (rhs, store) if seen else (rhs, location, store)
         if seen:
-            return rhs, store
+            return [rhs, store]
 
-        return rhs, location, store
+        return [rhs, location, store]
 
-    def visit_Constant(self, node) -> Operation:
+    def visit_Constant(self, node) -> List[Operation]:
         data = node.value
         int_32 = IntegerAttr(data, IntegerType(32))
-        return arith.Constant(int_32)
+        return [arith.Constant(int_32)]
 
-    def visit_BinOp(self, node: ast.BinOp) -> Operation:
-        lhs: Operation = self.visit(node.left)  # operation that created a, same operation returned from visit_Assign
-        rhs: Operation = self.visit(node.right)
+    def visit_BinOp(self, node: ast.BinOp) -> List[Operation]:
+        lhs: Operation = self.visit(node.left)[0]  # operation that created a, same operation returned from visit_Assign
+        rhs: Operation = self.visit(node.right)[0]
 
         if lhs not in self.operations:
             self.operations.append(lhs)
@@ -134,28 +133,26 @@ class PythonToMLIR(ast.NodeVisitor):
         r_val: OpResult = rhs.results[0]
 
         op_constructor = self.get_operation(node)
-        return op_constructor(
+        return [op_constructor(
             l_val,
             r_val,
             None
-        )
+        )]
 
-    def visit_Name(self, node: ast.Name) -> Operation:
+    def visit_Name(self, node: ast.Name) -> List[Operation]:
         location = self.symbol_table[node.id]
         load = memref.Load.get(location, [])
-        return load
+        return [load]
 
-    def visit_For(self, node: ast.For):
+    def visit_For(self, node: ast.For) -> List[Operation]:
         contents: List[Operation] = []
-        for statement in node.body:
-            result = self.visit(statement)
-            if isinstance(result, tuple):
-                contents.extend(result)
-            else:
-                contents.append(result)
 
-        from_expr = self.visit(node.iter.args[0])
-        to_expr = self.visit(node.iter.args[1])
+        for statement in node.body:
+            results = self.visit(statement)
+            contents.extend(results)
+
+        from_expr = self.visit(node.iter.args[0])[0]
+        to_expr = self.visit(node.iter.args[1])[0]
 
         start = arith.IndexCastOp(from_expr, IndexType())
         end = arith.IndexCastOp(to_expr, IndexType())
@@ -176,13 +173,13 @@ class PythonToMLIR(ast.NodeVisitor):
         body = Region()
         body.add_block(block)
 
-        return from_expr, to_expr, start, end, step, scf.For(
+        return [from_expr, to_expr, start, end, step, scf.For(
             start.results[0],
             end.results[0],
             step.results[0],
             [],
             body
-        )
+        )]
 
     def register_symbol(self, symbol: str, memory: memref.Alloc):
         self.symbol_table[symbol] = memory
