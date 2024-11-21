@@ -30,6 +30,10 @@ class PrintMetal:
                 self.print_func(operation)
                 operation = operation.next_op
 
+            elif isinstance(operation, Alloc):
+                self.print_declaration(operation)
+                operation = operation.next_op
+
             elif isinstance(operation, Store):
                 self.print_assignment(operation)
                 operation = operation.next_op
@@ -69,7 +73,8 @@ class PrintMetal:
 
     def print_for_loop(self, loop: For):
         i = self.create_fresh_variable('i')
-        self.print(f"for (int {i} = 0; {i} < 5; {i}++) {'{'}")
+        self.print(f"int {i};")
+        self.print(f"for ({i} = 0; {i} < 5; {i}++) {'{'}")
 
         self._indent += 1
         self.print_body(loop)
@@ -84,19 +89,25 @@ class PrintMetal:
             self.print_block(block)
 
 
+    def print_declaration(self, op: Alloc):
+        var_name = self.create_fresh_variable()
+        type_decl = "std::int32_t "
+
+        self.print(type_decl + var_name + ';')
+
+        loc = op.results[0]
+        self._names[loc] = var_name
+
+
     def print_assignment(self, op: Store):
         loc = op.operands[1]
-        fresh = loc not in self._names
 
         # find what is being written to our location
         ssa_value = op.operands[0]
         result = self.get_value(ssa_value)
+        var_name = self._names[loc]
 
-        var_name = self.create_fresh_variable() if fresh else self._names[loc]
-        type_decl = "std::int32_t " if fresh else ""
-
-        self._names[loc] = var_name
-        self.print(f"{type_decl}{var_name} = {result};")
+        self.print(f"{var_name} = {result};")
 
 
     def create_fresh_variable(self, base='a') -> str:
