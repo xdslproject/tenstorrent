@@ -36,17 +36,18 @@ def nested_binops():
 
 @data_in
 def for_loop():
-    # semantics: each iteration create a new memref, and assign a constant to it
-    #            may wish to deallocate in the future but unneeded for now
     for i in range(0, 5):
         a = 1
+        b = 2
+        c = 3
+        d = 4
+        a = 5
 
 
 @data_in
 def for_loop_use_i():
     for i in range(3, 5):
         a = i
-
 
 # TODO: Constructs we should handle
 #     for loops: updating global values
