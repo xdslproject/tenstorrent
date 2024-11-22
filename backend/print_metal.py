@@ -4,12 +4,13 @@ from xdsl.dialects.builtin import ModuleOp, Operation, IndexType, IntegerType, F
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
     FloatingPointLikeBinaryOperation
-from xdsl.dialects.scf import For, Yield
+from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult, BlockArgument
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
+OpWithBody = FuncOp | For | While
 
 
 class PrintMetal:
@@ -52,6 +53,10 @@ class PrintMetal:
 
             elif isinstance(operation, For):
                 self.print_for_loop(operation)
+                operation = operation.next_op
+
+            elif isinstance(operation, If):
+                self.print_if_statement(operation)
                 operation = operation.next_op
 
             # skip constants on their own, will be picked up later if used
@@ -103,7 +108,7 @@ class PrintMetal:
 
         self.print("}")
 
-    def print_body(self, parent: FuncOp | For):
+    def print_body(self, parent: OpWithBody):
         body: Region = parent.body
 
         for block in body.blocks:
@@ -132,6 +137,16 @@ class PrintMetal:
         self.print(f"{var_name} = {result};")
 
 
+    def print_if_statement(self, op: If):
+        self.print(f"if ({self.get_value(op.cond)}) {'{'}")
+
+        self._indent += 1
+        self.print_block(op.true_region.blocks[0])
+        self._indent -= 1
+
+        self.print("}")
+
+
     def create_fresh_variable(self, hint='a') -> str:
         names = self._names.values()
         if hint not in names:
@@ -155,7 +170,7 @@ class PrintMetal:
 
         creator = ssa_value.owner
         if isinstance(creator, Constant):
-            return str(creator.value.value.data)
+            return str(creator.value.value.data).lower()
 
         if isinstance(creator, IndexCastOp):
             return self.get_value(creator.operands[0])
