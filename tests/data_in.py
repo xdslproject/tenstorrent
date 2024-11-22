@@ -114,7 +114,6 @@ def boolean_operators():
 
 # TODO: Constructs we should handle
 #     floating points
-#     casting operations (/) -> Python implicit, C++ explicit
 #     if statements
 #     TT-related features
 #     Nested for loops currently aren't correct (they create redundant vars)

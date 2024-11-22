@@ -1,19 +1,17 @@
 import ast
 
 from xdsl.dialects import builtin, func, arith, memref, scf
-from xdsl.dialects.arith import Constant
-from xdsl.dialects.builtin import IntegerAttr, IntegerType, FunctionType, MemRefType, ModuleOp, IndexType
-from xdsl.dialects.func import FuncOp
-from xdsl.dialects.memref import Store
-from xdsl.ir import Operation, Region, Block, SSAValue, OpResult, BlockArgument
-from typing import Dict, List, Optional, cast, Tuple, Set
-
+from xdsl.dialects.builtin import (IntegerAttr, IntegerType, FunctionType,
+                                   MemRefType, ModuleOp, IndexType, FloatAttr, Float32Type)
+from xdsl.ir import Operation, Region, Block, OpResult
+from typing import Dict, List
 from xdsl.irdl import IRDLOperation
 
 from frontend.memref_context import MemrefContext
 from frontend.util import flatten, remove_duplicates
 
 NodeWithBody = ast.If | ast.For | ast.While
+MLIRType = IntegerType | Float32Type
 
 
 class PythonToMLIR(ast.NodeVisitor):
@@ -22,33 +20,34 @@ class PythonToMLIR(ast.NodeVisitor):
     scf, and memref dialects.
     """
 
-    def __init__(self):
+    def __init__(self, type_checker):
         super().__init__()
         self.symbol_table = MemrefContext()  # variable names -> memref
 
         self.operations: List[Operation] | ModuleOp = []
+        self.type_checker = type_checker
 
-        self._operations: Dict[bool, Dict[type(ast.operator), type(IRDLOperation)]] = {
-            False: {
+        self._operations: Dict[MLIRType, Dict[type(ast.operator), type(IRDLOperation)]] = {
+            IntegerType(32): {
                 ast.Add: arith.Addi,
                 ast.Mult: arith.Muli
             },
-            True: {
+            Float32Type(): {
                 ast.Add: arith.Addf,
                 ast.Mult: arith.Mulf
             }
         }
+
+    def get_type(self, variable_name: str):
+        return self.type_checker.types[variable_name]
 
     def visit(self, node: ast.AST | ast.stmt | ast.expr) -> List[Operation]:
         return [ob for ob in flatten(super().visit(node))]
 
     def get_operation(self, node) -> type:
         assert isinstance(node, ast.BinOp)
-        # TODO: will need to check if either child is floating point (recursively)
-        #     maybe handle strings etc but unlikely to need
-
-        is_float = False
-        return self._operations[is_float][type(node.op)]
+        t = self.type_checker.visit(node)
+        return self._operations[t][type(node.op)]
 
     def generic_visit(self, node):
         print("Missing handling for: " + node.__class__.__name__)
@@ -101,7 +100,7 @@ class PythonToMLIR(ast.NodeVisitor):
         location = memref.Alloc(
             [],
             [],  # symbol operands: [SSAValue]
-            MemRefType(IntegerType(32), [1])
+            MemRefType(self.get_type(var_name), [1])
         ) if not seen else self.symbol_table[var_name]
 
         # store result in that memref
@@ -117,8 +116,14 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def visit_Constant(self, node) -> List[Operation]:
         data = node.value
-        int_32 = IntegerAttr(data, IntegerType(32))
-        return [arith.Constant(int_32)]
+
+        if isinstance(data, int):
+            return [arith.Constant(IntegerAttr(data, IntegerType(32)))]
+
+        if isinstance(data, float):
+            return [arith.Constant(FloatAttr(data, Float32Type()))]
+
+        raise Exception(f"Unhandled constant type: {data.__class__.__name__}")
 
     def visit_BinOp(self, node: ast.BinOp) -> List[Operation]:
         lhs: Operation = self.visit(node.left)[0]  # operation that created a, same operation returned from visit_Assign
@@ -181,8 +186,9 @@ class PythonToMLIR(ast.NodeVisitor):
         # if going for correct python semantics should probably manually
         # allocate space for the loop variable, and load into it for the first
         # instruction of the loop.
-        alloc = memref.Alloc([], [], MemRefType(IndexType(), [1]))
-        self.symbol_table[node.target.id] = alloc
+        iter_var_name = node.target.id
+        alloc = memref.Alloc([], [], MemRefType(self.get_type(iter_var_name), [1]))
+        self.symbol_table[iter_var_name] = alloc
 
         loop_variable = for_loop.body.block.args[0]
         store = memref.Store.get(loop_variable, alloc, [])
@@ -230,7 +236,11 @@ class PythonToMLIR(ast.NodeVisitor):
         allocations = []
 
         for var in list(fresh_variables):
-            memory = memref.Alloc([], [], MemRefType(IntegerType(32), [1]))
+            memory = memref.Alloc(
+                [],
+                [],
+                MemRefType(self.get_type(var), [1])
+            )
             self.register_symbol(var, memory)
             allocations.append(memory)
 

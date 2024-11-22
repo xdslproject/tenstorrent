@@ -99,7 +99,7 @@ class PrintMetal:
 
 
     def print_declaration(self, op: Alloc):
-        index = isinstance(op.result_types[0].element_type, IndexType)
+        index = isinstance(op.next_op, For)
         var_name = self.create_fresh_variable(hint='i' if index else 'a')
         type_decl = "std::int32_t "
 
