@@ -107,9 +107,7 @@ def boolean_operators():
     b = 3
     c = 9
     if a == 7 and b == 3 or c == 2:
-        a = 1
-        b = 1
-        c = 1
+        a = 15
 
 
 # TODO: Constructs we should handle
@@ -128,7 +126,7 @@ overwriting_binop()
 nested_binops()
 for_loop()
 for_loop_use_i()
-# floating_point()
+floating_point()
 # implicit_cast()
 # if_statement()
 # evaluate_bool()

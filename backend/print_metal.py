@@ -1,11 +1,15 @@
 from typing import Optional
 
-from xdsl.dialects.builtin import ModuleOp, Operation, IndexType
+from xdsl.dialects.builtin import ModuleOp, Operation, IndexType, IntegerType, Float32Type
 from xdsl.dialects.func import FuncOp
-from xdsl.dialects.arith import Constant, Addi, Muli, SignlessIntegerBinaryOperation, IndexCastOp
+from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
+    FloatingPointLikeBinaryOperation
 from xdsl.dialects.scf import For, Yield
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult, BlockArgument
+
+
+ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
 
 
 class PrintMetal:
@@ -17,10 +21,18 @@ class PrintMetal:
         self._names = {}  # SSAVal -> Variable Name
         self._op_to_sym = {
             Addi: "+",
-            Muli: "*"
+            Muli: "*",
+            Addf: "+",
+            Mulf: "*",
         }
 
-        self._skip = [Constant, Alloc, Load, Addi, Muli, IndexCastOp, Yield]
+        self._mlir_to_cpp_type = {
+            IndexType(): "std::uint32_t",
+            IntegerType(32): "std::uint32_t",
+            Float32Type(): "float",
+        }
+
+        self._skip = [Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield]
 
     def print_block(self, block: Block):
         operation = block.ops.first
@@ -101,9 +113,9 @@ class PrintMetal:
     def print_declaration(self, op: Alloc):
         index = isinstance(op.next_op, For)
         var_name = self.create_fresh_variable(hint='i' if index else 'a')
-        type_decl = "std::int32_t "
+        type_decl = self._mlir_to_cpp_type[op.result_types[0].element_type]
 
-        self.print(type_decl + var_name + ';')
+        self.print(type_decl + " " + var_name + ";")
 
         ssa_referring_to_var = op.results[0]
         self._names[ssa_referring_to_var] = var_name
@@ -148,7 +160,7 @@ class PrintMetal:
         if isinstance(creator, IndexCastOp):
             return self.get_value(creator.operands[0])
 
-        if isinstance(creator, SignlessIntegerBinaryOperation):
+        if isinstance(creator, ArithmeticOperation):
             return self.binary_op_string(creator)
 
         if isinstance(creator, Load):
@@ -162,7 +174,7 @@ class PrintMetal:
         print(prefix + s)
 
 
-    def binary_op_string(self, operation: SignlessIntegerBinaryOperation):
+    def binary_op_string(self, operation: ArithmeticOperation):
         """
         In a binary operation, each operand will either be a constant, load, or
         another binary operation. This method handles each case and produces a
@@ -180,7 +192,7 @@ class PrintMetal:
                 values[i] = creator.value.value.data
             elif isinstance(creator, Load):
                 values[i] = self._names[creator.operands[0]]
-            elif isinstance(creator, SignlessIntegerBinaryOperation):
+            elif isinstance(creator, ArithmeticOperation):
                 values[i] = '(' + self.binary_op_string(creator) + ')'
             else:
                 raise Exception(f"Unhandled type: {operation.__class__} in binary_op_string")
