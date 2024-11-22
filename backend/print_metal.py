@@ -138,6 +138,9 @@ class PrintMetal:
         Returns a textual representation of the expression that the ssa_value
         is assigned to.
         """
+        if ssa_value in self._names:
+            return self._names[ssa_value]
+
         creator = ssa_value.owner
         if isinstance(creator, Constant):
             return str(creator.value.value.data)
@@ -148,8 +151,8 @@ class PrintMetal:
         if isinstance(creator, SignlessIntegerBinaryOperation):
             return self.binary_op_string(creator)
 
-        if isinstance(ssa_value, BlockArgument):
-            return self._names[ssa_value]
+        if isinstance(creator, Load):
+            return self.get_value(creator.operands[0])
 
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
