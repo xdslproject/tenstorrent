@@ -117,6 +117,9 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Constant(self, node) -> List[Operation]:
         data = node.value
 
+        if isinstance(data, bool):
+            return [arith.Constant(IntegerAttr(data, IntegerType(1)))]
+
         if isinstance(data, int):
             return [arith.Constant(IntegerAttr(data, IntegerType(32)))]
 
@@ -150,6 +153,24 @@ class PythonToMLIR(ast.NodeVisitor):
         from_location = self.symbol_table[node.id]
         load = memref.Load.get(from_location, [])
         return [load]
+
+
+    def visit_If(self, node: ast.If) -> List[Operation]:
+        allocations = self.allocate_new_variables(node)
+        body_ops = self.generate_body_ops(node)
+
+        condition = self.visit(node.test)[0]
+
+        # condition: SSAValue | Operation
+        # return_types: Sequence[Attribute],
+        # true_region: Region | Sequence[Block] | Sequence[Operation]
+        if_statement = scf.If(
+            condition,
+            [],
+            body_ops
+        )
+
+        return allocations + [condition, if_statement]
 
 
     def visit_For(self, node: ast.For) -> List[Operation]:
