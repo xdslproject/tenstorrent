@@ -5,7 +5,7 @@ from xdsl.dialects.arith import Constant
 from xdsl.dialects.builtin import IntegerAttr, IntegerType, FunctionType, MemRefType, ModuleOp, IndexType
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.memref import Store
-from xdsl.ir import Operation, Region, Block, SSAValue, OpResult
+from xdsl.ir import Operation, Region, Block, SSAValue, OpResult, BlockArgument
 from typing import Dict, List, Optional, cast, Tuple, Set
 
 from xdsl.irdl import IRDLOperation
@@ -142,16 +142,12 @@ class PythonToMLIR(ast.NodeVisitor):
         )]
 
     def visit_Name(self, node: ast.Name) -> List[Operation]:
-        location = self.symbol_table[node.id]
-        load = memref.Load.get(location, [])
+        from_location = self.symbol_table[node.id]
+        load = memref.Load.get(from_location, [])
         return [load]
 
 
     def visit_For(self, node: ast.For) -> List[Operation]:
-        # adds variables to the symbol table and allocates memory for them
-        var_allocations = self.allocate_new_variables(node)
-        loop_body_ops = self.generate_body_ops(node)
-
         from_expr = self.visit(node.iter.args[0])[0]
         to_expr = self.visit(node.iter.args[1])[0]
 
@@ -166,21 +162,35 @@ class PythonToMLIR(ast.NodeVisitor):
             result_types=[IndexType()]
         )
 
-        loop_body_ops.append(scf.Yield())
+        # adds variables to the symbol table and allocates memory for them
+        var_allocations = self.allocate_new_variables(node)
 
         block = Block(arg_types=[IndexType()])
-        block.add_ops(loop_body_ops)
 
         body = Region()
         body.add_block(block)
 
-        return var_allocations + [from_expr, to_expr, start, end, step, scf.For(
+        for_loop = scf.For(
             start.results[0],
             end.results[0],
             step.results[0],
             [],
             body
-        )]
+        )
+
+        # if going for correct python semantics should probably manually
+        # allocate space for the loop variable, and load into it for the first
+        # instruction of the loop.
+        alloc = memref.Alloc([], [], MemRefType(IndexType(), [1]))
+        self.symbol_table[node.target.id] = alloc
+
+        loop_variable = for_loop.body.block.args[0]
+        store = memref.Store.get(loop_variable, alloc, [])
+
+        loop_body_ops = [store] + self.generate_body_ops(node) + [scf.Yield()]
+        block.add_ops(loop_body_ops)
+
+        return var_allocations + [from_expr, to_expr, start, end, step, alloc, for_loop]
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:
         return [op for statement in node.body for op in self.visit(statement)]

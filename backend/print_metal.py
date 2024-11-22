@@ -1,11 +1,11 @@
 from typing import Optional
 
-from xdsl.dialects.builtin import ModuleOp, Operation
+from xdsl.dialects.builtin import ModuleOp, Operation, IndexType
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, SignlessIntegerBinaryOperation, IndexCastOp
 from xdsl.dialects.scf import For, Yield
 from xdsl.dialects.memref import Alloc, Store, Load
-from xdsl.ir import Block, Region, SSAValue, OpResult
+from xdsl.ir import Block, Region, SSAValue, OpResult, BlockArgument
 
 
 class PrintMetal:
@@ -14,7 +14,7 @@ class PrintMetal:
     """
     def __init__(self):
         self._indent = 0
-        self._names = {}  # Load -> Variable Name
+        self._names = {}  # SSAVal -> Variable Name
         self._op_to_sym = {
             Addi: "+",
             Muli: "*"
@@ -72,9 +72,18 @@ class PrintMetal:
         self.print("}")
 
     def print_for_loop(self, loop: For):
-        i = self.create_fresh_variable('i')
-        self.print(f"int {i};")
-        self.print(f"for ({i} = 0; {i} < 5; {i}++) {'{'}")
+        # we know the first operation in the loop should be the store into i
+        store_i = loop.body.block.first_op
+        i_loop_ssa = store_i.operands[0]
+        i_register = store_i.operands[1]
+
+        i = self._names[i_register]
+        self._names[i_loop_ssa] = i
+
+        start = self.get_value(loop.lb)
+        stop = self.get_value(loop.ub)
+        step = self.get_value(loop.step)
+        self.print(f"for ({i} = {start}; {i} < {stop}; {i} += {step}) {'{'}")
 
         self._indent += 1
         self.print_body(loop)
@@ -90,36 +99,37 @@ class PrintMetal:
 
 
     def print_declaration(self, op: Alloc):
-        var_name = self.create_fresh_variable()
+        index = isinstance(op.result_types[0].element_type, IndexType)
+        var_name = self.create_fresh_variable(hint='i' if index else 'a')
         type_decl = "std::int32_t "
 
         self.print(type_decl + var_name + ';')
 
-        loc = op.results[0]
-        self._names[loc] = var_name
+        ssa_referring_to_var = op.results[0]
+        self._names[ssa_referring_to_var] = var_name
 
 
     def print_assignment(self, op: Store):
-        loc = op.operands[1]
-
-        # find what is being written to our location
+        # memref.store value, destination[]
         ssa_value = op.operands[0]
+        ssa_destination = op.operands[1]
+
         result = self.get_value(ssa_value)
-        var_name = self._names[loc]
+        var_name = self._names[ssa_destination]
 
         self.print(f"{var_name} = {result};")
 
 
-    def create_fresh_variable(self, base='a') -> str:
+    def create_fresh_variable(self, hint='a') -> str:
         names = self._names.values()
-        if base not in names:
-            return base
+        if hint not in names:
+            return hint
 
         count = 0
-        name = base
+        name = hint
         while name in names:
             count += 1
-            name = base + str(count)
+            name = hint + str(count)
 
         return name
 
@@ -132,8 +142,14 @@ class PrintMetal:
         if isinstance(creator, Constant):
             return str(creator.value.value.data)
 
+        if isinstance(creator, IndexCastOp):
+            return self.get_value(creator.operands[0])
+
         if isinstance(creator, SignlessIntegerBinaryOperation):
             return self.binary_op_string(creator)
+
+        if isinstance(ssa_value, BlockArgument):
+            return self._names[ssa_value]
 
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 

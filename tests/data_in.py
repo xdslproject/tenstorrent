@@ -3,7 +3,7 @@ from frontend.decorators import data_in
 
 @data_in
 def single_assignment():
-    a = 0  # Assign (Const)
+    a = 13  # Assign (Const)
 
 
 @data_in
@@ -36,12 +36,12 @@ def nested_binops():
 
 @data_in
 def for_loop():
-    for i in range(0, 5):
-        a = 1
-        b = 2
-        c = 3
-        d = 4
-        a = 5
+    for i in range(3, 5):
+        a = 10
+        b = 20
+        c = 30
+        d = 40
+        a = 50
 
 
 @data_in
@@ -66,3 +66,4 @@ read_variable()
 overwriting_binop()
 nested_binops()
 for_loop()
+# for_loop_use_i()
