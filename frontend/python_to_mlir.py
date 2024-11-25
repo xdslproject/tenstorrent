@@ -162,16 +162,26 @@ class PythonToMLIR(ast.NodeVisitor):
         condition_expr = self.visit(node.test)
         condition = condition_expr.pop()
 
+        or_else = None
+        if node.orelse:
+            assert isinstance(node.orelse[0], ast.If)
+            or_else = self.visit_If(node.orelse[0])
+
         # condition: SSAValue | Operation
         # return_types: Sequence[Attribute],
         # true_region: Region | Sequence[Block] | Sequence[Operation]
         if_statement = scf.If(
             condition,
             [],
-            body_ops
+            body_ops,
+            or_else
         )
 
         return allocations + condition_expr + [condition, if_statement]
+
+
+    def visit_Else(self, node) -> List[Operation]:
+        pass
 
 
     def visit_Compare(self, node) -> List[Operation]:

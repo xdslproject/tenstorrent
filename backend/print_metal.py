@@ -83,7 +83,7 @@ class PrintMetal:
         self.print(f"void {func.sym_name.data}() {'{'}")
 
         self._indent += 1
-        self.print_body(func)
+        self.print_region(func.body)
         self._indent -= 1
 
         self.print("}")
@@ -103,14 +103,12 @@ class PrintMetal:
         self.print(f"for ({i} = {start}; {i} < {stop}; {i} += {step}) {'{'}")
 
         self._indent += 1
-        self.print_body(loop)
+        self.print_region(loop.body)
         self._indent -= 1
 
         self.print("}")
 
-    def print_body(self, parent: OpWithBody):
-        body: Region = parent.body
-
+    def print_region(self, body: Region):
         for block in body.blocks:
             self.print_block(block)
 
@@ -144,7 +142,16 @@ class PrintMetal:
         self.print_block(op.true_region.blocks[0])
         self._indent -= 1
 
-        self.print("}")
+        or_else = len(op.false_region.blocks) > 0
+
+        self.print("}" + (" else {" if or_else else ""))
+
+        # here need to print the orelse
+        if or_else:
+            self._indent += 1
+            self.print_region(op.false_region)
+            self._indent -= 1
+            self.print("}")
 
 
     def create_fresh_variable(self, hint='a') -> str:
