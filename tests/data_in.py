@@ -51,6 +51,13 @@ def for_loop_use_i():
 
 
 @data_in
+def for_loop_overwriting():
+    a = 0
+    for i in range(3, 5):
+        a = i
+
+
+@data_in
 def nested_for():
     for i in range(3, 5):
         for j in range(7, 9):
@@ -109,9 +116,16 @@ def boolean_operators():
     if a == 7 and b == 3 or c == 2:
         a = 15
 
+# Constructs currently implemented:
+#   - assignment
+#   - ints, floats, not mixing
+#   - nested binary operations (+, *)
+#   - reading from variables
+#   - for loops (not nested)
+#   - for loops reading from loop variable
+#   - if statement (not nested?)
 
 # TODO: Constructs we should handle
-#     floating points
 #     if statements
 #     TT-related features
 #     Nested for loops currently aren't correct (they create redundant vars)
@@ -126,6 +140,7 @@ overwriting_binop()
 nested_binops()
 for_loop()
 for_loop_use_i()
+for_loop_overwriting()
 floating_point()
 # implicit_cast()
 if_statement()

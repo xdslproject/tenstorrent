@@ -247,12 +247,18 @@ class PythonToMLIR(ast.NodeVisitor):
         if statement body in order to find all these variables and allocate them
         before the scf.For (etc.) scope. Sets preserve order in CPython 3.7+.
         """
-        fresh_variables = []
+        found_variables = []
 
         for statement in node.body:
-            fresh_variables += self.get_assigned_variables(statement)
+            found_variables += self.get_assigned_variables(statement)
 
-        fresh_variables = remove_duplicates(fresh_variables)
+        found_variables = remove_duplicates(found_variables)
+
+        # remove any existing variables from fresh variables
+        fresh_variables = []
+        for var_name in found_variables:
+            if var_name not in self.symbol_table.dictionary:
+                fresh_variables.append(var_name)
 
         allocations = []
 
