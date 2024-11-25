@@ -8,7 +8,7 @@ from typing import Dict, List
 from xdsl.irdl import IRDLOperation
 
 from .memref_context import MemrefContext
-from tenstorrent.utils import flatten, remove_duplicates
+from tenstorrent.utils import flatten, remove_duplicates, subtract
 
 NodeWithBody = ast.If | ast.For | ast.While
 MLIRType = IntegerType | Float32Type
@@ -97,15 +97,10 @@ class PythonToMLIR(ast.NodeVisitor):
         # create a memref
         # seen = var_name in self.symbol_table
         seen = var_name in self.symbol_table.dictionary
-        location = memref.Alloc(
-            [],
-            [],  # symbol operands: [SSAValue]
-            MemRefType(self.get_type(var_name), [1])
-        ) if not seen else self.symbol_table[var_name]
+        location = self.allocate_memory(var_name) if not seen else self.symbol_table[var_name]
 
         # store result in that memref
         store = memref.Store.get(rhs, location, [])
-        self.register_symbol(var_name, location)
 
         # want to return whatever we wish to insert in our list of operations
         # return (rhs, store) if seen else (rhs, location, store)
@@ -234,8 +229,7 @@ class PythonToMLIR(ast.NodeVisitor):
         # allocate space for the loop variable, and load into it for the first
         # instruction of the loop.
         iter_var_name = node.target.id
-        alloc = memref.Alloc([], [], MemRefType(self.get_type(iter_var_name), [1]))
-        self.symbol_table[iter_var_name] = alloc
+        alloc = self.allocate_memory(iter_var_name)
 
         loop_variable = for_loop.body.block.args[0]
         store = memref.Store.get(loop_variable, alloc, [])
@@ -299,31 +293,21 @@ class PythonToMLIR(ast.NodeVisitor):
         before the scf.For (etc.) scope. Sets preserve order in CPython 3.7+.
         """
         found_variables = []
-
         for statement in node.body:
             found_variables += self.get_assigned_variables(statement)
 
-        found_variables = remove_duplicates(found_variables)
-
         # remove any existing variables from fresh variables
-        fresh_variables = []
-        for var_name in found_variables:
-            if var_name not in self.symbol_table.dictionary:
-                fresh_variables.append(var_name)
+        found_variables = remove_duplicates(found_variables)
+        fresh_variables = subtract(found_variables, items=self.symbol_table.dictionary)
 
         allocations = []
-
         for var in list(fresh_variables):
-            memory = memref.Alloc(
-                [],
-                [],
-                MemRefType(self.get_type(var), [1])
-            )
-            self.register_symbol(var, memory)
+            memory = self.allocate_memory(var)
             allocations.append(memory)
 
         return allocations
 
-
-    def register_symbol(self, symbol: str, memory: memref.Alloc):
+    def allocate_memory(self, symbol: str) -> memref.Alloc:
+        memory = memref.Alloc([], [], MemRefType(self.get_type(symbol), [1]))
         self.symbol_table[symbol] = memory
+        return memory

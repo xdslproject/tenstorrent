@@ -1,1 +1,1 @@
-from .lists import flatten, remove_duplicates
+from .lists import flatten, remove_duplicates, subtract

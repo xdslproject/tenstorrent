@@ -149,6 +149,8 @@ def boolean_operators():
 
 # TODO: Constructs we should handle
 #     if statements (other comparison operators..., 'not')
+#     binary operations (division, subtraction) [may require implicit casting?]
+#     lists?
 #     TT-related features
 
 single_assignment()
