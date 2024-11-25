@@ -164,12 +164,17 @@ class PythonToMLIR(ast.NodeVisitor):
 
         or_else = None
         if node.orelse:
-            assert isinstance(node.orelse[0], ast.If)
-            or_else = self.visit_If(node.orelse[0])
+            if isinstance(node.orelse[0], ast.If):
+                or_else = self.visit_If(node.orelse[0])
+            else:
+                or_else = []
+                for stmt in node.orelse:
+                    or_else += self.visit(stmt)
 
         # condition: SSAValue | Operation
         # return_types: Sequence[Attribute],
         # true_region: Region | Sequence[Block] | Sequence[Operation]
+        # false_region: Region | Sequence[Block] | Sequence[Operation]
         if_statement = scf.If(
             condition,
             [],

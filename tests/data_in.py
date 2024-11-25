@@ -116,6 +116,21 @@ def if_elif_else():
 
 
 @data_in
+def if_elif_else_blocks():
+    a = 5
+    if a == 7:
+        a = 2
+        b = 3
+    elif a == 5:
+        a = 1
+        b = 2
+    else:
+        a = 10
+        b = 9
+
+
+
+@data_in
 def boolean_operators():
     a = 7
     b = 3
@@ -155,5 +170,6 @@ if_statement()
 evaluate_bool()
 evaluate_bool_nested()
 if_elif()
-# if_elif_else()
+if_elif_else()
+if_elif_else_blocks()
 # boolean_operators()
