@@ -89,6 +89,13 @@ def evaluate_bool():
 
 
 @data_in
+def evaluate_bool_nested():
+    a = 5
+    if a == 6 + 3:
+        a = 2
+
+
+@data_in
 def if_elif():
     a = 5
     if a == 7:
@@ -145,7 +152,8 @@ nested_for()
 floating_point()
 # implicit_cast()
 if_statement()
-# evaluate_bool()
+evaluate_bool()
+evaluate_bool_nested()
 # if_elif()
 # if_elif_else()
 # boolean_operators()

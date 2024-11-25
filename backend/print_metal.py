@@ -3,7 +3,7 @@ from typing import Optional
 from xdsl.dialects.builtin import ModuleOp, Operation, IndexType, IntegerType, Float32Type
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation
+    FloatingPointLikeBinaryOperation, Cmpi
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult, BlockArgument
@@ -33,7 +33,7 @@ class PrintMetal:
             Float32Type(): "float",
         }
 
-        self._skip = [Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield]
+        self._skip = [Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield, Cmpi]
 
     def print_block(self, block: Block):
         operation = block.ops.first
@@ -180,6 +180,13 @@ class PrintMetal:
 
         if isinstance(creator, Load):
             return self.get_value(creator.operands[0])
+
+        if isinstance(creator, Cmpi):
+            left = self.get_value(creator.operands[0])
+            right = self.get_value(creator.operands[1])
+            op = '=='
+
+            return f"{left} {op} {right}"
 
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 

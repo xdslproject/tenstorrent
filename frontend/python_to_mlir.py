@@ -159,7 +159,8 @@ class PythonToMLIR(ast.NodeVisitor):
         allocations = self.allocate_new_variables(node)
         body_ops = self.generate_body_ops(node)
 
-        condition = self.visit(node.test)[0]
+        condition_expr = self.visit(node.test)
+        condition = condition_expr.pop()
 
         # condition: SSAValue | Operation
         # return_types: Sequence[Attribute],
@@ -170,7 +171,21 @@ class PythonToMLIR(ast.NodeVisitor):
             body_ops
         )
 
-        return allocations + [condition, if_statement]
+        return allocations + condition_expr + [condition, if_statement]
+
+
+    def visit_Compare(self, node) -> List[Operation]:
+        left = self.visit(node.left)[0]
+        right = self.visit(node.comparators[0])[0]
+        op = node.ops[0]
+
+        l_val = left.results[0]
+        r_val = right.results[0]
+
+        equals = arith.CMPI_COMPARISON_OPERATIONS[0]
+        operation = arith.Cmpi(l_val, r_val, equals)
+
+        return [left, right, operation]
 
 
     def visit_For(self, node: ast.For) -> List[Operation]:
