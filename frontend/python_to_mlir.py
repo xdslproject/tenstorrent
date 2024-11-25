@@ -185,10 +185,6 @@ class PythonToMLIR(ast.NodeVisitor):
         return allocations + condition_expr + [condition, if_statement]
 
 
-    def visit_Else(self, node) -> List[Operation]:
-        pass
-
-
     def visit_Compare(self, node) -> List[Operation]:
         left = self.visit(node.left)[0]
         right = self.visit(node.comparators[0])[0]
