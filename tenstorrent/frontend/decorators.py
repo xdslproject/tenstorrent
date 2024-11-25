@@ -5,9 +5,9 @@ from functools import wraps
 
 from xdsl.printer import Printer
 
-from backend.print_metal import PrintMetal
-from frontend.python_to_mlir import PythonToMLIR
-from frontend.type_checker import TypeChecker
+from tenstorrent.backend.print_metal import PrintMetal
+from tenstorrent.frontend.python_to_mlir import PythonToMLIR
+from tenstorrent.frontend.type_checker import TypeChecker
 
 
 def data_in(func):

@@ -1,12 +1,10 @@
-from typing import Optional
-
-from xdsl.dialects.builtin import ModuleOp, Operation, IndexType, IntegerType, Float32Type
+from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
     FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
-from xdsl.ir import Block, Region, SSAValue, OpResult, BlockArgument
+from xdsl.ir import Block, Region, SSAValue, OpResult
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation

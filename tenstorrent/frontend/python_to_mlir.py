@@ -7,8 +7,8 @@ from xdsl.ir import Operation, Region, Block, OpResult
 from typing import Dict, List
 from xdsl.irdl import IRDLOperation
 
-from frontend.memref_context import MemrefContext
-from frontend.util import flatten, remove_duplicates
+from .memref_context import MemrefContext
+from tenstorrent.utils import flatten, remove_duplicates
 
 NodeWithBody = ast.If | ast.For | ast.While
 MLIRType = IntegerType | Float32Type
