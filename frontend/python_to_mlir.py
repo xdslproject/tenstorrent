@@ -245,6 +245,31 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return var_allocations + [from_expr, to_expr, start, end, step, alloc, for_loop]
 
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> List[Operation]:
+        # leftmost evaluation first
+        # if a and b or c => if (a and b) or c
+        left_ops = self.visit(node.values[0])   # a and b
+        right_ops = self.visit(node.values[1])  # c
+
+        match type(node.op):
+            case ast.And:
+                op = arith.AndI
+
+            case ast.Or:
+                op = arith.OrI
+
+            case _:
+                raise NotImplementedError(f"BoolOp {node.op.__class__.__name__}")
+
+        operation = op(
+            left_ops[-1].results[0],
+            right_ops[-1].results[0]
+        )
+
+        return left_ops + right_ops + [operation]
+
+
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:
         return [op for statement in node.body for op in self.visit(statement)]
 

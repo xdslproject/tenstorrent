@@ -143,16 +143,13 @@ def boolean_operators():
 #   - ints, floats, not mixing
 #   - nested binary operations (+, *)
 #   - reading from variables
-#   - for loops (not nested)
+#   - nested for loops with range(a, b)
 #   - for loops reading from loop variable
-#   - if statement (not nested?)
+#   - nested if statements
 
 # TODO: Constructs we should handle
-#     if statements
+#     if statements (other comparison operators..., 'not')
 #     TT-related features
-#     Nested for loops currently aren't correct (they create redundant vars)
-#     Note: in Python, loops and if-statement blocks don't create a new scope
-#     so every variable declared in a loop is like declaring out of loop in C++
 
 single_assignment()
 multiple_assignment()
@@ -165,11 +162,11 @@ for_loop_use_i()
 for_loop_overwriting()
 nested_for()
 floating_point()
-# implicit_cast()
 if_statement()
 evaluate_bool()
 evaluate_bool_nested()
 if_elif()
 if_elif_else()
 if_elif_else_blocks()
-# boolean_operators()
+boolean_operators()
+# implicit_cast()
