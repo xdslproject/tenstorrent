@@ -3,6 +3,12 @@ import ast
 from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType
 
 
+def types_equal(a, b) -> bool:
+    int_comparable = [IntegerType, IndexType]
+    equal = a == b
+    return equal or (type(a) in int_comparable and type(b) in int_comparable)
+
+
 class TypeChecker(ast.NodeVisitor):
     def __init__(self):
         self.types = {}  # str (variable name) -> type in MLIR
@@ -33,14 +39,14 @@ class TypeChecker(ast.NodeVisitor):
         expected_type = self.visit(node.value)
 
         if target in self.types:
-            assert self.types[target] == expected_type
+            assert types_equal(self.types[target], expected_type)
 
         self.types[target] = expected_type
 
     def visit_BinOp(self, node: ast.BinOp):
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
-        assert left_type == right_type
+        assert types_equal(left_type, right_type)
         return left_type
 
     # ********* Generic visits *********
