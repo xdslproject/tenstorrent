@@ -2,6 +2,8 @@ import ast
 
 from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType
 
+MLIRType = IntegerType | Float32Type | IndexType
+
 
 def types_equal(a, b) -> bool:
     int_comparable = [IntegerType, IndexType]
@@ -15,6 +17,20 @@ class TypeChecker(ast.NodeVisitor):
 
     def generic_visit(self, node):
         raise Exception(f"Unhandled node type {node.__class__.__name__}")
+
+
+    def dominating_type(self, a, b) -> MLIRType:
+        if a == Float32Type() or b == Float32Type():
+            return Float32Type()
+
+        if a == IndexType() or b == IndexType():
+            return IndexType()
+
+        if a == IntegerType(32) or b == IntegerType(32):
+            return IntegerType(32)
+
+        raise NotImplementedError(f"Type not in type hierarchy: {a.__class__.__name__}")
+
 
     def visit_Constant(self, node: ast.Constant):
         data = node.value
@@ -39,19 +55,22 @@ class TypeChecker(ast.NodeVisitor):
         target = node.targets[0].id
         expected_type = self.visit(node.value)
 
-        if target in self.types:
-            assert types_equal(self.types[target], expected_type)
+        self.types[target] = expected_type if target not in self.types else (
+            self.dominating_type(self.types[target], expected_type)
+        )
 
-        self.types[target] = expected_type
 
-    def visit_UnaryOp(self, node):
+    def visit_UnaryOp(self, node) -> MLIRType:
         return self.visit(node.operand)
 
-    def visit_BinOp(self, node: ast.BinOp):
+    def visit_BinOp(self, node: ast.BinOp) -> MLIRType:
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
-        assert types_equal(left_type, right_type)
-        return left_type
+
+        if types_equal(left_type, right_type):
+            return left_type
+
+        return self.dominating_type(left_type, right_type)
 
     # ********* Generic visits *********
     def visit_Module(self, node):

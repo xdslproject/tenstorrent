@@ -3,15 +3,15 @@ import ast
 from xdsl.dialects import builtin, func, arith, memref, scf
 from xdsl.dialects.builtin import (IntegerAttr, IntegerType, FunctionType,
                                    MemRefType, ModuleOp, IndexType, FloatAttr, Float32Type)
-from xdsl.ir import Operation, Region, Block, OpResult
+from xdsl.ir import Operation, Region, Block, OpResult, SSAValue
 from typing import Dict, List
 from xdsl.irdl import IRDLOperation
 
 from .memref_context import MemrefContext
+from .type_checker import MLIRType
 from tenstorrent.utils import flatten, remove_duplicates, subtract
 
 NodeWithBody = ast.If | ast.For | ast.While
-MLIRType = IntegerType | Float32Type
 
 
 class PythonToMLIR(ast.NodeVisitor):
@@ -119,6 +119,7 @@ class PythonToMLIR(ast.NodeVisitor):
         # visit RHS, e.g. Constant in 'a = 0'
         rhs = self.visit(node.value)
         rhs_val = rhs[-1].results[0]
+        operations = rhs
 
         # get the variable name to store the result in
         dest = node.targets[0]
@@ -130,15 +131,35 @@ class PythonToMLIR(ast.NodeVisitor):
         seen = var_name in self.symbol_table.dictionary
         location = self.allocate_memory(var_name) if not seen else self.symbol_table[var_name]
 
+        # if the types don't match we need to insert a cast operation
+        target_type = self.type_checker.types[var_name]
+        if target_type != rhs_val.type:
+            cast = self.get_cast(target_type, rhs_val)
+            rhs_val = cast.results[0]
+            operations += [cast]
+
+        if not seen:
+            operations += [location]
+
         # store result in that memref
         store = memref.Store.get(rhs_val, location, [])
 
-        # want to return whatever we wish to insert in our list of operations
-        # return (rhs, store) if seen else (rhs, location, store)
-        if seen:
-            return rhs + [store]
+        return operations + [store]
 
-        return rhs + [location, store]
+    def get_cast(self, target_type: MLIRType, ssa_val: SSAValue) -> Operation:
+        if isinstance(ssa_val.type, IntegerType):
+            match target_type:
+                case Float32Type():
+                    return arith.ExtFOp(ssa_val, Float32Type())
+
+                case IndexType():
+                    return arith.IndexCastOp(ssa_val, IndexType())
+
+        raise NotImplementedError(f"Casting from {ssa_val.type.__class__.__name__} "
+                                  f"to {target_type.__class__.__name__}")
+
+
+
 
     def visit_Constant(self, node) -> List[Operation]:
         data = node.value
@@ -155,21 +176,35 @@ class PythonToMLIR(ast.NodeVisitor):
         raise Exception(f"Unhandled constant type: {data.__class__.__name__}")
 
     def visit_BinOp(self, node: ast.BinOp) -> List[Operation]:
-        lhs: Operation = self.visit(node.left)[0]  # operation that created a, same operation returned from visit_Assign
-        rhs: Operation = self.visit(node.right)[0]
+        lhs = self.visit(node.left)
+        rhs = self.visit(node.right)
 
-        if lhs not in self.operations:
-            self.operations.append(lhs)
+        # need to insert operations at evaluation order:
+        for op in lhs + rhs:
+            if op not in self.operations:
+                self.operations.append(op)
 
-        if rhs not in self.operations:
-            self.operations.append(rhs)
+        operations = []
 
         # get references to the SSA values
-        l_val: OpResult = lhs.results[0]
-        r_val: OpResult = rhs.results[0]
+        l_val: OpResult = lhs[-1].results[0]
+        r_val: OpResult = rhs[-1].results[0]
+
+        # if types differ, we need to cast for the operation
+        if l_val.type != r_val.type:
+            target_type = self.type_checker.dominating_type(l_val.type, r_val.type)
+            if l_val.type != target_type:
+                l_cast = self.get_cast(target_type, l_val)
+                operations += [l_cast]
+                l_val = l_cast.results[0]
+
+            if r_val.type != target_type:
+                r_cast = self.get_cast(target_type, r_val)
+                operations += [r_cast]
+                r_val = r_cast.results[0]
 
         op_constructor = self.get_operation(node)
-        return [op_constructor(
+        return operations + [op_constructor(
             l_val,
             r_val,
             None

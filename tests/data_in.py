@@ -71,11 +71,6 @@ def floating_point():
 
 
 @tt.data_in
-def implicit_cast():
-    a = 13.4 * 3
-
-
-@tt.data_in
 def if_statement():
     if True:
         a = 5
@@ -197,6 +192,12 @@ def float_subtraction():
     a = a - 10.2
 
 
+@tt.data_in
+def implicit_cast():
+    a = 7
+    a = 13.4 * 3
+
+
 # Constructs currently implemented:
 #   - assignment
 #   - ints, floats, not mixing
@@ -238,7 +239,7 @@ greater_than()
 greater_than_or_eq()
 bool_not()
 sint()
-# implicit_cast()
-# division()
 subtraction()
 float_subtraction()
+implicit_cast()
+# division()

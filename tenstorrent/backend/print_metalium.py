@@ -1,7 +1,7 @@
 from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type, IntegerAttr
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf
+    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
@@ -70,7 +70,7 @@ class PrintMetalium:
 
         self._skip = [
             Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
-            Cmpi, AndI, OrI, XOrI, Subi, Subf
+            Cmpi, AndI, OrI, XOrI, Subi, Subf, ExtFOp
         ]
 
     def print_block(self, block: Block):
@@ -220,6 +220,9 @@ class PrintMetalium:
         if isinstance(creator, IndexCastOp):
             return self.get_value(creator.operands[0])
 
+        if isinstance(creator, ExtFOp):
+            return "static_cast<float>(" + self.get_value(creator.operands[0]) + ")"
+
         if isinstance(creator, BinaryOperation):
             return self.binary_op_string(creator)
 
@@ -263,10 +266,16 @@ class PrintMetalium:
 
             if isinstance(creator, Constant):
                 values[i] = creator.value.value.data
+
+            elif isinstance(creator, ExtFOp):
+                values[i] = "static_cast<float>(" + self.get_value(creator.operands[0]) + ")"
+
             elif isinstance(creator, Load):
                 values[i] = self._names[creator.operands[0]]
+
             elif isinstance(creator, ArithmeticOperation):
                 values[i] = '(' + self.binary_op_string(creator) + ')'
+
             elif isinstance(creator, BooleanOperation):
                 values[i] = self.binary_op_string(creator)
             else:
