@@ -67,6 +67,7 @@ class PrintMetalium:
             IndexType(): "std::int32_t",
             IntegerType(32): "std::int32_t",
             Float32Type(): "float",
+            IntegerType(1): "bool",
         }
 
         self._skip = [

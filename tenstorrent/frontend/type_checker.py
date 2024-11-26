@@ -20,6 +20,9 @@ class TypeChecker(ast.NodeVisitor):
 
 
     def dominating_type(self, a, b) -> MLIRType:
+        if a == b:
+            return a
+
         if a == Float32Type() or b == Float32Type():
             return Float32Type()
 
@@ -34,6 +37,9 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_Constant(self, node: ast.Constant):
         data = node.value
+
+        if isinstance(data, bool):
+            return IntegerType(1)
 
         if isinstance(data, int):
             return IntegerType(32)
@@ -107,3 +113,6 @@ class TypeChecker(ast.NodeVisitor):
     def print_types(self):
         for key in self.types:
             print(f"{key}: {self.types[key].__class__.__name__}")
+
+    def visit_BoolOp(self, node):
+        return IntegerType(1)
