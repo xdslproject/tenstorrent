@@ -138,6 +138,54 @@ def boolean_operators():
     if a == 7 and b == 3 or c == 2:
         a = 15
 
+
+@tt.data_in
+def greater_than():
+    a = 7
+    if a > 3:
+        a = 1
+
+
+@tt.data_in
+def less_than():
+    a = 8
+    if a < 3:
+        a = 1
+
+
+@tt.data_in
+def less_than_or_eq():
+    a = 9
+    if a <= 3:
+        a = 3
+
+
+@tt.data_in
+def greater_than_or_eq():
+    a = 9
+    if a <= 3:
+        a = 3
+
+
+@tt.data_in
+def bool_not():
+    a = 10
+    if not a < 4:
+        a = 2
+
+
+@tt.data_in
+def division():
+    a = 4
+    a = 10 / 2  # a: must be implicitly casted to float, so must 10, 2
+
+
+@tt.data_in
+def subtraction():
+    a = 4
+    a = 5 - 10  # a: must be implicitly casted to int32 from uint32
+
+
 # Constructs currently implemented:
 #   - assignment
 #   - ints, floats, not mixing
@@ -152,6 +200,8 @@ def boolean_operators():
 #     binary operations (division, subtraction) [may require implicit casting?]
 #     lists?
 #     TT-related features
+#     nice to write outputs to files data_in.out (C++) data_in.log (all) to
+#     let git / other regression testing system
 
 single_assignment()
 multiple_assignment()
@@ -172,3 +222,10 @@ if_elif_else()
 if_elif_else_blocks()
 boolean_operators()
 # implicit_cast()
+less_than()
+# less_than_or_eq()
+# greater_than()
+# greater_than_or_eq
+# bool_not()
+# division()
+# subtraction()

@@ -13,12 +13,13 @@ BinaryOperation = ArithmeticOperation | BooleanOperation
 OpWithBody = FuncOp | For | While
 
 
-class PrintMetal:
+class PrintMetalium:
     """
-    Prints the Tenstorrent Metal API (C) given a list of xDSL operations
+    Prints the Tenstorrent Metalium API (C) given a list of xDSL operations
     """
-    def __init__(self):
+    def __init__(self, file=None):
         self._indent = 0
+        self._file = file
         self._names = {}  # SSAVal -> Variable Name
         self._op_to_sym = {
             Addi: "+",
@@ -199,7 +200,10 @@ class PrintMetal:
 
     def print(self, s: str, indented: bool = True):
         prefix = self._prefix if indented else ""
-        print(prefix + s)
+        if self._file:
+            print(prefix + s, file=self._file)
+        else:
+            print(prefix + s)
 
 
     def binary_op_string(self, operation: BinaryOperation):
