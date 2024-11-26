@@ -175,12 +175,6 @@ def sint():
 
 
 @tt.data_in
-def division():
-    a = 4
-    a = a / 2
-
-
-@tt.data_in
 def subtraction():
     a = 4
     a = a - 10
@@ -198,22 +192,26 @@ def implicit_cast():
     a = 13.4 * 3
 
 
+@tt.data_in
+def division():
+    a = 4
+    a = a / 2
+
+
 # Constructs currently implemented:
 #   - assignment
-#   - ints, floats, not mixing
-#   - nested binary operations (+, *)
+#   - ints, floats, mixed
+#   - nested binary operations (+, *, /)
 #   - reading from variables
 #   - nested for loops with range(a, b)
 #   - for loops reading from loop variable
-#   - nested if statements
+#   - nested if statements (and, or, not)
+#   - type coercion
 
 # TODO: Constructs we should handle
-#     if statements (>=, <, etc. for floats, 'not')
-#     binary operations (division, subtraction) [may require implicit casting?]
+#     if statements (>=, <, etc. for floats,)
 #     lists?
 #     TT-related features
-#     nice to write outputs to files data_in.out (C++) data_in.log (all) to
-#     let git / other regression testing system
 
 single_assignment()
 multiple_assignment()
