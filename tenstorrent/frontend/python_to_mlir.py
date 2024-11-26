@@ -58,11 +58,13 @@ class PythonToMLIR(ast.NodeVisitor):
         self._operations: Dict[MLIRType, Dict[type(ast.operator), type(IRDLOperation)]] = {
             IntegerType(32): {
                 ast.Add: arith.Addi,
-                ast.Mult: arith.Muli
+                ast.Mult: arith.Muli,
+                ast.Sub: arith.Subi,
             },
             Float32Type(): {
                 ast.Add: arith.Addf,
-                ast.Mult: arith.Mulf
+                ast.Mult: arith.Mulf,
+                ast.Sub: arith.Subf,
             }
         }
 
