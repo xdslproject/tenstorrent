@@ -177,7 +177,7 @@ def sint():
 @tt.data_in
 def division():
     a = 4
-    a = 10 / 2  # a: must be implicitly casted to float, so must 10, 2
+    a = a / 2
 
 
 @tt.data_in
@@ -242,4 +242,4 @@ sint()
 subtraction()
 float_subtraction()
 implicit_cast()
-# division()
+division()

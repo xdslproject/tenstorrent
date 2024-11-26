@@ -60,11 +60,13 @@ class PythonToMLIR(ast.NodeVisitor):
                 ast.Add: arith.Addi,
                 ast.Mult: arith.Muli,
                 ast.Sub: arith.Subi,
+                ast.Div: arith.Divf,
             },
             Float32Type(): {
                 ast.Add: arith.Addf,
                 ast.Mult: arith.Mulf,
                 ast.Sub: arith.Subf,
+                ast.Div: arith.Divf,
             }
         }
 
@@ -193,6 +195,19 @@ class PythonToMLIR(ast.NodeVisitor):
         # if types differ, we need to cast for the operation
         if l_val.type != r_val.type:
             target_type = self.type_checker.dominating_type(l_val.type, r_val.type)
+            if l_val.type != target_type:
+                l_cast = self.get_cast(target_type, l_val)
+                operations += [l_cast]
+                l_val = l_cast.results[0]
+
+            if r_val.type != target_type:
+                r_cast = self.get_cast(target_type, r_val)
+                operations += [r_cast]
+                r_val = r_cast.results[0]
+
+        # special case: if we have a division, we also want to cast
+        if isinstance(node, ast.Div):
+            target_type = Float32Type()
             if l_val.type != target_type:
                 l_cast = self.get_cast(target_type, l_val)
                 operations += [l_cast]

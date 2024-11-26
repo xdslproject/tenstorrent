@@ -1,7 +1,7 @@
 from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type, IntegerAttr
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp
+    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp, Divf
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
@@ -33,6 +33,7 @@ class PrintMetalium:
             XOrI: "^",
             Subi: "-",
             Subf: "-",
+            Divf: "/",
         }
 
         self._int_comparison_ops = {
@@ -70,7 +71,7 @@ class PrintMetalium:
 
         self._skip = [
             Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
-            Cmpi, AndI, OrI, XOrI, Subi, Subf, ExtFOp
+            Cmpi, AndI, OrI, XOrI, Subi, Subf, ExtFOp, Divf
         ]
 
     def print_block(self, block: Block):

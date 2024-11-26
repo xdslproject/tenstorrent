@@ -67,6 +67,9 @@ class TypeChecker(ast.NodeVisitor):
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
 
+        if isinstance(node.op, ast.Div):
+            return Float32Type()
+
         if types_equal(left_type, right_type):
             return left_type
 
