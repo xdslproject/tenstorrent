@@ -1,16 +1,18 @@
-from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type
+from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type, IntegerAttr
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI
+    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp, Divf
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
-BooleanOperation = AndI | OrI | Cmpi
+BooleanOperation = AndI | OrI | Cmpi | Cmpf
 BinaryOperation = ArithmeticOperation | BooleanOperation
 OpWithBody = FuncOp | For | While
+
+TRUE = IntegerAttr.from_int_and_width(1, 1)
 
 
 class PrintMetalium:
@@ -28,18 +30,48 @@ class PrintMetalium:
             Mulf: "*",
             AndI: "&&",
             OrI: "||",
-            Cmpi: "==",  # TODO: this is not correct, Comparison can be done with other symbols too
+            XOrI: "^",
+            Subi: "-",
+            Subf: "-",
+            Divf: "/",
+        }
+
+        self._int_comparison_ops = {
+            IntegerAttr.from_int_and_width(0, 64): "==",
+            IntegerAttr.from_int_and_width(1, 64): "!=",
+
+            # signed
+            IntegerAttr.from_int_and_width(2, 64): "<",
+            IntegerAttr.from_int_and_width(3, 64): "<=",
+            IntegerAttr.from_int_and_width(4, 64): ">",
+            IntegerAttr.from_int_and_width(5, 64): ">=",
+
+            # unsigned
+            IntegerAttr.from_int_and_width(6, 64): "<",
+            IntegerAttr.from_int_and_width(7, 64): "<=",
+            IntegerAttr.from_int_and_width(8, 64): ">",
+            IntegerAttr.from_int_and_width(9, 64): ">=",
+        }
+
+        self._float_comparison_ops = {
+            # ordered
+            IntegerAttr.from_int_and_width(1, 64): "==",
+            IntegerAttr.from_int_and_width(2, 64): ">",
+            IntegerAttr.from_int_and_width(3, 64): ">=",
+            IntegerAttr.from_int_and_width(4, 64): "<",
+            IntegerAttr.from_int_and_width(5, 64): "<=",
+            IntegerAttr.from_int_and_width(6, 64): "!=",
         }
 
         self._mlir_to_cpp_type = {
-            IndexType(): "std::uint32_t",
-            IntegerType(32): "std::uint32_t",
+            IndexType(): "std::int32_t",
+            IntegerType(32): "std::int32_t",
             Float32Type(): "float",
         }
 
         self._skip = [
             Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
-            Cmpi, AndI, OrI,
+            Cmpi, AndI, OrI, XOrI, Subi, Subf, ExtFOp, Divf
         ]
 
     def print_block(self, block: Block):
@@ -189,6 +221,9 @@ class PrintMetalium:
         if isinstance(creator, IndexCastOp):
             return self.get_value(creator.operands[0])
 
+        if isinstance(creator, ExtFOp):
+            return "static_cast<float>(" + self.get_value(creator.operands[0]) + ")"
+
         if isinstance(creator, BinaryOperation):
             return self.binary_op_string(creator)
 
@@ -212,7 +247,17 @@ class PrintMetalium:
         another binary operation. This method handles each case and produces a
         string.
         """
-        op_str = self._op_to_sym[type(operation)]
+        if isinstance(operation, ComparisonOperation):
+            # TODO: add support for floating point comparison
+            op_str = self._int_comparison_ops[operation.predicate]
+
+        # whilst XOrI is a binary operation, we know it can encode 'not'
+        elif isinstance(operation, XOrI) and operation.operands[1].op.value == TRUE:
+            return "!(" + self.binary_op_string(operation.operands[0].op) + ")"
+
+        else:
+            op_str = self._op_to_sym[type(operation)]
+
         values = ["ERROR", "ERROR"]
 
         for i in range(0, 2):
@@ -222,10 +267,16 @@ class PrintMetalium:
 
             if isinstance(creator, Constant):
                 values[i] = creator.value.value.data
+
+            elif isinstance(creator, ExtFOp):
+                values[i] = "static_cast<float>(" + self.get_value(creator.operands[0]) + ")"
+
             elif isinstance(creator, Load):
                 values[i] = self._names[creator.operands[0]]
+
             elif isinstance(creator, ArithmeticOperation):
                 values[i] = '(' + self.binary_op_string(creator) + ')'
+
             elif isinstance(creator, BooleanOperation):
                 values[i] = self.binary_op_string(creator)
             else:

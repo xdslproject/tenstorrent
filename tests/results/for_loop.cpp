@@ -1,9 +1,9 @@
 void for_loop() {
-    std::uint32_t a;
-    std::uint32_t a1;
-    std::uint32_t a2;
-    std::uint32_t a3;
-    std::uint32_t i;
+    std::int32_t a;
+    std::int32_t a1;
+    std::int32_t a2;
+    std::int32_t a3;
+    std::int32_t i;
     for (i = 3; i < 5; i += 1) {
         i = i;
         a = 10;

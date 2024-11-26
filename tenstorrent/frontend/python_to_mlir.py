@@ -3,15 +3,15 @@ import ast
 from xdsl.dialects import builtin, func, arith, memref, scf
 from xdsl.dialects.builtin import (IntegerAttr, IntegerType, FunctionType,
                                    MemRefType, ModuleOp, IndexType, FloatAttr, Float32Type)
-from xdsl.ir import Operation, Region, Block, OpResult
+from xdsl.ir import Operation, Region, Block, OpResult, SSAValue
 from typing import Dict, List
 from xdsl.irdl import IRDLOperation
 
 from .memref_context import MemrefContext
+from .type_checker import MLIRType
 from tenstorrent.utils import flatten, remove_duplicates, subtract
 
 NodeWithBody = ast.If | ast.For | ast.While
-MLIRType = IntegerType | Float32Type
 
 
 class PythonToMLIR(ast.NodeVisitor):
@@ -27,14 +27,46 @@ class PythonToMLIR(ast.NodeVisitor):
         self.operations: List[Operation] | ModuleOp = []
         self.type_checker = type_checker
 
+        self._uint_comparison: Dict[type, str] = {
+            ast.Eq: arith.CMPI_COMPARISON_OPERATIONS[0],
+            ast.NotEq: arith.CMPI_COMPARISON_OPERATIONS[1],
+            ast.Lt: arith.CMPI_COMPARISON_OPERATIONS[6],
+            ast.LtE: arith.CMPI_COMPARISON_OPERATIONS[7],
+            ast.Gt: arith.CMPI_COMPARISON_OPERATIONS[8],
+            ast.GtE: arith.CMPI_COMPARISON_OPERATIONS[9],
+        }
+
+        self._sint_comparison: Dict[type, str] = {
+            ast.Eq: arith.CMPI_COMPARISON_OPERATIONS[0],
+            ast.NotEq: arith.CMPI_COMPARISON_OPERATIONS[1],
+            ast.Lt: arith.CMPI_COMPARISON_OPERATIONS[2],
+            ast.LtE: arith.CMPI_COMPARISON_OPERATIONS[3],
+            ast.Gt: arith.CMPI_COMPARISON_OPERATIONS[4],
+            ast.GtE: arith.CMPI_COMPARISON_OPERATIONS[5],
+        }
+
+        # use only ordered comparisons (don't allow NaN)
+        self._float_comparison: Dict[type, str] = {
+            ast.Eq: arith.CMPF_COMPARISON_OPERATIONS[1],
+            ast.Gt: arith.CMPF_COMPARISON_OPERATIONS[2],
+            ast.GtE: arith.CMPF_COMPARISON_OPERATIONS[3],
+            ast.Lt: arith.CMPF_COMPARISON_OPERATIONS[4],
+            ast.LtE: arith.CMPF_COMPARISON_OPERATIONS[5],
+            ast.NotEq: arith.CMPF_COMPARISON_OPERATIONS[6],
+        }
+
         self._operations: Dict[MLIRType, Dict[type(ast.operator), type(IRDLOperation)]] = {
             IntegerType(32): {
                 ast.Add: arith.Addi,
-                ast.Mult: arith.Muli
+                ast.Mult: arith.Muli,
+                ast.Sub: arith.Subi,
+                ast.Div: arith.Divf,
             },
             Float32Type(): {
                 ast.Add: arith.Addf,
-                ast.Mult: arith.Mulf
+                ast.Mult: arith.Mulf,
+                ast.Sub: arith.Subf,
+                ast.Div: arith.Divf,
             }
         }
 
@@ -87,7 +119,9 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def visit_Assign(self, node) -> List[Operation]:
         # visit RHS, e.g. Constant in 'a = 0'
-        rhs: Operation = self.visit(node.value)[0]
+        rhs = self.visit(node.value)
+        rhs_val = rhs[-1].results[0]
+        operations = rhs
 
         # get the variable name to store the result in
         dest = node.targets[0]
@@ -99,15 +133,35 @@ class PythonToMLIR(ast.NodeVisitor):
         seen = var_name in self.symbol_table.dictionary
         location = self.allocate_memory(var_name) if not seen else self.symbol_table[var_name]
 
+        # if the types don't match we need to insert a cast operation
+        target_type = self.type_checker.types[var_name]
+        if target_type != rhs_val.type:
+            cast = self.get_cast(target_type, rhs_val)
+            rhs_val = cast.results[0]
+            operations += [cast]
+
+        if not seen:
+            operations += [location]
+
         # store result in that memref
-        store = memref.Store.get(rhs, location, [])
+        store = memref.Store.get(rhs_val, location, [])
 
-        # want to return whatever we wish to insert in our list of operations
-        # return (rhs, store) if seen else (rhs, location, store)
-        if seen:
-            return [rhs, store]
+        return operations + [store]
 
-        return [rhs, location, store]
+    def get_cast(self, target_type: MLIRType, ssa_val: SSAValue) -> Operation:
+        if isinstance(ssa_val.type, IntegerType):
+            match target_type:
+                case Float32Type():
+                    return arith.ExtFOp(ssa_val, Float32Type())
+
+                case IndexType():
+                    return arith.IndexCastOp(ssa_val, IndexType())
+
+        raise NotImplementedError(f"Casting from {ssa_val.type.__class__.__name__} "
+                                  f"to {target_type.__class__.__name__}")
+
+
+
 
     def visit_Constant(self, node) -> List[Operation]:
         data = node.value
@@ -124,21 +178,48 @@ class PythonToMLIR(ast.NodeVisitor):
         raise Exception(f"Unhandled constant type: {data.__class__.__name__}")
 
     def visit_BinOp(self, node: ast.BinOp) -> List[Operation]:
-        lhs: Operation = self.visit(node.left)[0]  # operation that created a, same operation returned from visit_Assign
-        rhs: Operation = self.visit(node.right)[0]
+        lhs = self.visit(node.left)
+        rhs = self.visit(node.right)
 
-        if lhs not in self.operations:
-            self.operations.append(lhs)
+        # need to insert operations at evaluation order:
+        for op in lhs + rhs:
+            if op not in self.operations:
+                self.operations.append(op)
 
-        if rhs not in self.operations:
-            self.operations.append(rhs)
+        operations = []
 
         # get references to the SSA values
-        l_val: OpResult = lhs.results[0]
-        r_val: OpResult = rhs.results[0]
+        l_val: OpResult = lhs[-1].results[0]
+        r_val: OpResult = rhs[-1].results[0]
+
+        # if types differ, we need to cast for the operation
+        if l_val.type != r_val.type:
+            target_type = self.type_checker.dominating_type(l_val.type, r_val.type)
+            if l_val.type != target_type:
+                l_cast = self.get_cast(target_type, l_val)
+                operations += [l_cast]
+                l_val = l_cast.results[0]
+
+            if r_val.type != target_type:
+                r_cast = self.get_cast(target_type, r_val)
+                operations += [r_cast]
+                r_val = r_cast.results[0]
+
+        # special case: if we have a division, we also want to cast
+        if isinstance(node, ast.Div):
+            target_type = Float32Type()
+            if l_val.type != target_type:
+                l_cast = self.get_cast(target_type, l_val)
+                operations += [l_cast]
+                l_val = l_cast.results[0]
+
+            if r_val.type != target_type:
+                r_cast = self.get_cast(target_type, r_val)
+                operations += [r_cast]
+                r_val = r_cast.results[0]
 
         op_constructor = self.get_operation(node)
-        return [op_constructor(
+        return operations + [op_constructor(
             l_val,
             r_val,
             None
@@ -183,13 +264,13 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Compare(self, node) -> List[Operation]:
         left = self.visit(node.left)[0]
         right = self.visit(node.comparators[0])[0]
-        op = node.ops[0]
 
         l_val = left.results[0]
         r_val = right.results[0]
 
-        equals = arith.CMPI_COMPARISON_OPERATIONS[0]
-        operation = arith.Cmpi(l_val, r_val, equals)
+        # TODO: handle sint, float comparisons
+        op = self._uint_comparison[type(node.ops[0])]
+        operation = arith.Cmpi(l_val, r_val, op)
 
         return [left, right, operation]
 
@@ -254,7 +335,7 @@ class PythonToMLIR(ast.NodeVisitor):
                 op = arith.OrI
 
             case _:
-                raise NotImplementedError(f"BoolOp {node.op.__class__.__name__}")
+                raise NotImplementedError(f"{node.op.__class__.__name__}")
 
         operation = op(
             left_ops[-1].results[0],
@@ -262,6 +343,25 @@ class PythonToMLIR(ast.NodeVisitor):
         )
 
         return left_ops + right_ops + [operation]
+
+    def visit_UnaryOp(self, node) -> List[Operation]:
+        expr = self.visit(node.operand)
+        true_decl = arith.Constant(IntegerAttr.from_int_and_width(1, 1))
+
+        match type(node.op):
+            case ast.Not:
+                return expr + [
+                    true_decl,
+                    arith.XOrI(expr[-1], true_decl.results[0])
+                ]
+            case ast.USub:
+                zero = arith.Constant(IntegerAttr(0, IntegerType(32)))
+                return expr + [
+                    zero,
+                    arith.Subi(zero.results[0], expr[-1].results[0])
+                ]
+            case _:
+                raise NotImplementedError(f"{node.op.__class__.__name__}")
 
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:

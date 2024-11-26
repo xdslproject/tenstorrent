@@ -71,11 +71,6 @@ def floating_point():
 
 
 @tt.data_in
-def implicit_cast():
-    a = 13.4 * 3
-
-
-@tt.data_in
 def if_statement():
     if True:
         a = 5
@@ -163,7 +158,7 @@ def less_than_or_eq():
 @tt.data_in
 def greater_than_or_eq():
     a = 9
-    if a <= 3:
+    if a >= 3:
         a = 3
 
 
@@ -175,33 +170,48 @@ def bool_not():
 
 
 @tt.data_in
-def division():
-    a = 4
-    a = 10 / 2  # a: must be implicitly casted to float, so must 10, 2
+def sint():
+    a = -5
 
 
 @tt.data_in
 def subtraction():
     a = 4
-    a = 5 - 10  # a: must be implicitly casted to int32 from uint32
+    a = a - 10
+
+
+@tt.data_in
+def float_subtraction():
+    a = 3.7
+    a = a - 10.2
+
+
+@tt.data_in
+def implicit_cast():
+    a = 7
+    a = 13.4 * 3
+
+
+@tt.data_in
+def division():
+    a = 4
+    a = a / 2
 
 
 # Constructs currently implemented:
 #   - assignment
-#   - ints, floats, not mixing
-#   - nested binary operations (+, *)
+#   - ints, floats, mixed
+#   - nested binary operations (+, *, /)
 #   - reading from variables
 #   - nested for loops with range(a, b)
 #   - for loops reading from loop variable
-#   - nested if statements
+#   - nested if statements (and, or, not)
+#   - type coercion
 
 # TODO: Constructs we should handle
-#     if statements (other comparison operators..., 'not')
-#     binary operations (division, subtraction) [may require implicit casting?]
+#     if statements (>=, <, etc. for floats,)
 #     lists?
 #     TT-related features
-#     nice to write outputs to files data_in.out (C++) data_in.log (all) to
-#     let git / other regression testing system
 
 single_assignment()
 multiple_assignment()
@@ -221,11 +231,13 @@ if_elif()
 if_elif_else()
 if_elif_else_blocks()
 boolean_operators()
-# implicit_cast()
 less_than()
-# less_than_or_eq()
-# greater_than()
-# greater_than_or_eq
-# bool_not()
-# division()
-# subtraction()
+less_than_or_eq()
+greater_than()
+greater_than_or_eq()
+bool_not()
+sint()
+subtraction()
+float_subtraction()
+implicit_cast()
+division()
