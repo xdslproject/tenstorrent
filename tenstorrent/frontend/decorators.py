@@ -5,9 +5,9 @@ from functools import wraps
 
 from xdsl.printer import Printer
 
-from backend.print_metal import PrintMetal
-from frontend.python_to_mlir import PythonToMLIR
-from frontend.type_checker import TypeChecker
+from tenstorrent.backend.print_metalium import PrintMetalium
+from tenstorrent.frontend.python_to_mlir import PythonToMLIR
+from tenstorrent.frontend.type_checker import TypeChecker
 
 
 def data_in(func):
@@ -38,8 +38,24 @@ def data_in(func):
         printer.print_op(tree_walker.operations)
         printer.print(border2)
 
-        out_printer = PrintMetal()
+        out_printer = PrintMetalium()
         out_printer.print_module(tree_walker.operations)
+
+        # print to file
+        file_name = func.__name__
+
+        import os
+        prefix = os.getcwd() + "/tests/results/"
+        mlir_file_path = prefix + file_name + ".mlir"
+        cpp_file_path = prefix + file_name + ".cpp"
+
+        with open(mlir_file_path, "w") as file:
+            full_printer = Printer(stream=file)
+            full_printer.print_op(tree_walker.operations)
+
+        with open(cpp_file_path, "w") as file:
+            cpp_printer = PrintMetalium(file)
+            cpp_printer.print_module(tree_walker.operations)
 
         return func(*args, **kwargs)
 

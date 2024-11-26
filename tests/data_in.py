@@ -1,40 +1,40 @@
-from frontend.decorators import data_in
+import tenstorrent as tt
 
 
-@data_in
+@tt.data_in
 def single_assignment():
     a = 13  # Assign (Const)
 
 
-@data_in
+@tt.data_in
 def multiple_assignment():
     a = 1  # Assign (Const)
     b = 4  # Assign (Const)
 
 
-@data_in
+@tt.data_in
 def simple_binop():
     a = 2 + 3  # Assign (BinOp (Const Const))
 
 
-@data_in
+@tt.data_in
 def read_variable():
     a = 5       # Assign (Const)
     b = a + 1   # Assign (BinOp (Name Const))
 
 
-@data_in
+@tt.data_in
 def overwriting_binop():
     a = 5
     a = a + 1
 
 
-@data_in
+@tt.data_in
 def nested_binops():
     a = 1 + 2 * 3 + 4
 
 
-@data_in
+@tt.data_in
 def for_loop():
     for i in range(3, 5):
         a = 10
@@ -44,58 +44,58 @@ def for_loop():
         a = 50
 
 
-@data_in
+@tt.data_in
 def for_loop_use_i():
     for i in range(3, 5):
         a = i
 
 
-@data_in
+@tt.data_in
 def for_loop_overwriting():
     a = 0
     for i in range(3, 5):
         a = i
 
 
-@data_in
+@tt.data_in
 def nested_for():
     for i in range(3, 5):
         for j in range(7, 9):
             a = 10
 
 
-@data_in
+@tt.data_in
 def floating_point():
     a = 27.3 + 41.2
     b = 16.2 * 13.1
 
 
-@data_in
+@tt.data_in
 def implicit_cast():
     a = 13.4 * 3
 
 
-@data_in
+@tt.data_in
 def if_statement():
     if True:
         a = 5
 
 
-@data_in
+@tt.data_in
 def evaluate_bool():
     a = 5
     if a == 6:
         a = 2
 
 
-@data_in
+@tt.data_in
 def evaluate_bool_nested():
     a = 5
     if a == 6 + 3:
         a = 2
 
 
-@data_in
+@tt.data_in
 def if_elif():
     a = 5
     if a == 7:
@@ -104,7 +104,7 @@ def if_elif():
         a = 1
 
 
-@data_in
+@tt.data_in
 def if_elif_else():
     a = 5
     if a == 7:
@@ -115,7 +115,22 @@ def if_elif_else():
         a = 10
 
 
-@data_in
+@tt.data_in
+def if_elif_else_blocks():
+    a = 5
+    if a == 7:
+        a = 2
+        b = 3
+    elif a == 5:
+        a = 1
+        b = 2
+    else:
+        a = 10
+        b = 9
+
+
+
+@tt.data_in
 def boolean_operators():
     a = 7
     b = 3
@@ -123,21 +138,70 @@ def boolean_operators():
     if a == 7 and b == 3 or c == 2:
         a = 15
 
+
+@tt.data_in
+def greater_than():
+    a = 7
+    if a > 3:
+        a = 1
+
+
+@tt.data_in
+def less_than():
+    a = 8
+    if a < 3:
+        a = 1
+
+
+@tt.data_in
+def less_than_or_eq():
+    a = 9
+    if a <= 3:
+        a = 3
+
+
+@tt.data_in
+def greater_than_or_eq():
+    a = 9
+    if a <= 3:
+        a = 3
+
+
+@tt.data_in
+def bool_not():
+    a = 10
+    if not a < 4:
+        a = 2
+
+
+@tt.data_in
+def division():
+    a = 4
+    a = 10 / 2  # a: must be implicitly casted to float, so must 10, 2
+
+
+@tt.data_in
+def subtraction():
+    a = 4
+    a = 5 - 10  # a: must be implicitly casted to int32 from uint32
+
+
 # Constructs currently implemented:
 #   - assignment
 #   - ints, floats, not mixing
 #   - nested binary operations (+, *)
 #   - reading from variables
-#   - for loops (not nested)
+#   - nested for loops with range(a, b)
 #   - for loops reading from loop variable
-#   - if statement (not nested?)
+#   - nested if statements
 
 # TODO: Constructs we should handle
-#     if statements
+#     if statements (other comparison operators..., 'not')
+#     binary operations (division, subtraction) [may require implicit casting?]
+#     lists?
 #     TT-related features
-#     Nested for loops currently aren't correct (they create redundant vars)
-#     Note: in Python, loops and if-statement blocks don't create a new scope
-#     so every variable declared in a loop is like declaring out of loop in C++
+#     nice to write outputs to files data_in.out (C++) data_in.log (all) to
+#     let git / other regression testing system
 
 single_assignment()
 multiple_assignment()
@@ -150,10 +214,18 @@ for_loop_use_i()
 for_loop_overwriting()
 nested_for()
 floating_point()
-# implicit_cast()
 if_statement()
 evaluate_bool()
 evaluate_bool_nested()
-# if_elif()
-# if_elif_else()
-# boolean_operators()
+if_elif()
+if_elif_else()
+if_elif_else_blocks()
+boolean_operators()
+# implicit_cast()
+less_than()
+# less_than_or_eq()
+# greater_than()
+# greater_than_or_eq
+# bool_not()
+# division()
+# subtraction()

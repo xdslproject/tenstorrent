@@ -7,8 +7,8 @@ from xdsl.ir import Operation, Region, Block, OpResult
 from typing import Dict, List
 from xdsl.irdl import IRDLOperation
 
-from frontend.memref_context import MemrefContext
-from frontend.util import flatten, remove_duplicates
+from .memref_context import MemrefContext
+from tenstorrent.utils import flatten, remove_duplicates, subtract
 
 NodeWithBody = ast.If | ast.For | ast.While
 MLIRType = IntegerType | Float32Type
@@ -97,15 +97,10 @@ class PythonToMLIR(ast.NodeVisitor):
         # create a memref
         # seen = var_name in self.symbol_table
         seen = var_name in self.symbol_table.dictionary
-        location = memref.Alloc(
-            [],
-            [],  # symbol operands: [SSAValue]
-            MemRefType(self.get_type(var_name), [1])
-        ) if not seen else self.symbol_table[var_name]
+        location = self.allocate_memory(var_name) if not seen else self.symbol_table[var_name]
 
         # store result in that memref
         store = memref.Store.get(rhs, location, [])
-        self.register_symbol(var_name, location)
 
         # want to return whatever we wish to insert in our list of operations
         # return (rhs, store) if seen else (rhs, location, store)
@@ -162,13 +157,24 @@ class PythonToMLIR(ast.NodeVisitor):
         condition_expr = self.visit(node.test)
         condition = condition_expr.pop()
 
+        or_else = None
+        if node.orelse:
+            if isinstance(node.orelse[0], ast.If):
+                or_else = self.visit_If(node.orelse[0])
+            else:
+                or_else = []
+                for stmt in node.orelse:
+                    or_else += self.visit(stmt)
+
         # condition: SSAValue | Operation
         # return_types: Sequence[Attribute],
         # true_region: Region | Sequence[Block] | Sequence[Operation]
+        # false_region: Region | Sequence[Block] | Sequence[Operation]
         if_statement = scf.If(
             condition,
             [],
-            body_ops
+            body_ops,
+            or_else
         )
 
         return allocations + condition_expr + [condition, if_statement]
@@ -223,8 +229,7 @@ class PythonToMLIR(ast.NodeVisitor):
         # allocate space for the loop variable, and load into it for the first
         # instruction of the loop.
         iter_var_name = node.target.id
-        alloc = memref.Alloc([], [], MemRefType(self.get_type(iter_var_name), [1]))
-        self.symbol_table[iter_var_name] = alloc
+        alloc = self.allocate_memory(iter_var_name)
 
         loop_variable = for_loop.body.block.args[0]
         store = memref.Store.get(loop_variable, alloc, [])
@@ -233,6 +238,31 @@ class PythonToMLIR(ast.NodeVisitor):
         block.add_ops(loop_body_ops)
 
         return var_allocations + [from_expr, to_expr, start, end, step, alloc, for_loop]
+
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> List[Operation]:
+        # leftmost evaluation first
+        # if a and b or c => if (a and b) or c
+        left_ops = self.visit(node.values[0])   # a and b
+        right_ops = self.visit(node.values[1])  # c
+
+        match type(node.op):
+            case ast.And:
+                op = arith.AndI
+
+            case ast.Or:
+                op = arith.OrI
+
+            case _:
+                raise NotImplementedError(f"BoolOp {node.op.__class__.__name__}")
+
+        operation = op(
+            left_ops[-1].results[0],
+            right_ops[-1].results[0]
+        )
+
+        return left_ops + right_ops + [operation]
+
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:
         return [op for statement in node.body for op in self.visit(statement)]
@@ -263,31 +293,21 @@ class PythonToMLIR(ast.NodeVisitor):
         before the scf.For (etc.) scope. Sets preserve order in CPython 3.7+.
         """
         found_variables = []
-
         for statement in node.body:
             found_variables += self.get_assigned_variables(statement)
 
-        found_variables = remove_duplicates(found_variables)
-
         # remove any existing variables from fresh variables
-        fresh_variables = []
-        for var_name in found_variables:
-            if var_name not in self.symbol_table.dictionary:
-                fresh_variables.append(var_name)
+        found_variables = remove_duplicates(found_variables)
+        fresh_variables = subtract(found_variables, items=self.symbol_table.dictionary)
 
         allocations = []
-
         for var in list(fresh_variables):
-            memory = memref.Alloc(
-                [],
-                [],
-                MemRefType(self.get_type(var), [1])
-            )
-            self.register_symbol(var, memory)
+            memory = self.allocate_memory(var)
             allocations.append(memory)
 
         return allocations
 
-
-    def register_symbol(self, symbol: str, memory: memref.Alloc):
+    def allocate_memory(self, symbol: str) -> memref.Alloc:
+        memory = memref.Alloc([], [], MemRefType(self.get_type(symbol), [1]))
         self.symbol_table[symbol] = memory
+        return memory

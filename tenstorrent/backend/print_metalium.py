@@ -1,30 +1,34 @@
-from typing import Optional
-
-from xdsl.dialects.builtin import ModuleOp, Operation, IndexType, IntegerType, Float32Type
+from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi
+    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
-from xdsl.ir import Block, Region, SSAValue, OpResult, BlockArgument
+from xdsl.ir import Block, Region, SSAValue, OpResult
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
+BooleanOperation = AndI | OrI | Cmpi
+BinaryOperation = ArithmeticOperation | BooleanOperation
 OpWithBody = FuncOp | For | While
 
 
-class PrintMetal:
+class PrintMetalium:
     """
-    Prints the Tenstorrent Metal API (C) given a list of xDSL operations
+    Prints the Tenstorrent Metalium API (C) given a list of xDSL operations
     """
-    def __init__(self):
+    def __init__(self, file=None):
         self._indent = 0
+        self._file = file
         self._names = {}  # SSAVal -> Variable Name
         self._op_to_sym = {
             Addi: "+",
             Muli: "*",
             Addf: "+",
             Mulf: "*",
+            AndI: "&&",
+            OrI: "||",
+            Cmpi: "==",  # TODO: this is not correct, Comparison can be done with other symbols too
         }
 
         self._mlir_to_cpp_type = {
@@ -33,7 +37,10 @@ class PrintMetal:
             Float32Type(): "float",
         }
 
-        self._skip = [Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield, Cmpi]
+        self._skip = [
+            Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
+            Cmpi, AndI, OrI,
+        ]
 
     def print_block(self, block: Block):
         operation = block.ops.first
@@ -83,7 +90,7 @@ class PrintMetal:
         self.print(f"void {func.sym_name.data}() {'{'}")
 
         self._indent += 1
-        self.print_body(func)
+        self.print_region(func.body)
         self._indent -= 1
 
         self.print("}")
@@ -103,14 +110,12 @@ class PrintMetal:
         self.print(f"for ({i} = {start}; {i} < {stop}; {i} += {step}) {'{'}")
 
         self._indent += 1
-        self.print_body(loop)
+        self.print_region(loop.body)
         self._indent -= 1
 
         self.print("}")
 
-    def print_body(self, parent: OpWithBody):
-        body: Region = parent.body
-
+    def print_region(self, body: Region):
         for block in body.blocks:
             self.print_block(block)
 
@@ -144,7 +149,16 @@ class PrintMetal:
         self.print_block(op.true_region.blocks[0])
         self._indent -= 1
 
-        self.print("}")
+        or_else = len(op.false_region.blocks) > 0
+
+        self.print("}" + (" else {" if or_else else ""))
+
+        # here need to print the or-else
+        if or_else:
+            self._indent += 1
+            self.print_region(op.false_region)
+            self._indent -= 1
+            self.print("}")
 
 
     def create_fresh_variable(self, hint='a') -> str:
@@ -175,28 +189,24 @@ class PrintMetal:
         if isinstance(creator, IndexCastOp):
             return self.get_value(creator.operands[0])
 
-        if isinstance(creator, ArithmeticOperation):
+        if isinstance(creator, BinaryOperation):
             return self.binary_op_string(creator)
 
         if isinstance(creator, Load):
             return self.get_value(creator.operands[0])
-
-        if isinstance(creator, Cmpi):
-            left = self.get_value(creator.operands[0])
-            right = self.get_value(creator.operands[1])
-            op = '=='
-
-            return f"{left} {op} {right}"
 
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
 
     def print(self, s: str, indented: bool = True):
         prefix = self._prefix if indented else ""
-        print(prefix + s)
+        if self._file:
+            print(prefix + s, file=self._file)
+        else:
+            print(prefix + s)
 
 
-    def binary_op_string(self, operation: ArithmeticOperation):
+    def binary_op_string(self, operation: BinaryOperation):
         """
         In a binary operation, each operand will either be a constant, load, or
         another binary operation. This method handles each case and produces a
@@ -216,6 +226,8 @@ class PrintMetal:
                 values[i] = self._names[creator.operands[0]]
             elif isinstance(creator, ArithmeticOperation):
                 values[i] = '(' + self.binary_op_string(creator) + ')'
+            elif isinstance(creator, BooleanOperation):
+                values[i] = self.binary_op_string(creator)
             else:
                 raise Exception(f"Unhandled type: {operation.__class__} in binary_op_string")
 
