@@ -1,5 +1,5 @@
 void if_elif() {
-    std::uint32_t a;
+    std::int32_t a;
     a = 5;
     if (a == 7) {
         a = 2;

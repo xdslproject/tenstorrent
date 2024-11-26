@@ -1,7 +1,7 @@
 void if_elif_else_blocks() {
-    std::uint32_t a;
+    std::int32_t a;
     a = 5;
-    std::uint32_t a1;
+    std::int32_t a1;
     if (a == 7) {
         a = 2;
         a1 = 3;

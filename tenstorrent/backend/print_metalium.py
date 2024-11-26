@@ -1,7 +1,7 @@
 from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type, IntegerAttr
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI
+    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
@@ -30,7 +30,9 @@ class PrintMetalium:
             Mulf: "*",
             AndI: "&&",
             OrI: "||",
-            XOrI: "^"
+            XOrI: "^",
+            Subi: "-",
+            Subf: "-",
         }
 
         self._int_comparison_ops = {
@@ -61,14 +63,14 @@ class PrintMetalium:
         }
 
         self._mlir_to_cpp_type = {
-            IndexType(): "std::uint32_t",
-            IntegerType(32): "std::uint32_t",
+            IndexType(): "std::int32_t",
+            IntegerType(32): "std::int32_t",
             Float32Type(): "float",
         }
 
         self._skip = [
             Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
-            Cmpi, AndI, OrI, XOrI
+            Cmpi, AndI, OrI, XOrI, Subi, Subf
         ]
 
     def print_block(self, block: Block):

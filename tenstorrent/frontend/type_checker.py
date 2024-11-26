@@ -44,6 +44,9 @@ class TypeChecker(ast.NodeVisitor):
 
         self.types[target] = expected_type
 
+    def visit_UnaryOp(self, node):
+        return self.visit(node.operand)
+
     def visit_BinOp(self, node: ast.BinOp):
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)

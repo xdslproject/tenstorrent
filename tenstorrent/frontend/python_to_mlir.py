@@ -115,7 +115,8 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def visit_Assign(self, node) -> List[Operation]:
         # visit RHS, e.g. Constant in 'a = 0'
-        rhs: Operation = self.visit(node.value)[0]
+        rhs = self.visit(node.value)
+        rhs_val = rhs[-1].results[0]
 
         # get the variable name to store the result in
         dest = node.targets[0]
@@ -128,14 +129,14 @@ class PythonToMLIR(ast.NodeVisitor):
         location = self.allocate_memory(var_name) if not seen else self.symbol_table[var_name]
 
         # store result in that memref
-        store = memref.Store.get(rhs, location, [])
+        store = memref.Store.get(rhs_val, location, [])
 
         # want to return whatever we wish to insert in our list of operations
         # return (rhs, store) if seen else (rhs, location, store)
         if seen:
-            return [rhs, store]
+            return rhs + [store]
 
-        return [rhs, location, store]
+        return rhs + [location, store]
 
     def visit_Constant(self, node) -> List[Operation]:
         data = node.value
@@ -300,6 +301,12 @@ class PythonToMLIR(ast.NodeVisitor):
                 return expr + [
                     true_decl,
                     arith.XOrI(expr[-1], true_decl.results[0])
+                ]
+            case ast.USub:
+                zero = arith.Constant(IntegerAttr(0, IntegerType(32)))
+                return expr + [
+                    zero,
+                    arith.Subi(zero.results[0], expr[-1].results[0])
                 ]
             case _:
                 raise NotImplementedError(f"{node.op.__class__.__name__}")
