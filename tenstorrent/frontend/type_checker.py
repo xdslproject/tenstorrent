@@ -22,6 +22,7 @@ class TypeChecker(ast.NodeVisitor):
         if isinstance(data, int):
             return IntegerType(32)
 
+        # Wormhole FPU supports up to single precision floating point
         if isinstance(data, float):
             return Float32Type()
 

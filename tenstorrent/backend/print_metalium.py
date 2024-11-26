@@ -1,7 +1,7 @@
 from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type, IntegerAttr
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation
+    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
@@ -11,6 +11,8 @@ ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOp
 BooleanOperation = AndI | OrI | Cmpi | Cmpf
 BinaryOperation = ArithmeticOperation | BooleanOperation
 OpWithBody = FuncOp | For | While
+
+TRUE = IntegerAttr.from_int_and_width(1, 1)
 
 
 class PrintMetalium:
@@ -28,6 +30,7 @@ class PrintMetalium:
             Mulf: "*",
             AndI: "&&",
             OrI: "||",
+            XOrI: "^"
         }
 
         self._int_comparison_ops = {
@@ -65,7 +68,7 @@ class PrintMetalium:
 
         self._skip = [
             Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
-            Cmpi, AndI, OrI,
+            Cmpi, AndI, OrI, XOrI
         ]
 
     def print_block(self, block: Block):
@@ -241,6 +244,11 @@ class PrintMetalium:
         if isinstance(operation, ComparisonOperation):
             # TODO: add support for floating point comparison
             op_str = self._int_comparison_ops[operation.predicate]
+
+        # whilst XOrI is a binary operation, we know it can encode 'not'
+        elif isinstance(operation, XOrI) and operation.operands[1].op.value == TRUE:
+            return "!(" + self.binary_op_string(operation.operands[0].op) + ")"
+
         else:
             op_str = self._op_to_sym[type(operation)]
 

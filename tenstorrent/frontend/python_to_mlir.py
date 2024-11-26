@@ -282,7 +282,7 @@ class PythonToMLIR(ast.NodeVisitor):
                 op = arith.OrI
 
             case _:
-                raise NotImplementedError(f"BoolOp {node.op.__class__.__name__}")
+                raise NotImplementedError(f"{node.op.__class__.__name__}")
 
         operation = op(
             left_ops[-1].results[0],
@@ -290,6 +290,19 @@ class PythonToMLIR(ast.NodeVisitor):
         )
 
         return left_ops + right_ops + [operation]
+
+    def visit_UnaryOp(self, node) -> List[Operation]:
+        expr = self.visit(node.operand)
+        true_decl = arith.Constant(IntegerAttr.from_int_and_width(1, 1))
+
+        match type(node.op):
+            case ast.Not:
+                return expr + [
+                    true_decl,
+                    arith.XOrI(expr[-1], true_decl.results[0])
+                ]
+            case _:
+                raise NotImplementedError(f"{node.op.__class__.__name__}")
 
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:

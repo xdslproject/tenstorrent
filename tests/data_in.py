@@ -175,6 +175,27 @@ def bool_not():
 
 
 @tt.data_in
+def sint():
+    a = -5
+
+
+@tt.data_in
+def sint_comparisons_cast():
+    a = -5
+    if a < 10:
+        a = 10
+
+    if a > 10:
+        a = 10
+
+    if a >= 20:
+        a = 20
+
+    if a <= 20:
+        a = 20
+
+
+@tt.data_in
 def division():
     a = 4
     a = 10 / 2  # a: must be implicitly casted to float, so must 10, 2
@@ -225,7 +246,9 @@ less_than()
 less_than_or_eq()
 greater_than()
 greater_than_or_eq()
-# bool_not()
+bool_not()
+# sint()
+# sint_comparisons_cast()
 # implicit_cast()
 # division()
 # subtraction()
