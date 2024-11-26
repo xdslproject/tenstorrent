@@ -1,14 +1,14 @@
-from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type
+from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type, IntegerAttr
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI
+    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
 from xdsl.ir import Block, Region, SSAValue, OpResult
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
-BooleanOperation = AndI | OrI | Cmpi
+BooleanOperation = AndI | OrI | Cmpi | Cmpf
 BinaryOperation = ArithmeticOperation | BooleanOperation
 OpWithBody = FuncOp | For | While
 
@@ -28,7 +28,33 @@ class PrintMetalium:
             Mulf: "*",
             AndI: "&&",
             OrI: "||",
-            Cmpi: "==",  # TODO: this is not correct, Comparison can be done with other symbols too
+        }
+
+        self._int_comparison_ops = {
+            IntegerAttr.from_int_and_width(0, 64): "==",
+            IntegerAttr.from_int_and_width(1, 64): "!=",
+
+            # signed
+            IntegerAttr.from_int_and_width(2, 64): "<",
+            IntegerAttr.from_int_and_width(3, 64): "<=",
+            IntegerAttr.from_int_and_width(4, 64): ">",
+            IntegerAttr.from_int_and_width(5, 64): ">=",
+
+            # unsigned
+            IntegerAttr.from_int_and_width(6, 64): "<",
+            IntegerAttr.from_int_and_width(7, 64): "<=",
+            IntegerAttr.from_int_and_width(8, 64): ">",
+            IntegerAttr.from_int_and_width(9, 64): ">=",
+        }
+
+        self._float_comparison_ops = {
+            # ordered
+            IntegerAttr.from_int_and_width(1, 64): "==",
+            IntegerAttr.from_int_and_width(2, 64): ">",
+            IntegerAttr.from_int_and_width(3, 64): ">=",
+            IntegerAttr.from_int_and_width(4, 64): "<",
+            IntegerAttr.from_int_and_width(5, 64): "<=",
+            IntegerAttr.from_int_and_width(6, 64): "!=",
         }
 
         self._mlir_to_cpp_type = {
@@ -212,7 +238,12 @@ class PrintMetalium:
         another binary operation. This method handles each case and produces a
         string.
         """
-        op_str = self._op_to_sym[type(operation)]
+        if isinstance(operation, ComparisonOperation):
+            # TODO: add support for floating point comparison
+            op_str = self._int_comparison_ops[operation.predicate]
+        else:
+            op_str = self._op_to_sym[type(operation)]
+
         values = ["ERROR", "ERROR"]
 
         for i in range(0, 2):

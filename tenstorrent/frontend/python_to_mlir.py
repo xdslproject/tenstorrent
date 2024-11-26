@@ -27,6 +27,34 @@ class PythonToMLIR(ast.NodeVisitor):
         self.operations: List[Operation] | ModuleOp = []
         self.type_checker = type_checker
 
+        self._uint_comparison: Dict[type, str] = {
+            ast.Eq: arith.CMPI_COMPARISON_OPERATIONS[0],
+            ast.NotEq: arith.CMPI_COMPARISON_OPERATIONS[1],
+            ast.Lt: arith.CMPI_COMPARISON_OPERATIONS[6],
+            ast.LtE: arith.CMPI_COMPARISON_OPERATIONS[7],
+            ast.Gt: arith.CMPI_COMPARISON_OPERATIONS[8],
+            ast.GtE: arith.CMPI_COMPARISON_OPERATIONS[9],
+        }
+
+        self._sint_comparison: Dict[type, str] = {
+            ast.Eq: arith.CMPI_COMPARISON_OPERATIONS[0],
+            ast.NotEq: arith.CMPI_COMPARISON_OPERATIONS[1],
+            ast.Lt: arith.CMPI_COMPARISON_OPERATIONS[2],
+            ast.LtE: arith.CMPI_COMPARISON_OPERATIONS[3],
+            ast.Gt: arith.CMPI_COMPARISON_OPERATIONS[4],
+            ast.GtE: arith.CMPI_COMPARISON_OPERATIONS[5],
+        }
+
+        # use only ordered comparisons (don't allow NaN)
+        self._float_comparison: Dict[type, str] = {
+            ast.Eq: arith.CMPF_COMPARISON_OPERATIONS[1],
+            ast.Gt: arith.CMPF_COMPARISON_OPERATIONS[2],
+            ast.GtE: arith.CMPF_COMPARISON_OPERATIONS[3],
+            ast.Lt: arith.CMPF_COMPARISON_OPERATIONS[4],
+            ast.LtE: arith.CMPF_COMPARISON_OPERATIONS[5],
+            ast.NotEq: arith.CMPF_COMPARISON_OPERATIONS[6],
+        }
+
         self._operations: Dict[MLIRType, Dict[type(ast.operator), type(IRDLOperation)]] = {
             IntegerType(32): {
                 ast.Add: arith.Addi,
@@ -183,13 +211,13 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Compare(self, node) -> List[Operation]:
         left = self.visit(node.left)[0]
         right = self.visit(node.comparators[0])[0]
-        op = node.ops[0]
 
         l_val = left.results[0]
         r_val = right.results[0]
 
-        equals = arith.CMPI_COMPARISON_OPERATIONS[0]
-        operation = arith.Cmpi(l_val, r_val, equals)
+        # TODO: handle sint, float comparisons
+        op = self._uint_comparison[type(node.ops[0])]
+        operation = arith.Cmpi(l_val, r_val, op)
 
         return [left, right, operation]
 

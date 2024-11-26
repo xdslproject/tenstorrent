@@ -163,7 +163,7 @@ def less_than_or_eq():
 @tt.data_in
 def greater_than_or_eq():
     a = 9
-    if a <= 3:
+    if a >= 3:
         a = 3
 
 
@@ -196,7 +196,7 @@ def subtraction():
 #   - nested if statements
 
 # TODO: Constructs we should handle
-#     if statements (other comparison operators..., 'not')
+#     if statements (>=, <, etc. for floats, 'not')
 #     binary operations (division, subtraction) [may require implicit casting?]
 #     lists?
 #     TT-related features
@@ -221,11 +221,11 @@ if_elif()
 if_elif_else()
 if_elif_else_blocks()
 boolean_operators()
-# implicit_cast()
 less_than()
-# less_than_or_eq()
-# greater_than()
-# greater_than_or_eq
+less_than_or_eq()
+greater_than()
+greater_than_or_eq()
 # bool_not()
+# implicit_cast()
 # division()
 # subtraction()
