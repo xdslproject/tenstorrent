@@ -9,7 +9,9 @@ from xdsl.irdl import IRDLOperation
 
 from .memref_context import MemrefContext
 from .type_checker import MLIRType
+from .dummy import *
 from tenstorrent.utils import flatten, remove_duplicates, subtract
+from tenstorrent.dialects import *
 
 NodeWithBody = ast.If | ast.For | ast.While
 
@@ -68,6 +70,15 @@ class PythonToMLIR(ast.NodeVisitor):
                 ast.Sub: arith.Subf,
                 ast.Div: arith.Divf,
             }
+        }
+
+        self._functions: Dict[str, type] = {
+            cb_push_back.__name__: CBPushBack,
+            cb_reserve_back.__name__: CBReserveBack,
+            cb_pop_front.__name__: CBPopFront,
+            cb_wait_front.__name__: CBWaitFront,
+            cb_pages_reservable_at_back.__name__: CBPagesReservableAtBack,
+            cb_pages_available_at_front.__name__: CBPagesAvailableAtFront,
         }
 
     def get_type(self, variable_name: str):
@@ -159,8 +170,6 @@ class PythonToMLIR(ast.NodeVisitor):
 
         raise NotImplementedError(f"Casting from {ssa_val.type.__class__.__name__} "
                                   f"to {target_type.__class__.__name__}")
-
-
 
 
     def visit_Constant(self, node) -> List[Operation]:
@@ -362,6 +371,25 @@ class PythonToMLIR(ast.NodeVisitor):
                 ]
             case _:
                 raise NotImplementedError(f"{node.op.__class__.__name__}")
+
+
+    def visit_Expr(self, node) -> List[Operation]:
+        return self.visit(node.value)
+
+
+    def visit_Call(self, node) -> List[Operation]:
+        name = node.func.id
+        if name in self._functions:
+            arg1 = self.visit(node.args[0])
+            arg2 = self.visit(node.args[1])
+
+            operation = self._functions[name](
+                arg1[-1].results[0],
+                arg2[-1].results[0]
+            )
+            return arg1 + arg2 + [operation]
+
+        raise NotImplementedError(f"Unhandled function {name}")
 
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:

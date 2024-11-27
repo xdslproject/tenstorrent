@@ -1,10 +1,12 @@
-from xdsl.dialects.builtin import ModuleOp, IndexType, IntegerType, Float32Type, IntegerAttr
+from xdsl.dialects.builtin import ModuleOp, IndexType, Float32Type, IntegerAttr
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
     FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp, Divf
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
-from xdsl.ir import Block, Region, SSAValue, OpResult
+from xdsl.ir import Block, Region, OpResult
+
+from tenstorrent.dialects import *
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
@@ -97,6 +99,10 @@ class PrintMetalium:
 
             elif isinstance(operation, If):
                 self.print_if_statement(operation)
+                operation = operation.next_op
+
+            elif isinstance(operation, CircularBufferOperation):
+                self.print_tt_op(operation)
                 operation = operation.next_op
 
             # skip constants on their own, will be picked up later if used
@@ -233,6 +239,11 @@ class PrintMetalium:
 
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
+    def print_tt_op(self, operation: CircularBufferOperation):
+        api_name = operation.name.replace('.', '_')
+        arg1 = self.get_value(operation.operands[0])
+        arg2 = self.get_value(operation.operands[1])
+        self.print(f"{api_name}({arg1}, {arg2});")
 
     def print(self, s: str, indented: bool = True):
         prefix = self._prefix if indented else ""

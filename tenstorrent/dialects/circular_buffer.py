@@ -74,6 +74,16 @@ class CBPopFront(IRDLOperation):
         super().__init__(operands=[cb_id, num_tiles])
 
 
+CircularBufferOperation = (
+        CBReserveBack
+        | CBPushBack
+        | CBPopFront
+        | CBWaitFront
+        | CBPagesReservableAtBack
+        | CBPagesAvailableAtFront
+)
+
+
 CircularBuffer = Dialect(
     "cb",
     [

@@ -1,8 +1,12 @@
 import ast
+from typing import Dict
 
-from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType
+from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType, NoneType
 
-MLIRType = IntegerType | Float32Type | IndexType
+from .dummy import *
+
+
+MLIRType = IntegerType | Float32Type | IndexType | NoneType
 
 
 def types_equal(a, b) -> bool:
@@ -13,7 +17,14 @@ def types_equal(a, b) -> bool:
 
 class TypeChecker(ast.NodeVisitor):
     def __init__(self):
-        self.types = {}  # str (variable name) -> type in MLIR
+        self.types: Dict[str, MLIRType] = {
+            cb_push_back.__name__: NoneType(),
+            cb_wait_front.__name__: NoneType(),
+            cb_pop_front.__name__: NoneType(),
+            cb_reserve_back.__name__: NoneType(),
+            cb_pages_available_at_front.__name__: IntegerType(1),
+            cb_pages_reservable_at_back.__name__: IntegerType(1),
+        }
 
     def generic_visit(self, node):
         raise Exception(f"Unhandled node type {node.__class__.__name__}")
@@ -80,6 +91,16 @@ class TypeChecker(ast.NodeVisitor):
             return left_type
 
         return self.dominating_type(left_type, right_type)
+
+    def visit_Expr(self, node) -> MLIRType:
+        return self.visit(node.value)
+
+    def visit_Call(self, node: ast.Call) -> MLIRType:
+        name = node.func.id
+        if name in self.types:
+            return self.types[name]
+
+        raise NotImplementedError(f"Unhandled call: {name}")
 
     # ********* Generic visits *********
     def visit_Module(self, node):
