@@ -1,5 +1,7 @@
 import tenstorrent as tt
-
+from tenstorrent.frontend import (cb_push_back, cb_wait_front,
+                                  cb_pop_front, cb_pages_available_at_front,
+                                  cb_reserve_back, cb_pages_reservable_at_back)
 
 @tt.data_in
 def single_assignment():
@@ -211,6 +213,19 @@ def bool_assign():
     e = d < 10 or c
 
 
+@tt.data_in
+def func_call():
+    cb_push_back(1, 1)
+
+
+@tt.data_in
+def adv_arg_eval():
+    a = 27 + 3
+
+    for i in range(8, 20):
+        d = cb_pages_reservable_at_back(a, i)
+
+
 # Constructs currently implemented:
 #   - assignment
 #   - ints, floats, mixed
@@ -256,3 +271,5 @@ float_subtraction()
 implicit_cast()
 division()
 bool_assign()
+func_call()
+adv_arg_eval()
