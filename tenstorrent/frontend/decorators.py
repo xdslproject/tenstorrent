@@ -50,8 +50,9 @@ def data_in(func):
         cpp_file_path = prefix + file_name + ".cpp"
 
         with open(mlir_file_path, "w") as file:
-            full_printer = Printer(stream=file)
-            full_printer.print_op(tree_walker.operations)
+            mlir_printer = Printer(stream=file)
+            mlir_printer.print_op(tree_walker.operations)
+            mlir_printer.print('\n')
 
         with open(cpp_file_path, "w") as file:
             cpp_printer = PrintMetalium(file)
