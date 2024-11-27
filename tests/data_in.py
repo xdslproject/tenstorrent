@@ -198,6 +198,19 @@ def division():
     a = a / 2
 
 
+@tt.data_in
+def bool_assign():
+    a = True
+    b = False
+    c = a and b
+
+    if c:
+        a = False
+
+    d = 5
+    e = d < 10 or c
+
+
 # Constructs currently implemented:
 #   - assignment
 #   - ints, floats, mixed
@@ -208,9 +221,10 @@ def division():
 #   - nested if statements (and, or, not)
 #   - type coercion
 
-# TODO: Constructs we should handle
-#     if statements (>=, <, etc. for floats,)
-#     lists?
+# TODO: Constructs not implemented
+#     floating point comparisons
+#     module operator
+#     lists
 #     TT-related features
 
 single_assignment()
@@ -241,3 +255,4 @@ subtraction()
 float_subtraction()
 implicit_cast()
 division()
+bool_assign()
