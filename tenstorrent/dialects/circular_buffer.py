@@ -15,7 +15,7 @@ class CBPagesAvailableAtFront(IRDLOperation):
     result = result_def(IntegerType(1))   # returns a bool?
 
     def __init__(self, cb_id: SSAValue | Operation, num_pages: SSAValue | Operation):
-        super().__init__(operands=[cb_id, num_pages])
+        super().__init__(operands=[cb_id, num_pages], result_types=[IntegerType(1)])
 
 
 @irdl_op_definition
@@ -38,7 +38,7 @@ class CBPagesReservableAtBack(IRDLOperation):
     result = result_def(IntegerType(1))
 
     def __init__(self, cb_id: SSAValue | Operation, num_pages: SSAValue | Operation):
-        super().__init__(operands=[cb_id, num_pages])
+        super().__init__(operands=[cb_id, num_pages], result_types=[IntegerType(1)])
 
 
 @irdl_op_definition

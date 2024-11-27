@@ -218,6 +218,14 @@ def func_call():
     cb_push_back(1, 1)
 
 
+@tt.data_in
+def adv_arg_eval():
+    a = 27 + 3
+
+    for i in range(8, 20):
+        d = cb_pages_reservable_at_back(a, i)
+
+
 # Constructs currently implemented:
 #   - assignment
 #   - ints, floats, mixed
@@ -264,3 +272,4 @@ implicit_cast()
 division()
 bool_assign()
 func_call()
+adv_arg_eval()

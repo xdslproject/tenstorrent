@@ -13,6 +13,8 @@ ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOp
 BooleanOperation = AndI | OrI | Cmpi | Cmpf
 BinaryOperation = ArithmeticOperation | BooleanOperation
 OpWithBody = FuncOp | For | While
+CircularBufferOperationWithResult = CBPagesAvailableAtFront | CBPagesReservableAtBack
+StatefulCircularBufferOperation = CBReserveBack | CBPushBack | CBPopFront | CBWaitFront
 
 TRUE = IntegerAttr.from_int_and_width(1, 1)
 
@@ -74,7 +76,8 @@ class PrintMetalium:
 
         self._skip = [
             Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
-            Cmpi, AndI, OrI, XOrI, Subi, Subf, ExtFOp, Divf
+            Cmpi, AndI, OrI, XOrI, Subi, Subf, ExtFOp, Divf,
+            CBPagesReservableAtBack, CBPagesAvailableAtFront
         ]
 
     def print_block(self, block: Block):
@@ -101,7 +104,7 @@ class PrintMetalium:
                 self.print_if_statement(operation)
                 operation = operation.next_op
 
-            elif isinstance(operation, CircularBufferOperation):
+            elif isinstance(operation, StatefulCircularBufferOperation):
                 self.print_tt_op(operation)
                 operation = operation.next_op
 
@@ -237,9 +240,14 @@ class PrintMetalium:
         if isinstance(creator, Load):
             return self.get_value(creator.operands[0])
 
+        if isinstance(creator, CircularBufferOperationWithResult):
+            arg1 = self.get_value(creator.operands[0])
+            arg2 = self.get_value(creator.operands[1])
+            return f"{creator.name.replace('.', '_')}({arg1}, {arg2})"
+
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
-    def print_tt_op(self, operation: CircularBufferOperation):
+    def print_tt_op(self, operation: StatefulCircularBufferOperation):
         api_name = operation.name.replace('.', '_')
         arg1 = self.get_value(operation.operands[0])
         arg2 = self.get_value(operation.operands[1])
