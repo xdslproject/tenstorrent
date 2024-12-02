@@ -285,19 +285,11 @@ class PythonToMLIR(ast.NodeVisitor):
 
 
     def visit_For(self, node: ast.For) -> List[Operation]:
-        from_expr = self.visit(node.iter.args[0])[0]
-        to_expr = self.visit(node.iter.args[1])[0]
-
-        start = arith.IndexCastOp(from_expr, IndexType())
-        end = arith.IndexCastOp(to_expr, IndexType())
+        from_expr = self.visit(node.iter.args[0])[-1]
+        to_expr = self.visit(node.iter.args[1])[-1]
 
         # lb, up, step, iteration arguments, body
-        step = arith.Constant.create(
-            properties={
-                "value": IntegerAttr.from_index_int_value(1)
-            },
-            result_types=[IndexType()]
-        )
+        step = arith.Constant(IntegerAttr(1, IntegerType(32)))
 
         # adds variables to the symbol table and allocates memory for them
         var_allocations = self.allocate_new_variables(node)
@@ -308,8 +300,8 @@ class PythonToMLIR(ast.NodeVisitor):
         body.add_block(block)
 
         for_loop = scf.For(
-            start.results[0],
-            end.results[0],
+            from_expr.results[0],
+            to_expr.results[0],
             step.results[0],
             [],
             body
@@ -327,7 +319,7 @@ class PythonToMLIR(ast.NodeVisitor):
         loop_body_ops = [store] + self.generate_body_ops(node) + [scf.Yield()]
         block.add_ops(loop_body_ops)
 
-        return var_allocations + [from_expr, to_expr, start, end, step, alloc, for_loop]
+        return var_allocations + [from_expr, to_expr, step, alloc, for_loop]
 
 
     def visit_BoolOp(self, node: ast.BoolOp) -> List[Operation]:
