@@ -3,22 +3,18 @@ builtin.module {
     %0 = memref.alloc() : memref<1xi32>
     %1 = arith.constant 3 : i32
     %2 = arith.constant 5 : i32
-    %3 = arith.index_cast %1 : i32 to index
-    %4 = arith.index_cast %2 : i32 to index
-    %5 = arith.constant 1 : index
-    %6 = memref.alloc() : memref<1xindex>
-    scf.for %7 = %3 to %4 step %5 {
-      memref.store %7, %6[] : memref<1xindex>
-      %8 = arith.constant 7 : i32
-      %9 = arith.constant 9 : i32
-      %10 = arith.index_cast %8 : i32 to index
-      %11 = arith.index_cast %9 : i32 to index
-      %12 = arith.constant 1 : index
-      %13 = memref.alloc() : memref<1xindex>
-      scf.for %14 = %10 to %11 step %12 {
-        memref.store %14, %13[] : memref<1xindex>
-        %15 = arith.constant 10 : i32
-        memref.store %15, %0[] : memref<1xi32>
+    %3 = arith.constant 1 : i32
+    %4 = memref.alloc() : memref<1xi32>
+    scf.for %5 = %1 to %2 step %3 {
+      memref.store %5, %4[] : memref<1xi32>
+      %6 = arith.constant 7 : i32
+      %7 = arith.constant 9 : i32
+      %8 = arith.constant 1 : i32
+      %9 = memref.alloc() : memref<1xi32>
+      scf.for %10 = %6 to %7 step %8 {
+        memref.store %10, %9[] : memref<1xi32>
+        %11 = arith.constant 10 : i32
+        memref.store %11, %0[] : memref<1xi32>
       }
     }
   }
