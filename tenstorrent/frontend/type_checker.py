@@ -37,9 +37,6 @@ class TypeChecker(ast.NodeVisitor):
         if a == Float32Type() or b == Float32Type():
             return Float32Type()
 
-        if a == IndexType() or b == IndexType():
-            return IndexType()
-
         if a == IntegerType(32) or b == IntegerType(32):
             return IntegerType(32)
 
@@ -113,7 +110,7 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_For(self, node):
         identifier = node.target.id
-        t = IndexType()
+        t = IntegerType(32)
 
         if identifier in self.types:
             assert self.types[identifier] == t
