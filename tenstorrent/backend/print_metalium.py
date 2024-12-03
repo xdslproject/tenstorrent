@@ -1,4 +1,4 @@
-from xdsl.dialects.builtin import ModuleOp, IndexType, Float32Type, IntegerAttr
+from xdsl.dialects.builtin import ModuleOp, IndexType, Float32Type, IntegerAttr, i1, i32, f32
 from xdsl.dialects.func import FuncOp
 from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
     FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp, Divf
@@ -69,9 +69,9 @@ class PrintMetalium:
 
         self._mlir_to_cpp_type = {
             IndexType(): "std::int32_t",
-            IntegerType(32): "std::int32_t",
-            Float32Type(): "float",
-            IntegerType(1): "bool",
+            i32: "std::int32_t",
+            f32: "float",
+            i1: "bool",
         }
 
         self._skip = [
