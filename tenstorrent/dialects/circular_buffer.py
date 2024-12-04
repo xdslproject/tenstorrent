@@ -1,4 +1,4 @@
-from xdsl.dialects.builtin import IntegerType
+from xdsl.dialects.builtin import i1, i32
 from xdsl.ir import SSAValue, Operation, Dialect
 from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def
 
@@ -10,20 +10,20 @@ from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def
 class CBPagesAvailableAtFront(IRDLOperation):
     name = "cb.pages_available_at_front"
 
-    cb_id = operand_def(IntegerType)      # int32_t
-    num_pages = operand_def(IntegerType)  # int32_t
-    result = result_def(IntegerType(1))   # returns a bool?
+    cb_id = operand_def(i32)
+    num_pages = operand_def(i32)
+    result = result_def(i1)
 
     def __init__(self, cb_id: SSAValue | Operation, num_pages: SSAValue | Operation):
-        super().__init__(operands=[cb_id, num_pages], result_types=[IntegerType(1)])
+        super().__init__(operands=[cb_id, num_pages], result_types=[i1])
 
 
 @irdl_op_definition
 class CBWaitFront(IRDLOperation):
     name = "cb.wait_front"
 
-    cb_id = operand_def(IntegerType)
-    num_tiles = operand_def(IntegerType)
+    cb_id = operand_def(i32)
+    num_tiles = operand_def(i32)
 
     def __init__(self, cb_id: SSAValue | Operation, num_tiles: SSAValue | Operation):
         super().__init__(operands=[cb_id, num_tiles])
@@ -33,20 +33,20 @@ class CBWaitFront(IRDLOperation):
 class CBPagesReservableAtBack(IRDLOperation):
     name = "cb.pages_reservable_at_back"
 
-    cb_id = operand_def(IntegerType)
-    num_pages = operand_def(IntegerType)
-    result = result_def(IntegerType(1))
+    cb_id = operand_def(i32)
+    num_pages = operand_def(i32)
+    result = result_def(i1)
 
     def __init__(self, cb_id: SSAValue | Operation, num_pages: SSAValue | Operation):
-        super().__init__(operands=[cb_id, num_pages], result_types=[IntegerType(1)])
+        super().__init__(operands=[cb_id, num_pages], result_types=[i1])
 
 
 @irdl_op_definition
 class CBReserveBack(IRDLOperation):
     name = "cb.reserve_back"
 
-    cb_id = operand_def(IntegerType)
-    num_tiles = operand_def(IntegerType)
+    cb_id = operand_def(i32)
+    num_tiles = operand_def(i32)
 
     def __init__(self, cb_id: SSAValue | Operation, num_tiles: SSAValue | Operation):
         super().__init__(operands=[cb_id, num_tiles])
@@ -56,8 +56,8 @@ class CBReserveBack(IRDLOperation):
 class CBPushBack(IRDLOperation):
     name = "cb.push_back"
 
-    cb_id = operand_def(IntegerType)
-    num_tiles = operand_def(IntegerType)
+    cb_id = operand_def(i32)
+    num_tiles = operand_def(i32)
 
     def __init__(self, cb_id: SSAValue | Operation, num_tiles: SSAValue | Operation):
         super().__init__(operands=[cb_id, num_tiles])
@@ -67,8 +67,8 @@ class CBPushBack(IRDLOperation):
 class CBPopFront(IRDLOperation):
     name = "cb.pop_front"
 
-    cb_id = operand_def(IntegerType)
-    num_tiles = operand_def(IntegerType)
+    cb_id = operand_def(i32)
+    num_tiles = operand_def(i32)
 
     def __init__(self, cb_id: SSAValue | Operation, num_tiles: SSAValue | Operation):
         super().__init__(operands=[cb_id, num_tiles])
