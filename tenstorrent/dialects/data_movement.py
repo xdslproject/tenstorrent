@@ -160,6 +160,7 @@ class DMNocSemaphoreWait(IRDLOperation):
     sem_addr = operand_def(MemRefType(uint32, [1]))
     val = operand_def(uint32)
 
+    # TODO: add MLIR validation, and use memref in place of memref.load for certain args somehow
     def __init__(self, sem_addr: SSAValue | Operation, val: SSAValue | Operation):
         super().__init__(operands=[sem_addr, val])
 
