@@ -1,7 +1,6 @@
 import tenstorrent as tt
-from tenstorrent.frontend import (cb_push_back, cb_wait_front,
-                                  cb_pop_front, cb_pages_available_at_front,
-                                  cb_reserve_back, cb_pages_reservable_at_back)
+from tenstorrent.frontend.dummy import *
+
 
 @tt.data_in
 def single_assignment():
@@ -226,6 +225,27 @@ def adv_arg_eval():
         d = cb_pages_reservable_at_back(a, i)
 
 
+@tt.data_in
+def call_noc_funcs():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    f = False
+    g = True
+
+    noc_async_write_multicast(a, b, c, d, e, f, g)
+    noc_semaphore_set_multicast(a, b, c, d, f, g)
+    noc_async_write(a, b, c, d)
+    noc_async_read(a, b, c, d)
+    noc_semaphore_set(a, b)
+    noc_semaphore_wait(a, b)
+    noc_semaphore_inc(a, b, c)
+    noc_async_read_barrier(a)
+    noc_async_write_barrier(a)
+
+
 # Constructs currently implemented:
 #   - assignment
 #   - ints, floats, mixed
@@ -273,3 +293,4 @@ division()
 bool_assign()
 func_call()
 adv_arg_eval()
+call_noc_funcs()

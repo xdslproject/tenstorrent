@@ -24,6 +24,15 @@ class TypeChecker(ast.NodeVisitor):
             cb_reserve_back.__name__: NoneType(),
             cb_pages_available_at_front.__name__: IntegerType(1),
             cb_pages_reservable_at_back.__name__: IntegerType(1),
+            noc_semaphore_set.__name__: NoneType(),
+            noc_semaphore_set_multicast.__name__: NoneType(),
+            noc_async_write_multicast.__name__: NoneType(),
+            noc_async_write.__name__: NoneType(),
+            noc_async_read.__name__: NoneType(),
+            noc_semaphore_inc.__name__: NoneType(),
+            noc_semaphore_wait.__name__: NoneType(),
+            noc_async_read_barrier.__name__: NoneType(),
+            noc_async_write_barrier.__name__: NoneType(),
         }
 
     def generic_visit(self, node):

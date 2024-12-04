@@ -79,6 +79,15 @@ class PythonToMLIR(ast.NodeVisitor):
             cb_wait_front.__name__: CBWaitFront,
             cb_pages_reservable_at_back.__name__: CBPagesReservableAtBack,
             cb_pages_available_at_front.__name__: CBPagesAvailableAtFront,
+            noc_async_read.__name__: DMNocAsyncRead,
+            noc_async_write.__name__: DMNocAsyncWrite,
+            noc_semaphore_set.__name__: DMNocSemaphoreSet,
+            noc_semaphore_set_multicast.__name__: DMNocSemaphoreSetMulticast,
+            noc_async_write_multicast.__name__: DMNocAsyncWriteMulticast,
+            noc_semaphore_wait.__name__: DMNocSemaphoreWait,
+            noc_semaphore_inc.__name__: DMNocSemaphoreInc,
+            noc_async_read_barrier.__name__: DMNocAsyncReadBarrier,
+            noc_async_write_barrier.__name__: DMNocAsyncWriteBarrier,
         }
 
     def get_type(self, variable_name: str):
@@ -371,17 +380,23 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def visit_Call(self, node) -> List[Operation]:
         name = node.func.id
-        if name in self._functions:
-            arg1 = self.visit(node.args[0])
-            arg2 = self.visit(node.args[1])
+        if name not in self._functions:
+            raise NotImplementedError(f"Unhandled function {name}")
 
-            operation = self._functions[name](
-                arg1[-1].results[0],
-                arg2[-1].results[0]
-            )
-            return arg1 + arg2 + [operation]
+        # We evaluate args in Python order (programmer intention) and then swap
+        # only the SSA results that are given to the operation to preserve semantics
+        ops_per_arg = [self.visit(arg) for arg in node.args]
+        operations = list(flatten(ops_per_arg))
+        results = list(map(lambda ops: ops[-1].results[0], ops_per_arg))
 
-        raise NotImplementedError(f"Unhandled function {name}")
+        match name:
+            case noc_async_write_multicast.__name__:
+                results[4], results[5], results[6] = results[5], results[6], results[4]
+            case noc_semaphore_set_multicast.__name__:
+                results[3], results[4], results[5] = results[4], results[5], results[3]
+
+        operation = self._functions[name](*results)
+        return operations + [operation]
 
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:

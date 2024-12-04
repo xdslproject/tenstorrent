@@ -18,6 +18,10 @@ StatefulCircularBufferOperation = CBReserveBack | CBPushBack | CBPopFront | CBWa
 
 TRUE = IntegerAttr.from_int_and_width(1, 1)
 
+# TODO: currently printing API calls/func names is hardcoded, but should not vary based on whether the function is
+#     used on its own (as a statement) or used on the rhs (as an expression). Should handle this to remove a lot
+#     of the boilerplate.
+
 
 class PrintMetalium:
     """
@@ -108,14 +112,17 @@ class PrintMetalium:
                 self.print_tt_op(operation)
                 operation = operation.next_op
 
+            elif type(operation) in DataMovement.operations:
+                self.print_tt_op(operation)
+                operation = operation.next_op
+
             # skip constants on their own, will be picked up later if used
             elif type(operation) in self._skip:
                 operation = operation.next_op
                 continue
 
             else:
-                self.print(f"UNHANDLED OPERATION: {operation.__class__.__name__}")
-                break
+                raise NotImplementedError(f"Unhandled operation: {operation.__class__.__name__}")
 
 
     def print_module(self, module: ModuleOp):
@@ -248,10 +255,10 @@ class PrintMetalium:
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
     def print_tt_op(self, operation: StatefulCircularBufferOperation):
-        api_name = operation.name.replace('.', '_')
-        arg1 = self.get_value(operation.operands[0])
-        arg2 = self.get_value(operation.operands[1])
-        self.print(f"{api_name}({arg1}, {arg2});")
+        api_name = operation.name.replace('.', '_').replace('dm_', '')
+
+        values = [self.get_value(op) for op in operation.operands]
+        self.print(f"{api_name}({', '.join(values)});")
 
     def print(self, s: str, indented: bool = True):
         prefix = self._prefix if indented else ""
