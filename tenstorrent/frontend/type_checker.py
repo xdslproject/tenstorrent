@@ -38,6 +38,9 @@ class TypeChecker(ast.NodeVisitor):
     def generic_visit(self, node):
         raise Exception(f"Unhandled node type {node.__class__.__name__}")
 
+    def visit_Import(self, node):
+        pass
+
 
     def dominating_type(self, a, b) -> MLIRType:
         if a == b:
