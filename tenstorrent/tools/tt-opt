@@ -16,14 +16,14 @@ from backend.print_metalium import PrintMetalium
 class TTOptMain(xDSLOptMain):
 
     def register_all_passes(self):
-        super().register_all_passes()       
+        super().register_all_passes()
 
     def register_all_targets(self):
         super().register_all_targets()
 
         def _output_metalium(prog: ModuleOp, output: IO[str]):
           printer = PrintMetalium()
-          printer.print_op(prog, output)
+          printer.print_op(prog)
 
         self.available_targets["tt-metalium"] = _output_metalium
 
