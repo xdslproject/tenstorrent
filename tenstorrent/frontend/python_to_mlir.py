@@ -59,16 +59,16 @@ class PythonToMLIR(ast.NodeVisitor):
 
         self._operations: Dict[MLIRType, Dict[type(ast.operator), type(IRDLOperation)]] = {
             IntegerType(32): {
-                ast.Add: arith.Addi,
-                ast.Mult: arith.Muli,
-                ast.Sub: arith.Subi,
-                ast.Div: arith.Divf,
+                ast.Add: arith.AddiOp,
+                ast.Mult: arith.MuliOp,
+                ast.Sub: arith.SubiOp,
+                ast.Div: arith.DivfOp,
             },
             Float32Type(): {
-                ast.Add: arith.Addf,
-                ast.Mult: arith.Mulf,
-                ast.Sub: arith.Subf,
-                ast.Div: arith.Divf,
+                ast.Add: arith.AddfOp,
+                ast.Mult: arith.MulfOp,
+                ast.Sub: arith.SubfOp,
+                ast.Div: arith.DivfOp,
             }
         }
 
@@ -105,6 +105,9 @@ class PythonToMLIR(ast.NodeVisitor):
         print("Missing handling for: " + node.__class__.__name__)
         raise Exception(f"Unhandled construct, no parser provided: {node.__class__.__name__}")
 
+    def visit_Import(self, node) -> List[Operation]:
+        return []
+
     def visit_Module(self, node) -> List[Operation]:
         operations: List[Operation] = []
 
@@ -126,6 +129,8 @@ class PythonToMLIR(ast.NodeVisitor):
         for child in node.body:
             ops = self.visit(child)
             operations.extend(ops)
+
+        operations.append(func.ReturnOp())
 
         block = Block(operations)
         region = Region(block)
@@ -164,7 +169,7 @@ class PythonToMLIR(ast.NodeVisitor):
             operations += [location]
 
         # store result in that memref
-        store = memref.Store.get(rhs_val, location, [])
+        store = memref.StoreOp.get(rhs_val, location, [])
 
         return operations + [store]
 
@@ -185,13 +190,13 @@ class PythonToMLIR(ast.NodeVisitor):
         data = node.value
 
         if isinstance(data, bool):
-            return [arith.Constant(IntegerAttr(data, IntegerType(1)))]
+            return [arith.ConstantOp(IntegerAttr(data, IntegerType(1)))]
 
         if isinstance(data, int):
-            return [arith.Constant(IntegerAttr(data, IntegerType(32)))]
+            return [arith.ConstantOp(IntegerAttr(data, IntegerType(32)))]
 
         if isinstance(data, float):
-            return [arith.Constant(FloatAttr(data, Float32Type()))]
+            return [arith.ConstantOp(FloatAttr(data, Float32Type()))]
 
         raise Exception(f"Unhandled constant type: {data.__class__.__name__}")
 
@@ -442,7 +447,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return allocations
 
-    def allocate_memory(self, symbol: str) -> memref.Alloc:
-        memory = memref.Alloc([], [], MemRefType(self.get_type(symbol), [1]))
+    def allocate_memory(self, symbol: str) -> memref.AllocOp:
+        memory = memref.AllocOp([], [], MemRefType(self.get_type(symbol), []))
         self.symbol_table[symbol] = memory
         return memory
