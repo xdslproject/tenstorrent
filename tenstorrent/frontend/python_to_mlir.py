@@ -117,11 +117,15 @@ class PythonToMLIR(ast.NodeVisitor):
             operations.extend(ops)
 
         # after all processing is done, wrap in module operation
-        self.operations = builtin.ModuleOp(operations, {"kernel_type": builtin.StringAttr("data_in")})
+        self.operations = builtin.ModuleOp(operations)
         return [self.operations]
 
     def visit_FunctionDef(self, node) -> List[Operation]:
         operations: List[Operation] = []
+
+        decorator_name=None
+        if (len(node.decorator_list) == 1):
+          decorator_name=(node.decorator_list[0].attr)
 
         # set the current scope
         self.operations = operations
@@ -135,12 +139,14 @@ class PythonToMLIR(ast.NodeVisitor):
         block = Block(operations)
         region = Region(block)
 
-        # return some function definition with contents
-        return [func.FuncOp(
-            node.name,
+        func_op=func.FuncOp(
+            "kernel_main",
             FunctionType.from_lists([], []),
             region
-        )]
+        )
+
+        # return some function definition with contents
+        return [builtin.ModuleOp([func_op], {"kernel_type": builtin.StringAttr("data_in")})]
 
     def visit_Assign(self, node) -> List[Operation]:
         # visit RHS, e.g. Constant in 'a = 0'
