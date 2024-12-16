@@ -117,7 +117,7 @@ class PythonToMLIR(ast.NodeVisitor):
             operations.extend(ops)
 
         # after all processing is done, wrap in module operation
-        self.operations = builtin.ModuleOp(operations)
+        self.operations = builtin.ModuleOp(operations, {"kernel_type": builtin.StringAttr("data_in")})
         return [self.operations]
 
     def visit_FunctionDef(self, node) -> List[Operation]:
