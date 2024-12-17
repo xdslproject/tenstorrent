@@ -1,9 +1,10 @@
 import ast
 from typing import Dict
-
+from xdsl.utils.hints import isa
 from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType, NoneType
 
 from .dummy import *
+from tenstorrent.dialects import *
 
 
 MLIRType = IntegerType | Float32Type | IndexType | NoneType
@@ -108,11 +109,15 @@ class TypeChecker(ast.NodeVisitor):
         return self.visit(node.value)
 
     def visit_Call(self, node: ast.Call) -> MLIRType:
-        name = node.func.id
-        if name in self.types:
-            return self.types[name]
+        if isa(node.func, ast.Attribute):
+          name=node.func.attr
+          if name == "Core": return CoreCoord
+        else:
+          name = node.func.id
+          if name in self.types:
+              return self.types[name]
 
-        raise NotImplementedError(f"Unhandled call: {name}")
+          raise NotImplementedError(f"Unhandled call: {name}")
 
     # ********* Generic visits *********
     def visit_Module(self, node):
