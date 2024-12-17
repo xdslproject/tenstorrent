@@ -108,6 +108,9 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Import(self, node) -> List[Operation]:
         return []
 
+    def visit_Pass(self, node) -> List[Operation]:
+        return []
+
     def visit_Module(self, node) -> List[Operation]:
         operations: List[Operation] = []
 
@@ -139,6 +142,12 @@ class PythonToMLIR(ast.NodeVisitor):
         block = Block(operations)
         region = Region(block)
 
+        fn_name=node.name
+        if decorator_name == "data_in":
+          fn_name="kernel_main"
+        elif decorator_name == "host":
+          fn_name="main"
+
         func_op=func.FuncOp(
             "kernel_main",
             FunctionType.from_lists([], []),
@@ -146,7 +155,7 @@ class PythonToMLIR(ast.NodeVisitor):
         )
 
         # return some function definition with contents
-        return [builtin.ModuleOp([func_op], {"kernel_type": builtin.StringAttr("data_in")})]
+        return [builtin.ModuleOp([func_op], {"kernel_type": builtin.StringAttr(decorator_name)})]
 
     def visit_Assign(self, node) -> List[Operation]:
         # visit RHS, e.g. Constant in 'a = 0'

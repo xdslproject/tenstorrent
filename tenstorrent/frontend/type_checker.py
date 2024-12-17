@@ -41,6 +41,9 @@ class TypeChecker(ast.NodeVisitor):
     def visit_Import(self, node):
         pass
 
+    def visit_Pass(self, node):
+        pass
+
 
     def dominating_type(self, a, b) -> MLIRType:
         if a == b:
