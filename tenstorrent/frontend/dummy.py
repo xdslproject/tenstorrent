@@ -1,3 +1,40 @@
+import inspect
+from functools import wraps
+from typing import Literal, get_type_hints
+import ast
+
+
+def enforce_literals(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        type_hints = get_type_hints(func)
+
+        # Inspect the calling frame
+        frame = inspect.currentframe().f_back
+        code_context = inspect.getframeinfo(frame).code_context
+        if not code_context:
+            raise RuntimeError("Could not inspect caller's source code.")
+        source_code = ''.join(code_context).strip()
+        parsed = ast.parse(source_code)
+
+        # Find the function call node
+        call_node = parsed.body[0].value
+        if not isinstance(call_node, ast.Call):
+            raise RuntimeError("The inspected code is not a function call.")
+
+        # validate each argument
+        for arg, var in zip(call_node.args, type_hints):
+            hint = type_hints[var]
+            if hasattr(hint, '__origin__') and hint.__origin__ is Literal:
+                if not isinstance(arg, ast.Constant):
+                    raise Exception(f"Expected argument '{var}' to be a literal,"
+                                    f" but found identifier: '{arg.id}'")
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 # Circular buffer dialect
 def cb_pages_available_at_front(cb_id: int, num_pages: int) -> bool:
     pass
@@ -77,8 +114,9 @@ def noc_semaphore_inc(addr: int, incr: int, noc_id: int):
     pass
 
 
+@enforce_literals
 def get_noc_addr_from_bank_id(
-        dram: bool,
+        dram: Literal[True, False],
         bank_id: int,
         bank_address_offset: int,
         noc: int
