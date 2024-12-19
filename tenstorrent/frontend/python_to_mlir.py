@@ -384,6 +384,12 @@ class PythonToMLIR(ast.NodeVisitor):
         if name not in self._functions:
             raise NotImplementedError(f"Unhandled function {name}")
 
+        properties = []
+
+        match name:
+            case get_noc_addr_from_bank_id.__name__:
+                properties.append(IntegerAttr(node.args.pop(0).value, IntegerType(1)))
+
         # We evaluate args in Python order (programmer intention) and then swap
         # only the SSA results that are given to the operation to preserve semantics
         ops_per_arg = [self.visit(arg) for arg in node.args]
@@ -396,7 +402,8 @@ class PythonToMLIR(ast.NodeVisitor):
             case noc_semaphore_set_multicast.__name__:
                 results[3], results[4], results[5] = results[4], results[5], results[3]
 
-        operation = self._functions[name](*results)
+        args = properties + results
+        operation = self._functions[name](*args)
         return operations + [operation]
 
 

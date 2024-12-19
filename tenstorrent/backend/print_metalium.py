@@ -4,7 +4,7 @@ from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntege
     FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp, Divf
 from xdsl.dialects.scf import For, Yield, If, While
 from xdsl.dialects.memref import Alloc, Store, Load
-from xdsl.ir import Block, Region, OpResult
+from xdsl.ir import Block, Region, OpResult, Attribute
 
 from tenstorrent.dialects import *
 
@@ -89,7 +89,7 @@ class PrintMetalium:
 
         while operation:
             if isinstance(operation, FuncOp):
-                self.print_func(operation)
+                self.print_func_def(operation)
                 operation = operation.next_op
 
             elif isinstance(operation, Alloc):
@@ -130,7 +130,7 @@ class PrintMetalium:
             for block in region.blocks:
                 self.print_block(block)
 
-    def print_func(self, func: FuncOp):
+    def print_func_def(self, func: FuncOp):
         """
         void func_name(typea a, typeb b, ...) {
 
@@ -223,15 +223,18 @@ class PrintMetalium:
 
         return name
 
-    def get_value(self, ssa_value: SSAValue) -> str:
+    def get_value(self, elem: SSAValue | Attribute) -> str:
         """
         Returns a textual representation of the expression that the ssa_value
         is assigned to.
         """
-        if ssa_value in self._names:
-            return self._names[ssa_value]
+        if elem in self._names:
+            return self._names[elem]
 
-        creator = ssa_value.owner
+        if isinstance(elem, Attribute):
+            return str(elem.value.data).lower()
+
+        creator = elem.owner
         if isinstance(creator, Constant):
             return str(creator.value.value.data).lower()
 
@@ -258,7 +261,15 @@ class PrintMetalium:
         api_name = operation.name.replace('.', '_').replace('dm_', '')
 
         values = [self.get_value(op) for op in operation.operands]
-        self.print(f"{api_name}({', '.join(values)});")
+        template_args = self.template_args_as_string(operation)
+        self.print(f"{api_name}{template_args}({', '.join(values)});")
+
+
+    def template_args_as_string(self, operation: IRDLOperation):
+        if not operation.properties:
+            return ""
+
+        return f"<{', '.join([self.get_value(p) for p in operation.properties.values()])}>"
 
     def print(self, s: str, indented: bool = True):
         prefix = self._prefix if indented else ""
