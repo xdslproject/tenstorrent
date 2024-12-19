@@ -75,3 +75,17 @@ def noc_semaphore_wait(sem_addr: int, val: int):
 
 def noc_semaphore_inc(addr: int, incr: int, noc_id: int):
     pass
+
+
+def get_noc_addr_from_bank_id(
+        dram: bool,
+        bank_id: int,
+        bank_address_offset: int,
+        noc: int
+) -> int:
+    pass
+
+
+def get_noc_address(some_id: int):
+    # TODO: implement this with other args
+    pass

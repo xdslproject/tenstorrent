@@ -88,6 +88,7 @@ class PythonToMLIR(ast.NodeVisitor):
             noc_semaphore_inc.__name__: DMNocSemaphoreInc,
             noc_async_read_barrier.__name__: DMNocAsyncReadBarrier,
             noc_async_write_barrier.__name__: DMNocAsyncWriteBarrier,
+            get_noc_addr_from_bank_id.__name__: DMGetNocAddrFromBankId,
         }
 
     def get_type(self, variable_name: str):

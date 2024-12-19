@@ -60,5 +60,10 @@ builtin.module {
     "dm.noc_async_read_barrier"(%42) : (i32) -> ()
     %43 = memref.load %1[] : memref<1xi32>
     "dm.noc_async_write_barrier"(%43) : (i32) -> ()
+    %44 = memref.load %11[] : memref<1xi1>
+    %45 = memref.load %1[] : memref<1xi32>
+    %46 = memref.load %3[] : memref<1xi32>
+    %47 = memref.load %5[] : memref<1xi32>
+    %48 = "dm.get_noc_addr_from_bank_id"(%44, %45, %46, %47) : (i1, i32, i32, i32) -> ui64
   }
 }

@@ -181,22 +181,24 @@ class DMNocSemaphoreInc(IRDLOperation):
 class DMGetNocAddrFromBankId(IRDLOperation):
     name = "dm.get_noc_addr_from_bank_id"
 
+    dram = operand_def(i1)  # TODO: really a template param in their API, prop_def
+
     bank_id = operand_def(uint32)
     bank_address_offset = operand_def(uint32)
     noc = operand_def(uint8)  # should have default = noc_index
-    dram = operand_def(i1)  # TODO: really a template param in their API
     result = result_def(uint64)
 
     def __init__(self,
+                 dram: bool,
                  bank_id: SSAValue | Operation,
                  bank_address_offset: SSAValue | Operation,
                  noc: SSAValue | Operation,
-                 dram: bool):
+                 ):
         super().__init__(operands=[
+            dram,
             bank_id,
             bank_address_offset,
             noc,
-            dram
         ], result_types=[uint64])
 
 
