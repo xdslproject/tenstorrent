@@ -34,6 +34,7 @@ class TypeChecker(ast.NodeVisitor):
             noc_semaphore_wait.__name__: NoneType(),
             noc_async_read_barrier.__name__: NoneType(),
             noc_async_write_barrier.__name__: NoneType(),
+            get_noc_addr_from_bank_id.__name__: IntegerType(32),
         }
 
     def generic_visit(self, node):

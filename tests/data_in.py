@@ -244,6 +244,7 @@ def call_noc_funcs():
     noc_semaphore_inc(a, b, c)
     noc_async_read_barrier(a)
     noc_async_write_barrier(a)
+    get_noc_addr_from_bank_id(True, a, b, 3)
 
 
 # Constructs currently implemented:

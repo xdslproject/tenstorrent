@@ -1,6 +1,6 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType
+from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr
 from xdsl.ir import SSAValue, Operation, Dialect
-from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def
+from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def
 
 
 uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
@@ -177,6 +177,30 @@ class DMNocSemaphoreInc(IRDLOperation):
         super().__init__(operands=[addr, incr, noc_id])
 
 
+@irdl_op_definition
+class DMGetNocAddrFromBankId(IRDLOperation):
+    name = "dm.get_noc_addr_from_bank_id"
+
+    dram = prop_def(i1)
+
+    bank_id = operand_def(uint32)
+    bank_address_offset = operand_def(uint32)
+    noc = operand_def(uint8)  # should have default = noc_index
+    result = result_def(uint64)
+
+    def __init__(self,
+                 dram: IntegerAttr,
+                 bank_id: SSAValue | Operation,
+                 bank_address_offset: SSAValue | Operation,
+                 noc: SSAValue | Operation,
+                 ):
+        super().__init__(
+            operands=[bank_id, bank_address_offset, noc],
+            properties={"dram": dram},
+            result_types=[uint64]
+        )
+
+
 DataMovement = Dialect(
     "dm",
     [
@@ -188,7 +212,8 @@ DataMovement = Dialect(
         DMNocSemaphoreSetMulticast,
         DMNocSemaphoreSet,
         DMNocSemaphoreWait,
-        DMNocSemaphoreInc
+        DMNocSemaphoreInc,
+        DMGetNocAddrFromBankId,
     ],
     []
 )
