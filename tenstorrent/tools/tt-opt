@@ -1,0 +1,84 @@
+#!/usr/bin/env python3.10
+
+import argparse
+import ast, os, glob
+from io import IOBase
+from typing import IO
+#from xdsl.ir import MLContext
+from xdsl.dialects.builtin import ModuleOp
+from pathlib import Path
+from typing import Callable, Dict, List
+from xdsl.xdsl_opt_main import xDSLOptMain
+from dialects.data_movement import DataMovement
+from dialects.circular_buffer import CircularBuffer
+from backend.print_metalium import PrintMetalium
+
+class TTOptMain(xDSLOptMain):
+
+    def register_all_passes(self):
+        super().register_all_passes()
+
+    def register_all_targets(self):
+        super().register_all_targets()
+
+        def _output_metalium(prog: ModuleOp, output: IO[str]):
+          printer = PrintMetalium()
+          printer.print_op(prog)
+
+        self.available_targets["tt-metalium"] = _output_metalium
+
+    def setup_pipeline(self):
+      super().setup_pipeline()
+
+    def register_all_arguments(self, arg_parser: argparse.ArgumentParser):
+      super().register_all_arguments(arg_parser)
+
+    def register_all_dialects(self):
+        super().register_all_dialects()
+        self.ctx.load_dialect(DataMovement)
+        self.ctx.load_dialect(CircularBuffer)
+
+    @staticmethod
+    def get_passes_as_dict(
+    ) -> Dict[str, Callable[[ModuleOp], None]]:
+        """Add all passes that can be called by psy-opt in a dictionary."""
+
+        pass_dictionary = {}
+
+        passes = FtnOptMain.passes_native
+
+        for pass_function in passes:
+            pass_dictionary[pass_function.__name__.replace(
+                "_", "-")] = pass_function
+
+        return pass_dictionary
+
+    def get_passes_as_list(native=False, integrated=False) -> List[str]:
+        """Add all passes that can be called by psy-opt in a dictionary."""
+
+        pass_list = []
+
+        passes = FtnOptMain.passes_native
+
+        for pass_function in passes:
+            pass_list.append(pass_function.__name__.replace("_", "-"))
+
+        return pass_list
+
+    def register_all_frontends(self):
+        super().register_all_frontends()
+
+def __main__():
+    tt_main = TTOptMain()
+
+    #try:
+    tt_main.run()
+    #except SyntaxError as e:
+    #    print(e.get_message())
+    #    exit(0)
+    #except Exception as e:
+    #    print("Error: %s" % str(e))
+    #    exit(0)
+
+if __name__ == "__main__":
+    __main__()

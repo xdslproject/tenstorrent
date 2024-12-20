@@ -1,18 +1,18 @@
 from xdsl.dialects.builtin import ModuleOp, IndexType, Float32Type, IntegerAttr, i1, i32, f32
-from xdsl.dialects.func import FuncOp
-from xdsl.dialects.arith import Constant, Addi, Muli, Addf, Mulf, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, Cmpi, AndI, OrI, Cmpf, ComparisonOperation, XOrI, Subi, Subf, ExtFOp, Divf
-from xdsl.dialects.scf import For, Yield, If, While
-from xdsl.dialects.memref import Alloc, Store, Load
+from xdsl.dialects.func import FuncOp, ReturnOp
+from xdsl.dialects.arith import ConstantOp, AddiOp, MuliOp, AddfOp, MulfOp, SignlessIntegerBinaryOperation, IndexCastOp, \
+    FloatingPointLikeBinaryOperation, CmpiOp, AndIOp, OrIOp, CmpfOp, ComparisonOperation, XOrIOp, SubiOp, SubfOp, ExtFOp, DivfOp
+from xdsl.dialects.scf import ForOp, YieldOp, IfOp, WhileOp
+from xdsl.dialects.memref import AllocOp, StoreOp, LoadOp
 from xdsl.ir import Block, Region, OpResult, Attribute
 
-from tenstorrent.dialects import *
+from dialects import *
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
-BooleanOperation = AndI | OrI | Cmpi | Cmpf
+BooleanOperation = AndIOp | OrIOp | CmpiOp | CmpfOp
 BinaryOperation = ArithmeticOperation | BooleanOperation
-OpWithBody = FuncOp | For | While
+OpWithBody = FuncOp | ForOp | WhileOp
 CircularBufferOperationWithResult = CBPagesAvailableAtFront | CBPagesReservableAtBack
 StatefulCircularBufferOperation = CBReserveBack | CBPushBack | CBPopFront | CBWaitFront
 
@@ -32,16 +32,16 @@ class PrintMetalium:
         self._file = file
         self._names = {}  # SSAVal -> Variable Name
         self._op_to_sym = {
-            Addi: "+",
-            Muli: "*",
-            Addf: "+",
-            Mulf: "*",
-            AndI: "&&",
-            OrI: "||",
-            XOrI: "^",
-            Subi: "-",
-            Subf: "-",
-            Divf: "/",
+            AddiOp: "+",
+            MuliOp: "*",
+            AddfOp: "+",
+            MulfOp: "*",
+            AndIOp: "&&",
+            OrIOp: "||",
+            XOrIOp: "^",
+            SubiOp: "-",
+            SubfOp: "-",
+            DivfOp: "/",
         }
 
         self._int_comparison_ops = {
@@ -79,56 +79,59 @@ class PrintMetalium:
         }
 
         self._skip = [
-            Constant, Alloc, Load, Addi, Muli, Addf, Mulf, IndexCastOp, Yield,
-            Cmpi, AndI, OrI, XOrI, Subi, Subf, ExtFOp, Divf,
+            ConstantOp, AllocOp, LoadOp, AddiOp, MuliOp, AddfOp, MulfOp, IndexCastOp, YieldOp,
+            CmpiOp, AndIOp, OrIOp, XOrIOp, SubiOp, SubfOp, ExtFOp, DivfOp,
             CBPagesReservableAtBack, CBPagesAvailableAtFront
         ]
 
-    def print_block(self, block: Block):
-        operation = block.ops.first
-
-        while operation:
-            if isinstance(operation, FuncOp):
-                self.print_func_def(operation)
-                operation = operation.next_op
-
-            elif isinstance(operation, Alloc):
-                self.print_declaration(operation)
-                operation = operation.next_op
-
-            elif isinstance(operation, Store):
-                self.print_assignment(operation)
-                operation = operation.next_op
-
-            elif isinstance(operation, For):
-                self.print_for_loop(operation)
-                operation = operation.next_op
-
-            elif isinstance(operation, If):
-                self.print_if_statement(operation)
-                operation = operation.next_op
-
-            elif isinstance(operation, StatefulCircularBufferOperation):
-                self.print_tt_op(operation)
-                operation = operation.next_op
-
-            elif type(operation) in DataMovement.operations:
-                self.print_tt_op(operation)
-                operation = operation.next_op
-
-            # skip constants on their own, will be picked up later if used
-            elif type(operation) in self._skip:
-                operation = operation.next_op
-                continue
-
-            else:
-                raise NotImplementedError(f"Unhandled operation: {operation.__class__.__name__}")
-
-
-    def print_module(self, module: ModuleOp):
-        for region in module.regions:
+    def print_op(self, operation):
+        if isinstance(operation, ModuleOp):
+          for region in operation.regions:
             for block in region.blocks:
-                self.print_block(block)
+              self.print_op(block)
+
+        elif isinstance(operation, Block):
+          for op in operation.ops:
+            self.print_op(op)
+
+        elif isinstance(operation, FuncOp):
+            self.print_func_def(operation)
+            operation = operation.next_op
+
+        elif isinstance(operation, ReturnOp):
+          pass
+
+        elif isinstance(operation, AllocOp):
+            self.print_declaration(operation)
+            operation = operation.next_op
+
+        elif isinstance(operation, StoreOp):
+            self.print_assignment(operation)
+            operation = operation.next_op
+
+        elif isinstance(operation, ForOp):
+            self.print_for_loop(operation)
+            operation = operation.next_op
+
+        elif isinstance(operation, IfOp):
+            self.print_if_statement(operation)
+            operation = operation.next_op
+
+        elif isinstance(operation, StatefulCircularBufferOperation):
+            self.print_tt_op(operation)
+            operation = operation.next_op
+
+        elif type(operation) in DataMovement.operations:
+            self.print_tt_op(operation)
+            operation = operation.next_op
+
+        # skip constants on their own, will be picked up later if used
+        elif type(operation) in self._skip:
+            operation = operation.next_op
+
+        else:
+            raise NotImplementedError(f"Unhandled operation: {operation.__class__.__name__}")
+
 
     def print_func_def(self, func: FuncOp):
         """
@@ -144,7 +147,7 @@ class PrintMetalium:
 
         self.print("}")
 
-    def print_for_loop(self, loop: For):
+    def print_for_loop(self, loop: ForOp):
         # we know the first operation in the loop should be the store into i
         store_i = loop.body.block.first_op
         i_loop_ssa = store_i.operands[0]
@@ -166,11 +169,11 @@ class PrintMetalium:
 
     def print_region(self, body: Region):
         for block in body.blocks:
-            self.print_block(block)
+            self.print_op(block)
 
 
-    def print_declaration(self, op: Alloc):
-        index = isinstance(op.next_op, For)
+    def print_declaration(self, op: AllocOp):
+        index = isinstance(op.next_op, ForOp)
         var_name = self.create_fresh_variable(hint='i' if index else 'a')
         type_decl = self._mlir_to_cpp_type[op.result_types[0].element_type]
 
@@ -180,7 +183,7 @@ class PrintMetalium:
         self._names[ssa_referring_to_var] = var_name
 
 
-    def print_assignment(self, op: Store):
+    def print_assignment(self, op: StoreOp):
         # memref.store value, destination[]
         ssa_value = op.operands[0]
         ssa_destination = op.operands[1]
@@ -191,7 +194,7 @@ class PrintMetalium:
         self.print(f"{var_name} = {result};")
 
 
-    def print_if_statement(self, op: If):
+    def print_if_statement(self, op: IfOp):
         self.print(f"if ({self.get_value(op.cond)}) {'{'}")
 
         self._indent += 1
@@ -230,13 +233,13 @@ class PrintMetalium:
         """
         if elem in self._names:
             return self._names[elem]
-
+          
         if isinstance(elem, Attribute):
             return str(elem.value.data).lower()
 
         creator = elem.owner
-        if isinstance(creator, Constant):
-            return str(creator.value.value.data).lower()
+        if isinstance(creator, ConstantOp):
+            return str(creator.value.value.data).lower()            
 
         if isinstance(creator, IndexCastOp):
             return self.get_value(creator.operands[0])
@@ -247,7 +250,7 @@ class PrintMetalium:
         if isinstance(creator, BinaryOperation):
             return self.binary_op_string(creator)
 
-        if isinstance(creator, Load):
+        if isinstance(creator, LoadOp):
             return self.get_value(creator.operands[0])
 
         if isinstance(creator, CircularBufferOperationWithResult):
@@ -303,13 +306,13 @@ class PrintMetalium:
             assert isinstance(operand, OpResult)
             creator = operand.op
 
-            if isinstance(creator, Constant):
+            if isinstance(creator, ConstantOp):
                 values[i] = creator.value.value.data
 
             elif isinstance(creator, ExtFOp):
                 values[i] = "static_cast<float>(" + self.get_value(creator.operands[0]) + ")"
 
-            elif isinstance(creator, Load):
+            elif isinstance(creator, LoadOp):
                 values[i] = self._names[creator.operands[0]]
 
             elif isinstance(creator, ArithmeticOperation):
