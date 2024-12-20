@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-from xdsl.dialects.memref import Alloc
+from xdsl.dialects.memref import AllocOp
 
 
 @dataclass
@@ -18,7 +18,7 @@ class MemrefContext:
     dictionary: Dict[str, Alloc] = field(default_factory=dict)
     parent_scope: Optional[MemrefContext] = None
 
-    def __getitem__(self, identifier: str) -> Optional[Alloc]:
+    def __getitem__(self, identifier: str) -> Optional[AllocOp]:
         """Check if the given identifier is in the current scope, or a parent scope"""
         mem_location = self.dictionary.get(identifier, None)
         if mem_location:
@@ -28,7 +28,7 @@ class MemrefContext:
         else:
             return None
 
-    def __setitem__(self, identifier: str, alloc: Alloc):
+    def __setitem__(self, identifier: str, alloc: AllocOp):
         """Relate the given identifier and SSA value in the current scope"""
         self.dictionary[identifier] = alloc
 
