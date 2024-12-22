@@ -1,0 +1,4 @@
+immutabledict==4.2.0
+ordered-set==4.1.0
+typing_extensions==4.12.2
+xdsl==0.25.0
