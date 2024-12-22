@@ -125,7 +125,7 @@ class PythonToMLIR(ast.NodeVisitor):
         operations = self.generate_body_ops(node)
         operations.append(func.ReturnOp())
 
-        block = Block(list(filter(lambda x: isinstance(x, IRDLOperation), flatten(operations))))
+        block = Block(list(flatten(operations)))
         region = Region(block)
 
         fn_name = node.name
@@ -268,7 +268,6 @@ class PythonToMLIR(ast.NodeVisitor):
             if isinstance(node.orelse[0], ast.If):
                 or_else_ops, or_else_ssa_val = self.visit_If(node.orelse[0])
                 or_else_ops = list(flatten(or_else_ops))
-                or_else_ops = list(filter(lambda op: isinstance(op, IRDLOperation), or_else_ops))
                 or_else = Region(Block(or_else_ops))
             else:
                 or_else = []
