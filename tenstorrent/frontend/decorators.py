@@ -39,7 +39,7 @@ def data_in(func):
         printer.print(border2)
 
         out_printer = PrintMetalium()
-        out_printer.print_module(tree_walker.operations)
+        out_printer.print_op(tree_walker.operations)
 
         # print to file
         file_name = func.__name__
@@ -56,7 +56,7 @@ def data_in(func):
 
         with open(cpp_file_path, "w") as file:
             cpp_printer = PrintMetalium(file)
-            cpp_printer.print_module(tree_walker.operations)
+            cpp_printer.print_op(tree_walker.operations)
 
         return func(*args, **kwargs)
 

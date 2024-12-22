@@ -1,4 +1,4 @@
-void adv_arg_eval() {
+void kernel_main() {
     std::int32_t a;
     a = 27 + 3;
     bool a1;

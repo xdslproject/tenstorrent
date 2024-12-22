@@ -1,4 +1,4 @@
-void floating_point() {
+void kernel_main() {
     float a;
     a = 27.3 + 41.2;
     float a1;

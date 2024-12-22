@@ -6,7 +6,7 @@ from xdsl.dialects.scf import ForOp, YieldOp, IfOp, WhileOp
 from xdsl.dialects.memref import AllocOp, StoreOp, LoadOp
 from xdsl.ir import Block, Region, OpResult, Attribute
 
-from dialects import *
+from tenstorrent.dialects import *
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
@@ -198,7 +198,7 @@ class PrintMetalium:
         self.print(f"if ({self.get_value(op.cond)}) {'{'}")
 
         self._indent += 1
-        self.print_block(op.true_region.blocks[0])
+        self.print_op(op.true_region.blocks[0])
         self._indent -= 1
 
         or_else = len(op.false_region.blocks) > 0
@@ -233,12 +233,18 @@ class PrintMetalium:
         """
         if elem in self._names:
             return self._names[elem]
+
+        boolean = elem.type.name == 'integer_type' and elem.type.bitwidth == 1
           
         if isinstance(elem, Attribute):
+            if boolean and elem.value.data == -1:
+                return "true"
             return str(elem.value.data).lower()
 
         creator = elem.owner
         if isinstance(creator, ConstantOp):
+            if boolean and creator.value.value.data == -1:
+                return "true"
             return str(creator.value.value.data).lower()            
 
         if isinstance(creator, IndexCastOp):
@@ -293,7 +299,7 @@ class PrintMetalium:
             op_str = self._int_comparison_ops[operation.predicate]
 
         # whilst XOrI is a binary operation, we know it can encode 'not'
-        elif isinstance(operation, XOrI) and operation.operands[1].op.value == TRUE:
+        elif isinstance(operation, XOrIOp) and operation.operands[1].op.value == TRUE:
             return "!(" + self.binary_op_string(operation.operands[0].op) + ")"
 
         else:

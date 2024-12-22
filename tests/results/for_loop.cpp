@@ -1,4 +1,4 @@
-void for_loop() {
+void kernel_main() {
     std::int32_t a;
     std::int32_t a1;
     std::int32_t a2;
