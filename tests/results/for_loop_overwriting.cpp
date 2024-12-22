@@ -1,4 +1,4 @@
-void for_loop_overwriting() {
+void kernel_main() {
     std::int32_t a;
     a = 0;
     std::int32_t i;
