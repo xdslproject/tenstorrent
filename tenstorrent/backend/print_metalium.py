@@ -239,6 +239,9 @@ class PrintMetalium:
 
         creator = elem.owner
         if isinstance(creator, ConstantOp):
+            boolean = elem.type.bitwidth == 1 and elem.type.name == 'integer_type'
+            if boolean and creator.value.value.data == -1:
+                return "true"
             return str(creator.value.value.data).lower()            
 
         if isinstance(creator, IndexCastOp):
