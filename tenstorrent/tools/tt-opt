@@ -1,17 +1,14 @@
-#!/usr/bin/env python3.10
+#!/usr/bin/env .venv/bin/python
 
 import argparse
-import ast, os, glob
-from io import IOBase
 from typing import IO
-#from xdsl.ir import MLContext
 from xdsl.dialects.builtin import ModuleOp
-from pathlib import Path
 from typing import Callable, Dict, List
 from xdsl.xdsl_opt_main import xDSLOptMain
-from dialects.data_movement import DataMovement
-from dialects.circular_buffer import CircularBuffer
-from backend.print_metalium import PrintMetalium
+from tenstorrent.dialects.data_movement import DataMovement
+from tenstorrent.dialects.circular_buffer import CircularBuffer
+from tenstorrent.backend.print_metalium import PrintMetalium
+
 
 class TTOptMain(xDSLOptMain):
 
