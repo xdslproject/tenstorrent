@@ -233,13 +233,16 @@ class PrintMetalium:
         """
         if elem in self._names:
             return self._names[elem]
+
+        boolean = elem.type.name == 'integer_type' and elem.type.bitwidth == 1
           
         if isinstance(elem, Attribute):
+            if boolean and elem.value.data == -1:
+                return "true"
             return str(elem.value.data).lower()
 
         creator = elem.owner
         if isinstance(creator, ConstantOp):
-            boolean = elem.type.bitwidth == 1 and elem.type.name == 'integer_type'
             if boolean and creator.value.value.data == -1:
                 return "true"
             return str(creator.value.value.data).lower()            

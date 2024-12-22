@@ -1,4 +1,4 @@
-void greater_than() {
+void kernel_main() {
     std::int32_t a;
     a = 7;
     if (a > 3) {

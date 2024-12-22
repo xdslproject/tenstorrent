@@ -1,4 +1,4 @@
-void bool_assign() {
+void kernel_main() {
     bool a;
     a = true;
     bool a1;

@@ -1,4 +1,4 @@
-void boolean_operators() {
+void kernel_main() {
     std::int32_t a;
     a = 7;
     std::int32_t a1;

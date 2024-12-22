@@ -1,20 +1,18 @@
-import ast
+from typing import Dict, List, Tuple, Optional
 
 from xdsl.dialects import builtin, func, arith, memref, scf
-from xdsl.dialects.builtin import (IntegerAttr, IntegerType, FunctionType,
-                                   MemRefType, ModuleOp, IndexType, FloatAttr, Float32Type)
-from xdsl.ir import Operation, Region, Block, OpResult, SSAValue
-from typing import Dict, List
-from xdsl.irdl import IRDLOperation
+from xdsl.dialects.builtin import (FunctionType,
+                                   ModuleOp, IndexType, FloatAttr, Float32Type, BoolAttr)
+from xdsl.ir import Region, Block
+from xdsl.utils.hints import isa
 
+from tenstorrent.dialects import *
+from tenstorrent.utils import flatten, remove_duplicates, subtract
+from .dummy import *
 from .memref_context import MemrefContext
 from .type_checker import MLIRType
-from .dummy import *
-from xdsl.utils.hints import isa
-from tenstorrent.utils import flatten, remove_duplicates, subtract
-from tenstorrent.dialects import *
 
-NodeWithBody = ast.If | ast.For | ast.While
+NodeWithBody = ast.If | ast.For | ast.While | ast.FunctionDef
 
 
 class PythonToMLIR(ast.NodeVisitor):
@@ -110,53 +108,45 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Pass(self, node) -> List[Operation]:
         return []
 
-    def visit_Module(self, node) -> List[Operation]:
-        operations: List[Operation] = []
-
+    def visit_Module(self, node):
         # at the 'module' level should just be a single function def
-        for child in node.body:
-            ops = self.visit(child)
-            operations.extend(ops)
+        self.operations = self.visit(node.body[0])
 
-        # after all processing is done, wrap in module operation
-        self.operations = builtin.ModuleOp(operations)
-        return [self.operations]
-
-    def visit_FunctionDef(self, node) -> List[Operation]:
+    def visit_FunctionDef(self, node) -> Operation:
         operations: List[Operation] = []
 
-        decorator_name=None
-        if (len(node.decorator_list) == 1):
-          decorator_name=(node.decorator_list[0].attr)
+        decorator_name = None
+        if len(node.decorator_list) == 1:
+            decorator_name = node.decorator_list[0].attr
 
         # set the current scope
         self.operations = operations
 
-        for child in node.body:
-            ops, ssa = self.visit(child)
-            operations+=ops
-
+        operations = self.generate_body_ops(node)
         operations.append(func.ReturnOp())
 
-        block = Block(operations)
+        block = Block(list(filter(lambda x: isinstance(x, IRDLOperation), flatten(operations))))
         region = Region(block)
 
-        fn_name=node.name
+        fn_name = node.name
         if decorator_name == "data_in":
-          fn_name="kernel_main"
+            fn_name = "kernel_main"
         elif decorator_name == "host":
-          fn_name="main"
+            fn_name = "main"
 
-        func_op=func.FuncOp(
-            "kernel_main",
+        func_op = func.FuncOp(
+            fn_name,
             FunctionType.from_lists([], []),
             region
         )
 
         # return some function definition with contents
-        return [builtin.ModuleOp([func_op], {"kernel_type": builtin.StringAttr(decorator_name)})]
+        return builtin.ModuleOp(
+            [func_op],
+            {"kernel_type": builtin.StringAttr(decorator_name)}
+        )
 
-    def visit_Assign(self, node) -> List[Operation]:
+    def visit_Assign(self, node) -> Tuple[List[Operation], OpResult]:
         # visit RHS, e.g. Constant in 'a = 0'
         rhs_ops, rhs_ssa_val = self.visit(node.value)
         operations = rhs_ops
@@ -176,11 +166,11 @@ class PythonToMLIR(ast.NodeVisitor):
         if target_type != rhs_ssa_val.type:
             cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
             if len(cast_ops) > 0:
-              assert cast_ssa is not None
-              rhs_ssa_val = cast_ssa
-              operations += cast_ops
+                assert cast_ssa is not None
+                rhs_ssa_val = cast_ssa
+                operations += cast_ops
             else:
-              assert cast_ssa is None
+                assert cast_ssa is None
 
         if not seen:
             operations += [location]
@@ -188,139 +178,134 @@ class PythonToMLIR(ast.NodeVisitor):
         # store result in that memref
         store = memref.StoreOp.get(rhs_ssa_val, location, [])
 
-        return operations + [store], location
+        return operations + [store], location.results[0]
 
-    def get_cast(self, target_type: MLIRType, ssa_val: SSAValue) -> Operation:
+    def get_cast(self, target_type: MLIRType, ssa_val: SSAValue) -> Tuple[List[Operation], Optional[OpResult]]:
         if isinstance(ssa_val.type, IntegerType):
-            conv_op=None
+            conv_op = None
             match target_type:
                 case Float32Type():
-                    conv_op=arith.ExtFOp(ssa_val, Float32Type())
+                    conv_op = arith.ExtFOp(ssa_val, Float32Type())
 
                 case IndexType():
-                    conv_op=arith.IndexCastOp(ssa_val, IndexType())
+                    conv_op = arith.IndexCastOp(ssa_val, IndexType())
             if conv_op is not None:
-              return [conv_op], conv_op.results[0]
+                return [conv_op], conv_op.results[0]
         return [], None
 
-
-    def visit_Constant(self, node):
+    def visit_Constant(self, node) -> Tuple[List[Operation], OpResult]:
         data = node.value
 
-        arith_op=None
+        arith_op = None
 
         if isinstance(data, bool):
-            arith_op = arith.ConstantOp(IntegerAttr(data, IntegerType(1)))
+            arith_op = arith.ConstantOp(BoolAttr(data, IntegerType(1)))
         elif isinstance(data, int):
             arith_op = arith.ConstantOp(IntegerAttr(data, IntegerType(32)))
         elif isinstance(data, float):
             arith_op = arith.ConstantOp(FloatAttr(data, Float32Type()))
 
         if arith_op is None:
-          raise Exception(f"Unhandled constant type: {data.__class__.__name__}")
+            raise Exception(f"Unhandled constant type: {data.__class__.__name__}")
 
         return [arith_op], arith_op.results[0]
 
-    def visit_BinOp(self, node: ast.BinOp) -> List[Operation]:
-        lhs_ops, lhs_ssa_val = self.visit(node.left)
-        rhs_ops, rhs_ssa_val = self.visit(node.right)
+    def visit_BinOp(self, node: ast.BinOp) -> Tuple[List[Operation], OpResult]:
+        lhs, lhs_ssa_val = self.visit(node.left)
+        rhs, rhs_ssa_val = self.visit(node.right)
 
         # need to insert operations at evaluation order:
         for op in lhs + rhs:
             if op not in self.operations:
                 self.operations.append(op)
 
-        operations = []
+        operations = lhs + rhs
 
         # if types differ, we need to cast for the operation
         if lhs_ssa_val.type != rhs_ssa_val.type:
             target_type = self.type_checker.dominating_type(lhs_ssa_val.type, rhs_ssa_val.type)
             if lhs_ssa_val.type != target_type:
-                l_cast = self.get_cast(target_type, lhs_ssa_val)
-                operations += [l_cast]
-                lhs_ssa_val = l_cast.results[0]
+                l_cast_ops, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
+                operations += l_cast_ops
 
             if rhs_ssa_val.type != target_type:
-                r_cast = self.get_cast(target_type, rhs_ssa_val)
-                operations += [r_cast]
-                rhs_ssa_val = r_cast.results[0]
+                r_cast_ops, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
+                operations += r_cast_ops
 
         # special case: if we have a division, we also want to cast
         if isinstance(node, ast.Div):
             target_type = Float32Type()
             if lhs_ssa_val.type != target_type:
-                l_cast = self.get_cast(target_type, lhs_ssa_val)
-                operations += [l_cast]
-                lhs_ssa_val = l_cast.results[0]
+                l_cast_ops, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
+                operations += l_cast_ops
 
             if rhs_ssa_val.type != target_type:
-                r_cast = self.get_cast(target_type, rhs_ssa_val)
-                operations += [r_cast]
-                rhs_ssa_val = r_cast.results[0]
+                r_cast_ops, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
+                operations += r_cast_ops
 
         op_constructor = self.get_operation(node)
-        bin_op=op_constructor(
+        bin_op = op_constructor(
             lhs_ssa_val,
             rhs_ssa_val,
             None
         )
         return operations + [bin_op], bin_op.results[0]
 
-    def visit_Name(self, node: ast.Name) -> List[Operation]:
+    def visit_Name(self, node: ast.Name) -> Tuple[List[Operation], OpResult]:
         from_location = self.symbol_table[node.id]
-        load = memref.Load.get(from_location, [])
+        load = memref.LoadOp.get(from_location, [])
         return [load], load.results[0]
 
-
-    def visit_If(self, node: ast.If) -> List[Operation]:
+    def visit_If(self, node: ast.If) -> Tuple[List[Operation], Optional[OpResult]]:
         allocations = self.allocate_new_variables(node)
         body_ops = self.generate_body_ops(node)
 
         condition_expr_ops, condition_ssa_val = self.visit(node.test)
 
-        #or_else = None
-        #if node.orelse:
-        #    if isinstance(node.orelse[0], ast.If):
-        #        or_else_ops, or_else_ssa_val = self.visit_If(node.orelse[0])
-        #    else:
-        #        or_else = []
-        #        for stmt in node.orelse:
-        #            or_else += self.visit(stmt)
+        or_else = Region()
+
+        if node.orelse:
+            if isinstance(node.orelse[0], ast.If):
+                or_else_ops, or_else_ssa_val = self.visit_If(node.orelse[0])
+                or_else_ops = list(flatten(or_else_ops))
+                or_else_ops = list(filter(lambda op: isinstance(op, IRDLOperation), or_else_ops))
+                or_else = Region(Block(or_else_ops))
+            else:
+                or_else = []
+                for stmt in node.orelse:
+                    or_else += self.visit(stmt)[0]
 
         # condition: SSAValue | Operation
         # return_types: Sequence[Attribute],
         # true_region: Region | Sequence[Block] | Sequence[Operation]
         # false_region: Region | Sequence[Block] | Sequence[Operation]
-        if_statement = scf.If(
+        if_statement = scf.IfOp(
             condition_ssa_val,
             [],
             body_ops,
-            [] #or_else
+            or_else
         )
 
-        return allocations + condition_expr_ops + [condition, if_statement], if_statement.results[0]
+        ssa_val = if_statement.results[0] if if_statement.results else None
 
+        return allocations + condition_expr_ops + [if_statement], ssa_val
 
-    def visit_Compare(self, node) -> List[Operation]:
-        left = self.visit(node.left)[0]
-        right = self.visit(node.comparators[0])[0]
-
-        l_val = left.results[0]
-        r_val = right.results[0]
+    def visit_Compare(self, node) -> Tuple[List[Operation], OpResult]:
+        left, l_val = self.visit(node.left)
+        right, r_val = self.visit(node.comparators[0])
 
         # TODO: handle sint, float comparisons
         op = self._uint_comparison[type(node.ops[0])]
-        operation = arith.Cmpi(l_val, r_val, op)
+        operation = arith.CmpiOp(l_val, r_val, op)
 
         return [left, right, operation], operation.results[0]
 
-
-    def visit_For(self, node: ast.For) -> List[Operation]:
-        from_expr = self.visit(node.iter.args[0])[-1]
-        to_expr = self.visit(node.iter.args[1])[-1]
+    def visit_For(self, node: ast.For) -> Tuple[List[Operation], Optional[OpResult]]:
+        from_expr, from_ssa = self.visit(node.iter.args[0])
+        to_expr, to_ssa = self.visit(node.iter.args[1])
 
         # lb, up, step, iteration arguments, body
-        step = arith.Constant(IntegerAttr(1, IntegerType(32)))
+        step = arith.ConstantOp(IntegerAttr(1, IntegerType(32)))
 
         # adds variables to the symbol table and allocates memory for them
         var_allocations = self.allocate_new_variables(node)
@@ -330,9 +315,9 @@ class PythonToMLIR(ast.NodeVisitor):
         body = Region()
         body.add_block(block)
 
-        for_loop = scf.For(
-            from_expr.results[0],
-            to_expr.results[0],
+        for_loop = scf.ForOp(
+            from_ssa,
+            to_ssa,
             step.results[0],
             [],
             body
@@ -345,26 +330,27 @@ class PythonToMLIR(ast.NodeVisitor):
         alloc = self.allocate_memory(iter_var_name)
 
         loop_variable = for_loop.body.block.args[0]
-        store = memref.Store.get(loop_variable, alloc, [])
+        store = memref.StoreOp.get(loop_variable, alloc, [])
 
-        loop_body_ops = [store] + self.generate_body_ops(node) + [scf.Yield()]
+        loop_body_ops = [store] + self.generate_body_ops(node) + [scf.YieldOp()]
         block.add_ops(loop_body_ops)
 
-        return var_allocations + [from_expr, to_expr, step, alloc, for_loop], for_loop.results[0]
+        ssa_value = for_loop.results[0] if for_loop.results else None
 
+        return var_allocations + [from_expr, to_expr, step, alloc, for_loop], ssa_value
 
-    def visit_BoolOp(self, node: ast.BoolOp) -> List[Operation]:
+    def visit_BoolOp(self, node: ast.BoolOp) -> Tuple[List[Operation], OpResult]:
         # leftmost evaluation first
         # if a and b or c => if (a and b) or c
-        lhs_ops, lhs_ssa_val = self.visit(node.values[0])   # a and b
+        lhs_ops, lhs_ssa_val = self.visit(node.values[0])  # a and b
         rhs_ops, rhs_ssa_val = self.visit(node.values[1])  # c
 
         match type(node.op):
             case ast.And:
-                op = arith.AndI
+                op = arith.AndIOp
 
             case ast.Or:
-                op = arith.OrI
+                op = arith.OrIOp
 
             case _:
                 raise NotImplementedError(f"{node.op.__class__.__name__}")
@@ -376,46 +362,45 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return lhs_ops + rhs_ops + [operation], operation.results[0]
 
-    def visit_UnaryOp(self, node) -> List[Operation]:
+    def visit_UnaryOp(self, node) -> Tuple[List[Operation], OpResult]:
         expr_ops, expr_ssa_val = self.visit(node.operand)
-        true_decl = arith.Constant(IntegerAttr.from_int_and_width(1, 1))
+        true_decl = arith.ConstantOp(IntegerAttr.from_int_and_width(1, 1))
 
         match type(node.op):
             case ast.Not:
-                unary_op = arith.XOrI(expr_ssa_val, true_decl.results[0])
+                unary_op = arith.XOrIOp(expr_ssa_val, true_decl.results[0])
                 return expr_ops + [
                     true_decl,
                     unary_op], unary_op.results[0]
             case ast.USub:
-                zero = arith.Constant(IntegerAttr(0, IntegerType(32)))
-                unary_op = arith.Subi(zero.results[0], expr_ssa_val)
+                zero = arith.ConstantOp(IntegerAttr(0, IntegerType(32)))
+                unary_op = arith.SubiOp(zero.results[0], expr_ssa_val)
                 return expr_ops + [
                     zero,
                     unary_op], unary_op.results[0]
             case _:
                 raise NotImplementedError(f"{node.op.__class__.__name__}")
 
-
-    def visit_Expr(self, node) -> List[Operation]:
+    def visit_Expr(self, node) -> Tuple[List[Operation], OpResult]:
         return self.visit(node.value)
 
     def handleCore(self, node):
-      assert len(node.args)==2
-      x_core_ops, x_core_ssa_val=self.visit(node.args[0])
-      y_core_ops, y_core_ssa_val=self.visit(node.args[1])
+        assert len(node.args) == 2
+        x_core_ops, x_core_ssa_val = self.visit(node.args[0])
+        y_core_ops, y_core_ssa_val = self.visit(node.args[1])
 
-      core_create=TTHostCore(x_core_ssa_val, y_core_ssa_val)
-      return x_core_ops+y_core_ops+[core_create], core_create.results[0]
+        core_create = TTHostCore(x_core_ssa_val, y_core_ssa_val)
+        return x_core_ops + y_core_ops + [core_create], core_create.results[0]
 
-
-    def visit_Call(self, node) -> List[Operation]:
+    def visit_Call(self, node) -> Tuple[List[Operation], Optional[OpResult]]:
         if isa(node.func, ast.Attribute):
-          name=node.func.attr
-          if name == "Core": return self.handleCore(node)
+            name = node.func.attr
+            if name == "Core":
+                return self.handleCore(node)
         else:
-          name = node.func.id
-          if name not in self._functions:
-              raise NotImplementedError(f"Unhandled function {name}")
+            name = node.func.id
+            if name not in self._functions:
+                raise NotImplementedError(f"Unhandled function {name}")
 
         properties = []
 
@@ -425,9 +410,9 @@ class PythonToMLIR(ast.NodeVisitor):
 
         # We evaluate args in Python order (programmer intention) and then swap
         # only the SSA results that are given to the operation to preserve semantics
-        ops_per_arg = [self.visit(arg) for arg in node.args]
-        operations = list(flatten(ops_per_arg))
-        results = list(map(lambda ops: ops[-1].results[0], ops_per_arg))
+        arg_evals = list(flatten([self.visit(arg) for arg in node.args]))
+        operations = list(flatten(map(lambda x: x[0], arg_evals)))
+        results = list(map(lambda x: x[1], arg_evals))
 
         match name:
             case noc_async_write_multicast.__name__:
@@ -437,11 +422,18 @@ class PythonToMLIR(ast.NodeVisitor):
 
         args = properties + results
         operation = self._functions[name](*args)
-        return operations + [operation], operation.results[0]
+        result = operation.results[0] if operation.results else None
 
+        return operations + [operation], result
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:
-        return [op for statement in node.body for op in self.visit(statement)]
+        operations = []
+
+        for statement in node.body:
+            ops, res = self.visit(statement)
+            operations.append(ops)
+
+        return list(flatten(operations))
 
 
     def get_assigned_variables(self, statement: ast.stmt) -> List[str]:
@@ -459,7 +451,6 @@ class PythonToMLIR(ast.NodeVisitor):
         # could also handle: ast.With, ast.FuncDef
         construct = statement.__class__.__name__
         raise Exception(f"Unhandled construct to explore: {construct}")
-
 
     def allocate_new_variables(self, node: NodeWithBody) -> List[Operation]:
         """

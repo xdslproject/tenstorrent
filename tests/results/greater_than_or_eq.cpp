@@ -1,4 +1,4 @@
-void greater_than_or_eq() {
+void kernel_main() {
     std::int32_t a;
     a = 9;
     if (a >= 3) {
