@@ -1,7 +1,6 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr
+from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr, i32
 from xdsl.ir import SSAValue, Operation, Dialect
 from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def
-
 
 uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
@@ -9,7 +8,7 @@ uint64 = IntegerType(64, signedness=Signedness.UNSIGNED)
 
 
 @irdl_op_definition
-class CopyTile(IRDLOperation):
+class Copy(IRDLOperation):
     name = 'comp.copy_tile'
 
     cb = operand_def(uint32)
@@ -24,7 +23,7 @@ class CopyTile(IRDLOperation):
 
 
 @irdl_op_definition
-class CopyTileToDSTInitShortWithDT(IRDLOperation):
+class CopyToDSTInitShortWithDT(IRDLOperation):
     name = 'comp.copy_tile_to_dst_init_short_with_dt'
 
     old_cb = operand_def(uint32)
@@ -39,7 +38,7 @@ class CopyTileToDSTInitShortWithDT(IRDLOperation):
 
 
 @irdl_op_definition
-class CopyTileToDSTInitShort(IRDLOperation):
+class CopyToDSTInitShort(IRDLOperation):
     name = 'comp.copy_tile_to_dst_init_short'
 
     cb = operand_def(uint32)
@@ -50,7 +49,7 @@ class CopyTileToDSTInitShort(IRDLOperation):
 
 
 @irdl_op_definition
-class CopyTileInit(IRDLOperation):
+class CopyInit(IRDLOperation):
     name = 'comp.copy_tile_init'
 
     def __init__(self):
@@ -74,47 +73,47 @@ class ReleaseDST(IRDLOperation):
 
 
 @irdl_op_definition
-class TileRegsAcquire(IRDLOperation):
+class RegsAcquire(IRDLOperation):
     name = 'comp.tile_regs_acquire'
 
 
 @irdl_op_definition
-class TileRegsWait(IRDLOperation):
+class RegsWait(IRDLOperation):
     name = 'comp.tile_regs_wait'
 
 
 @irdl_op_definition
-class TileRegsCommit(IRDLOperation):
+class RegsCommit(IRDLOperation):
     name = 'comp.tile_regs_commit'
 
 
 @irdl_op_definition
-class TileRegsRelease(IRDLOperation):
+class RegsRelease(IRDLOperation):
     name = 'comp.tile_regs_release'
 
 
 @irdl_op_definition
-class AbsTileInit(IRDLOperation):
+class AbsInit(IRDLOperation):
     name = 'comp.abs_tile_init'
 
 
 @irdl_op_definition
-class AbsTile(IRDLOperation):
+class Abs(IRDLOperation):
     name = 'comp.abs_tile'
 
-    idst = operand_def(uint32)
+    dst = operand_def(uint32)
 
-    def __init__(self, idst: SSAValue | Operation):
-        super().__init__(operands=[idst])
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
 
 
 @irdl_op_definition
-class AddTilesInitNof(IRDLOperation):
+class AddInitNof(IRDLOperation):
     name = 'comp.add_tiles_init_nof'
 
 
 @irdl_op_definition
-class AddTilesInit(IRDLOperation):
+class AddInit(IRDLOperation):
     name = 'comp.add_tiles_init'
 
     cb0 = operand_def(uint32)
@@ -129,7 +128,7 @@ class AddTilesInit(IRDLOperation):
 
 
 @irdl_op_definition
-class AddTiles(IRDLOperation):
+class Add(IRDLOperation):
     name = 'comp.add_tiles'
 
     cb0 = operand_def(uint32)
@@ -148,12 +147,12 @@ class AddTiles(IRDLOperation):
 
 
 @irdl_op_definition
-class SubTilesInitNof(IRDLOperation):
+class SubInitNof(IRDLOperation):
     name = 'comp.sub_tiles_init_nof'
 
 
 @irdl_op_definition
-class SubTilesInit(IRDLOperation):
+class SubInit(IRDLOperation):
     name = 'comp.sub_tiles_init'
 
     cb0 = operand_def(uint32)
@@ -168,7 +167,7 @@ class SubTilesInit(IRDLOperation):
 
 
 @irdl_op_definition
-class SubTiles(IRDLOperation):
+class Sub(IRDLOperation):
     name = 'comp.sub_tiles'
 
     cb0 = operand_def(uint32)
@@ -193,12 +192,12 @@ class SubTiles(IRDLOperation):
 
 
 @irdl_op_definition
-class MulTilesInitF(IRDLOperation):
+class MulInitF(IRDLOperation):
     name = 'comp.mul_tiles_init_f'
 
 
 @irdl_op_definition
-class MulTilesInit(IRDLOperation):
+class MulInit(IRDLOperation):
     name = 'comp.mul_tiles_init'
 
     cb0 = operand_def(uint32)
@@ -211,7 +210,7 @@ class MulTilesInit(IRDLOperation):
 
 
 @irdl_op_definition
-class MulTiles(IRDLOperation):
+class Mul(IRDLOperation):
     name = 'comp.mul_tiles'
 
     cb0 = operand_def(uint32)
@@ -258,7 +257,7 @@ class AddBcastRowsInitShort(IRDLOperation):
 
 
 @irdl_op_definition
-class AddTilesBcast(IRDLOperation):
+class AddBcast(IRDLOperation):
     name = 'comp.add_tiles_bcast'
 
     cb0 = operand_def(uint32)
@@ -299,7 +298,7 @@ class SubBcastColsInitShort(IRDLOperation):
 # TOOD: missing operation SubBcastRowsInitShort ?
 
 @irdl_op_definition
-class SubTilesBcast(IRDLOperation):
+class SubBcast(IRDLOperation):
     name = 'comp.sub_tiles_bcast'
 
     cb0 = operand_def(uint32)
@@ -348,7 +347,7 @@ class MulBcastRowsInitShort(IRDLOperation):
 
 
 @irdl_op_definition
-class MulTilesBcast(IRDLOperation):
+class MulBcast(IRDLOperation):
     name = 'comp.mul_tiles_bcast'
 
     cb0 = operand_def(uint32)
@@ -375,7 +374,7 @@ class MulTilesBcast(IRDLOperation):
 
 
 @irdl_op_definition
-class MulTilesBcastScalarInitShort(IRDLOperation):
+class MulBcastScalarInitShort(IRDLOperation):
     name = "comp.mul_tiles_bcast_scalar_init_short"
 
     cb0 = operand_def(uint32)
@@ -386,7 +385,7 @@ class MulTilesBcastScalarInitShort(IRDLOperation):
 
 
 @irdl_op_definition
-class MulTilesBcastScalar(IRDLOperation):
+class MulBcastScalar(IRDLOperation):
     name = 'comp.mul_tiles_bcast_scalar'
 
     cb0 = operand_def(uint32)
@@ -460,7 +459,7 @@ class MMInitShort(IRDLOperation):
 
 
 @irdl_op_definition
-class MatmulTiles(IRDLOperation):
+class Matmul(IRDLOperation):
     name = 'comp.matmul_tiles'
 
     cb0 = operand_def(uint32)
@@ -591,7 +590,7 @@ class MatmulBlock(IRDLOperation):
 
 
 @irdl_op_definition
-class ExpTileInit(IRDLOperation):
+class ExpInit(IRDLOperation):
     name = 'comp.exp_tile_init'
 
     fast_and_approx = prop_def(i1)
@@ -603,7 +602,7 @@ class ExpTileInit(IRDLOperation):
 
 
 @irdl_op_definition
-class ExpTile(IRDLOperation):
+class Exp(IRDLOperation):
     name = 'comp.exp_tile'
 
     fast_and_approx = prop_def(i1)
@@ -617,12 +616,12 @@ class ExpTile(IRDLOperation):
 
 
 @irdl_op_definition
-class Exp2TileInit(IRDLOperation):
+class Exp2Init(IRDLOperation):
     name = 'comp.exp2_tile_init'
 
 
 @irdl_op_definition
-class Exp2Tile(IRDLOperation):
+class Exp2(IRDLOperation):
     name = 'comp.exp2_tile'
 
     dst = operand_def(uint32)
@@ -632,12 +631,12 @@ class Exp2Tile(IRDLOperation):
 
 
 @irdl_op_definition
-class ExpM1TileInit(IRDLOperation):
+class ExpM1Init(IRDLOperation):
     name = 'comp.expm1_tile_init'
 
 
 @irdl_op_definition
-class ExpM1Tile(IRDLOperation):
+class ExpM1(IRDLOperation):
     name = 'comp.expm1_tile'
 
     dst = operand_def(uint32)
@@ -647,12 +646,12 @@ class ExpM1Tile(IRDLOperation):
 
 
 @irdl_op_definition
-class ReluTileInit(IRDLOperation):
+class ReluInit(IRDLOperation):
     name = 'comp.relu_tile_init'
 
 
 @irdl_op_definition
-class ReluTile(IRDLOperation):
+class Relu(IRDLOperation):
     name = 'comp.relu_tile'
 
     dst = operand_def(uint32)
@@ -662,12 +661,12 @@ class ReluTile(IRDLOperation):
 
 
 @irdl_op_definition
-class ReluMaxTileInit(IRDLOperation):
+class ReluMaxInit(IRDLOperation):
     name = 'comp.relu_max_tile_init'
 
 
 @irdl_op_definition
-class ReluMaxTile(IRDLOperation):
+class ReluMax(IRDLOperation):
     name = 'comp.relu_max_tile'
 
     dst = operand_def(uint32)
@@ -678,12 +677,12 @@ class ReluMaxTile(IRDLOperation):
 
 
 @irdl_op_definition
-class ReluMinTileInit(IRDLOperation):
+class ReluMinInit(IRDLOperation):
     name = 'comp.relu_min_tile_init'
 
 
 @irdl_op_definition
-class ReluMinTile(IRDLOperation):
+class ReluMin(IRDLOperation):
     name = 'comp.relu_min_tile'
 
     dst = operand_def(uint32)
@@ -694,7 +693,7 @@ class ReluMinTile(IRDLOperation):
 
 
 @irdl_op_definition
-class LeakyReluTileInit(IRDLOperation):
+class LeakyReluInit(IRDLOperation):
     name = 'comp.leaky_relu_tile_init'
 
     dst = operand_def(uint32)
@@ -705,12 +704,12 @@ class LeakyReluTileInit(IRDLOperation):
 
 
 @irdl_op_definition
-class EluTileInit(IRDLOperation):
+class EluInit(IRDLOperation):
     name = 'comp.elu_tile_init'
 
 
 @irdl_op_definition
-class EluTile(IRDLOperation):
+class Elu(IRDLOperation):
     name = 'comp.elu_tile'
 
     dst = operand_def(uint32)
@@ -721,7 +720,7 @@ class EluTile(IRDLOperation):
 
 
 @irdl_op_definition
-class ErfTileInit(IRDLOperation):
+class ErfInit(IRDLOperation):
     name = 'comp.erf_tile_init'
 
     fast_and_approx = prop_def(i1)
@@ -733,7 +732,7 @@ class ErfTileInit(IRDLOperation):
 
 
 @irdl_op_definition
-class ErfTile(IRDLOperation):
+class Erf(IRDLOperation):
     name = 'comp.erf_tile'
 
     fast_and_approx = prop_def(i1)
@@ -743,12 +742,12 @@ class ErfTile(IRDLOperation):
     def __init__(self, fast_and_approx: IntegerAttr, dst: SSAValue | Operation):
         super().__init__(operands=[dst],
                          properties={
-            "fast_and_approx": fast_and_approx
-        })
+                             "fast_and_approx": fast_and_approx
+                         })
 
 
 @irdl_op_definition
-class ErfcTileInit(IRDLOperation):
+class ErfcInit(IRDLOperation):
     name = 'comp.erfc_tile_init'
 
     fast_and_approx = prop_def(i1)
@@ -760,7 +759,7 @@ class ErfcTileInit(IRDLOperation):
 
 
 @irdl_op_definition
-class ErfcTile(IRDLOperation):
+class Erfc(IRDLOperation):
     name = 'comp.erfc_tile'
 
     fast_and_approx = prop_def(i1)
@@ -777,12 +776,12 @@ class ErfcTile(IRDLOperation):
 
 
 @irdl_op_definition
-class ErfinvTileInit(IRDLOperation):
+class ErfinvInit(IRDLOperation):
     name = 'comp.erfinv_tile_init'
 
 
 @irdl_op_definition
-class ErfinvTile(IRDLOperation):
+class Erfinv(IRDLOperation):
     name = 'comp.erfinv_tile'
 
     dst = operand_def(uint32)
@@ -792,7 +791,7 @@ class ErfinvTile(IRDLOperation):
 
 
 @irdl_op_definition
-class GeluTileInit(IRDLOperation):
+class GeluInit(IRDLOperation):
     name = 'comp.gelu_tile_init'
 
     fast_and_approx = prop_def(i1)
@@ -804,7 +803,7 @@ class GeluTileInit(IRDLOperation):
 
 
 @irdl_op_definition
-class GeluTile(IRDLOperation):
+class Gelu(IRDLOperation):
     name = 'comp.gelu_tile'
 
     fast_and_approx = prop_def(i1)
@@ -820,12 +819,12 @@ class GeluTile(IRDLOperation):
 
 
 @irdl_op_definition
-class HeavisideTileInit(IRDLOperation):
+class HeavisideInit(IRDLOperation):
     name = 'comp.heaviside_tile_init'
 
 
 @irdl_op_definition
-class HeavisideTile(IRDLOperation):
+class Heaviside(IRDLOperation):
     name = 'comp.heaviside_tile'
 
     param = operand_def(uint32)
@@ -835,12 +834,12 @@ class HeavisideTile(IRDLOperation):
 
 
 @irdl_op_definition
-class IsInfTileInit(IRDLOperation):
+class IsInfInit(IRDLOperation):
     name = 'comp.isinf_tile_init'
 
 
 @irdl_op_definition
-class IsInfTile(IRDLOperation):
+class IsInf(IRDLOperation):
     name = 'comp.isinf_tile'
 
     dst = operand_def(uint32)
@@ -850,12 +849,12 @@ class IsInfTile(IRDLOperation):
 
 
 @irdl_op_definition
-class IsPosinfTileInit(IRDLOperation):
+class IsPosinfInit(IRDLOperation):
     name = 'comp.isposinf_tile_init'
 
 
 @irdl_op_definition
-class IsPosinfTile(IRDLOperation):
+class IsPosinf(IRDLOperation):
     name = 'comp.isposinf_tile'
 
     dst = operand_def(uint32)
@@ -865,12 +864,12 @@ class IsPosinfTile(IRDLOperation):
 
 
 @irdl_op_definition
-class IsNeginfTileInit(IRDLOperation):
+class IsNeginfInit(IRDLOperation):
     name = 'comp.isneginf_tile_init'
 
 
 @irdl_op_definition
-class IsNeginfTile(IRDLOperation):
+class IsNeginf(IRDLOperation):
     name = 'comp.isneginf_tile'
 
     dst = operand_def(uint32)
@@ -880,12 +879,12 @@ class IsNeginfTile(IRDLOperation):
 
 
 @irdl_op_definition
-class IsFiniteTileInit(IRDLOperation):
+class IsFiniteInit(IRDLOperation):
     name = 'comp.isfinite_tile_init'
 
 
 @irdl_op_definition
-class IsFiniteTile(IRDLOperation):
+class IsFinite(IRDLOperation):
     name = 'comp.isfinite_tile'
 
     dst = operand_def(uint32)
@@ -895,7 +894,7 @@ class IsFiniteTile(IRDLOperation):
 
 
 @irdl_op_definition
-class IsNaNTile(IRDLOperation):
+class IsNaN(IRDLOperation):
     name = 'comp.isnan_tile'
 
     dst = operand_def(uint32)
@@ -905,12 +904,12 @@ class IsNaNTile(IRDLOperation):
 
 
 @irdl_op_definition
-class I0TileInit(IRDLOperation):
+class I0Init(IRDLOperation):
     name = 'comp.i0_tile_init'
 
 
 @irdl_op_definition
-class I0Tile(IRDLOperation):
+class I0(IRDLOperation):
     name = 'comp.i0_tile'
 
     dst = operand_def(uint32)
@@ -919,11 +918,806 @@ class I0Tile(IRDLOperation):
         super().__init__(operands=[dst])
 
 
+@irdl_op_definition
+class LogicalNotUnaryInit(IRDLOperation):
+    name = 'comp.logical_not_unary_tile_init'
+
+
+@irdl_op_definition
+class LogicalNotUnary(IRDLOperation):
+    name = 'comp.logical_not_unary_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class RecipInit(IRDLOperation):
+    name = 'comp.recip_tile_init'
+
+
+@irdl_op_definition
+class Recip(IRDLOperation):
+    name = 'comp.recip_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class SignInit(IRDLOperation):
+    name = 'comp.sign_tile_init'
+
+
+@irdl_op_definition
+class Sign(IRDLOperation):
+    name = 'comp.sign_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class SqrtInit(IRDLOperation):
+    name = 'comp.sqrt_tile_init'
+
+
+@irdl_op_definition
+class Sqrt(IRDLOperation):
+    name = 'comp.sqrt_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class RSqrtInit(IRDLOperation):
+    name = 'comp.rsqrt_tile_init'
+
+    fast_and_approx = prop_def(i1)
+
+    def __init__(self, fast_and_approx: IntegerAttr):
+        super().__init__(properties={
+            "fast_and_approx": fast_and_approx
+        })
+
+
+@irdl_op_definition
+class RSqrt(IRDLOperation):
+    name = 'comp.rsqrt_tile'
+
+    fast_and_approx = prop_def(i1)
+    dst = operand_def(uint32)
+
+    def __init__(self, fast_and_approx: IntegerAttr, dst: SSAValue | Operation):
+        super().__init__(
+            operands=[dst],
+            properties={
+                "fast_and_approx": fast_and_approx
+            }
+        )
+
+
+@irdl_op_definition
+class SigmoidInit(IRDLOperation):
+    name = 'comp.sigmoid_tile_init'
+
+
+@irdl_op_definition
+class Sigmoid(IRDLOperation):
+    name = 'comp.sigmoid_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class LogInit(IRDLOperation):
+    name = 'comp.log_tile_init'
+
+
+@irdl_op_definition
+class Log(IRDLOperation):
+    name = 'comp.log_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class LogWithBaseInit(IRDLOperation):
+    name = 'comp.log_with_base_tile_init'
+
+
+@irdl_op_definition
+class LogWithBase(IRDLOperation):
+    name = 'comp.log_with_base_tile'
+
+    dst = operand_def(uint32)
+    log_base = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation, log_base: SSAValue | Operation):
+        super().__init__(operands=[dst, log_base])
+
+
+@irdl_op_definition
+class PowerInit(IRDLOperation):
+    name = 'comp.power_tile_init'
+
+
+@irdl_op_definition
+class Power(IRDLOperation):
+    name = 'comp.power_tile'
+
+    dst = operand_def(uint32)
+    power = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation, power: SSAValue | Operation):
+        super().__init__(operands=[dst, power])
+
+
+@irdl_op_definition
+class RSubInit(IRDLOperation):
+    name = 'comp.rsub_tile_init'
+
+
+@irdl_op_definition
+class RSub(IRDLOperation):
+    name = 'comp.rsub_tile'
+
+    dst = operand_def(uint32)
+    param = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation, param: SSAValue | Operation):
+        super().__init__(operands=[dst, param])
+
+
+@irdl_op_definition
+class SignBitInit(IRDLOperation):
+    name = 'comp.signbit_tile_init'
+
+
+@irdl_op_definition
+class SignBit(IRDLOperation):
+    name = 'comp.signbit_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class SquareInit(IRDLOperation):
+    name = 'comp.square_tile_init'
+
+
+@irdl_op_definition
+class Square(IRDLOperation):
+    name = 'comp.square_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class Reduce(IRDLOperation):
+    name = 'comp.reduce_tile'
+
+    # TODO: reduce_type = prop_def(PoolType): REDUCE_OP
+    # TODO: redice_dim = prop_def(ReduceDim): REDUCE_DIM
+
+    cb0 = operand_def(uint32)
+    cb1 = operand_def(uint32)
+    tile0 = operand_def(uint32)
+    tile1 = operand_def(uint32)
+    dst = operand_def(uint32)
+
+    def __init__(self,
+                 cb0: SSAValue | Operation,
+                 cb1: SSAValue | Operation,
+                 tile0: SSAValue | Operation,
+                 tile1: SSAValue | Operation,
+                 dst: SSAValue | Operation):
+        super().__init__(operands=[
+            cb0,
+            cb1,
+            tile0,
+            tile1,
+            dst
+        ])
+
+
+@irdl_op_definition
+class TransposeWHInit(IRDLOperation):
+    name = 'comp.transpose_wh_tile_init'
+
+    in_cb = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+
+@irdl_op_definition
+class TransposeWH(IRDLOperation):
+    name = 'comp.transpose_wh_tile'
+
+    cb = operand_def(uint32)
+    tile = operand_def(uint32)
+    dst = operand_def(uint32)
+
+    def __init__(self,
+                 cb: SSAValue | Operation,
+                 tile: SSAValue | Operation,
+                 dst: SSAValue | Operation):
+        super().__init__(operands=[
+            cb,
+            tile,
+            dst
+        ])
+
+
+@irdl_op_definition
+class TanhInit(IRDLOperation):
+    name = 'comp.tanh_tile_init'
+
+
+@irdl_op_definition
+class Tanh(IRDLOperation):
+    name = 'comp.tanh_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class TanInit(IRDLOperation):
+    name = 'comp.tan_tile_init'
+
+
+@irdl_op_definition
+class Tan(IRDLOperation):
+    name = 'comp.tan_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class SinInit(IRDLOperation):
+    name = 'comp.sin_tile_init'
+
+
+@irdl_op_definition
+class Sin(IRDLOperation):
+    name = 'comp.sin_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class CosInit(IRDLOperation):
+    name = 'comp.cos_tile_init'
+
+
+@irdl_op_definition
+class Cos(IRDLOperation):
+    name = 'comp.cos_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class AsinInit(IRDLOperation):
+    name = 'comp.asin_tile_init'
+
+
+@irdl_op_definition
+class Asin(IRDLOperation):
+    name = 'comp.asin_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class AtanInit(IRDLOperation):
+    name = 'comp.atan_tile_init'
+
+
+@irdl_op_definition
+class Atan(IRDLOperation):
+    name = 'comp.atan_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class AcosInit(IRDLOperation):
+    name = 'comp.acos_tile_init'
+
+
+@irdl_op_definition
+class Acos(IRDLOperation):
+    name = 'comp.acos_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class LtzInit(IRDLOperation):
+    """
+    Less than zero
+    """
+    name = 'comp.ltz_tile_init'
+
+
+@irdl_op_definition
+class Ltz(IRDLOperation):
+    """
+    Less than zero
+    """
+    name = 'comp.ltz_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class EqzInit(IRDLOperation):
+    name = 'comp.eqz_tile_init'
+
+
+@irdl_op_definition
+class Eqz(IRDLOperation):
+    name = 'comp.eqz_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class LezInit(IRDLOperation):
+    name = 'comp.lez_tile_init'
+
+
+@irdl_op_definition
+class Lez(IRDLOperation):
+    name = 'comp.lez_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class GtzInit(IRDLOperation):
+    name = 'comp.gtz_tile_init'
+
+
+@irdl_op_definition
+class Gtz(IRDLOperation):
+    name = 'comp.gtz_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class GezInit(IRDLOperation):
+    name = 'comp.gez_tile_init'
+
+
+@irdl_op_definition
+class Gez(IRDLOperation):
+    name = 'comp.gez_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class NezInit(IRDLOperation):
+    name = 'comp.nez_tile_init'
+
+
+@irdl_op_definition
+class Nez(IRDLOperation):
+    name = 'comp.nez_tile'
+
+    dst = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation):
+        super().__init__(operands=[dst])
+
+
+@irdl_op_definition
+class UnaryNeInit(IRDLOperation):
+    name = 'comp.unary_ne_tile_init'
+
+
+@irdl_op_definition
+class UnaryNe(IRDLOperation):
+    name = 'comp.unary_ne_tile'
+
+    dst = operand_def(uint32)
+    param = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation, param: SSAValue | Operation):
+        super().__init__(operands=[dst, param])
+
+
+@irdl_op_definition
+class UnaryGtInit(IRDLOperation):
+    name = 'comp.unary_gt_tile_init'
+
+
+@irdl_op_definition
+class UnaryGt(IRDLOperation):
+    name = 'comp.unary_gt_tile'
+
+    dst = operand_def(uint32)
+    param = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation, param: SSAValue | Operation):
+        super().__init__(operands=[dst, param])
+
+
+@irdl_op_definition
+class UnaryLtInit(IRDLOperation):
+    name = 'comp.unary_lt_tile_init'
+
+
+@irdl_op_definition
+class UnaryLt(IRDLOperation):
+    name = 'comp.unary_lt_tile'
+
+    dst = operand_def(uint32)
+    param = operand_def(uint32)
+
+    def __init__(self, dst: SSAValue | Operation, param: SSAValue | Operation):
+        super().__init__(operands=[dst, param])
+
+
+@irdl_op_definition
+class TilizeInit(IRDLOperation):
+    name = 'comp.tilize_init'
+
+    in_cb = operand_def(uint32)
+    block = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self,
+                 in_cb: SSAValue | Operation,
+                 block: SSAValue | Operation,
+                 out_cb: SSAValue | Operation):
+        super().__init__(operands=[in_cb, block, out_cb])
+
+
+@irdl_op_definition
+class TilizeInitShort(IRDLOperation):
+    name = 'comp.tilize_init_short'
+
+    in_cb = operand_def(uint32)
+    block = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self,
+                 in_cb: SSAValue | Operation,
+                 block: SSAValue | Operation,
+                 out_cb: SSAValue | Operation):
+        super().__init__(operands=[in_cb, block, out_cb])
+
+
+@irdl_op_definition
+class TilizeInitShortWithDT(IRDLOperation):
+    name = 'comp.tilize_init_short_with_dt'
+
+    old_in_cb = operand_def(uint32)
+    new_in_cb = operand_def(uint32)
+    block = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self,
+                 old_in_cb: SSAValue | Operation,
+                 new_in_cb: SSAValue | Operation,
+                 block: SSAValue | Operation,
+                 out_cb: SSAValue | Operation):
+        super().__init__(operands=[
+            old_in_cb,
+            new_in_cb,
+            block,
+            out_cb
+        ])
+
+
+@irdl_op_definition
+class TilizeBlock(IRDLOperation):
+    name = 'comp.tilize_block'
+
+    in_cb = operand_def(uint32)
+    block = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self,
+                 in_cb: SSAValue | Operation,
+                 block: SSAValue | Operation,
+                 out_cb: SSAValue | Operation):
+        super().__init__(operands=[
+            in_cb,
+            block,
+            out_cb
+        ])
+
+
+@irdl_op_definition
+class TilizeUninit(IRDLOperation):
+    name = 'comp.tilize_uninit'
+
+    in_cb = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self,
+                 in_cb: SSAValue | Operation,
+                 out_cb: SSAValue | Operation):
+        super().__init__(operands=[in_cb, out_cb])
+
+
+@irdl_op_definition
+class TilizeUninitWithDT(IRDLOperation):
+    name = 'comp.tilize_uninit_with_dt'
+
+    old_in_cb = operand_def(uint32)
+    new_in_cb = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self,
+                 old_in_cb: SSAValue | Operation,
+                 new_in_cb: SSAValue | Operation,
+                 out_cb: SSAValue | Operation):
+        super().__init__(operands=[old_in_cb, new_in_cb, out_cb])
+
+
+@irdl_op_definition
+class UntilizeInit(IRDLOperation):
+    name = 'comp.untilize_init'
+
+    in_cb = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self, in_cb: SSAValue | Operation, out_cb: SSAValue | Operation):
+        super().__init__(operands=[in_cb, out_cb])
+
+
+@irdl_op_definition
+class UntilizeInitShort(IRDLOperation):
+    name = 'comp.untilize_init_short'
+
+    in_cb = operand_def(uint32)
+
+    def __init__(self, in_cb: SSAValue | Operation):
+        super().__init__(operands=[in_cb])
+
+
+@irdl_op_definition
+class UntilizeBlock(IRDLOperation):
+    name = 'comp.untilize_block'
+
+    n = prop_def(i32)
+
+    in_cb = operand_def(uint32)
+    block = operand_def(uint32)
+    out_cb = operand_def(uint32)
+
+    def __init__(self,
+                 n: IntegerAttr,
+                 in_cb: SSAValue | Operation,
+                 block: SSAValue | Operation,
+                 out_cb: SSAValue | Operation):
+        super().__init__(
+            operands=[in_cb, block, out_cb],
+            properties={
+                "n": n
+            }
+        )
+
+
+@irdl_op_definition
+class UntilizeUninit(IRDLOperation):
+    name = 'comp.untilize_uninit'
+
+    in_cb = operand_def(uint32)
+
+    def __init__(self, in_cb: SSAValue | Operation):
+        super().__init__(operands=[in_cb])
+
 
 Compute = Dialect(
     'comp',
     [
-        CopyTile
+        Copy,
+        CopyToDSTInitShortWithDT,
+        CopyToDSTInitShort,
+        CopyInit,
+        AcquireDST,
+        ReleaseDST,
+        RegsAcquire,
+        RegsWait,
+        RegsCommit,
+        RegsRelease,
+        AbsInit,
+        Abs,
+        AddInitNof,
+        AddInit,
+        Add,
+        SubInitNof,
+        SubInit,
+        Sub,
+        MulInitF,
+        MulInit,
+        Mul,
+        AddBcastColsInitShort,
+        AddBcastRowsInitShort,
+        AddBcast,
+        SubBcastColsInitShort,
+        SubBcast,
+        MulBcastColsInitShort,
+        MulBcastRowsInitShort,
+        MulBcast,
+        MulBcastScalarInitShort,
+        MulBcastScalar,
+        MMInit,
+        MMInitShortWithDT,
+        MMInitShort,
+        Matmul,
+        MMBlockInit,
+        MMBlockInitShort,
+        MMBlockInitShortWithDT,
+        MatmulBlock,
+        ExpInit,
+        Exp,
+        Exp2Init,
+        Exp2,
+        ExpM1Init,
+        ExpM1,
+        ReluInit,
+        Relu,
+        ReluMaxInit,
+        ReluMax,
+        ReluMinInit,
+        ReluMin,
+        LeakyReluInit,
+        EluInit,
+        Elu,
+        ErfInit,
+        Erf,
+        ErfcInit,
+        Erfc,
+        ErfinvInit,
+        Erfinv,
+        GeluInit,
+        Gelu,
+        HeavisideInit,
+        Heaviside,
+        IsInfInit,
+        IsInf,
+        IsPosinfInit,
+        IsPosinf,
+        IsNeginfInit,
+        IsNeginf,
+        IsFiniteInit,
+        IsFinite,
+        IsNaN,
+        I0Init,
+        I0,
+        LogicalNotUnaryInit,
+        LogicalNotUnary,
+        RecipInit,
+        Recip,
+        SignInit,
+        Sign,
+        SqrtInit,
+        Sqrt,
+        RSqrtInit,
+        RSqrt,
+        SigmoidInit,
+        Sigmoid,
+        LogInit,
+        Log,
+        LogWithBaseInit,
+        LogWithBase,
+        PowerInit,
+        Power,
+        RSubInit,
+        RSub,
+        SignBitInit,
+        SignBit,
+        SquareInit,
+        Square,
+        Reduce,
+        TransposeWHInit,
+        TransposeWH,
+        TanhInit,
+        Tanh,
+        TanInit,
+        Tan,
+        SinInit,
+        Sin,
+        CosInit,
+        Cos,
+        AsinInit,
+        Asin,
+        AtanInit,
+        Atan,
+        AcosInit,
+        Acos,
+        LtzInit,
+        Ltz,
+        EqzInit,
+        Eqz,
+        LezInit,
+        Lez,
+        GtzInit,
+        Gtz,
+        GezInit,
+        Gez,
+        NezInit,
+        Nez,
+        UnaryNeInit,
+        UnaryNe,
+        UnaryGtInit,
+        UnaryGt,
+        UnaryLtInit,
+        UnaryLt,
+        TilizeInit,
+        TilizeInitShort,
+        TilizeInitShortWithDT,
+        TilizeBlock,
+        TilizeUninit,
+        TilizeUninitWithDT,
+        UntilizeInit,
+        UntilizeInitShort,
+        UntilizeBlock,
+        UntilizeUninit,
     ],
     []
 )
