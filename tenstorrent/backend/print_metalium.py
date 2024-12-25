@@ -16,11 +16,10 @@ OpWithBody = FuncOp | ForOp | WhileOp
 CircularBufferOperationWithResult = CBPagesAvailableAtFront | CBPagesReservableAtBack
 
 TRUE = IntegerAttr.from_int_and_width(1, 1)
-TenstorrentOps = list(DataMovement.operations) + list(Compute.operations) + list(TTHost.operations) + list(CircularBuffer.operations)
-
-# TODO: currently printing API calls/func names is hardcoded, but should not vary based on whether the function is
-#     used on its own (as a statement) or used on the rhs (as an expression). Should handle this to remove a lot
-#     of the boilerplate.
+TenstorrentOps = (list(DataMovement.operations)
+                  + list(Compute.operations)
+                  + list(TTHost.operations)
+                  + list(CircularBuffer.operations))
 
 
 def get_api_name(op_name: str) -> str:
@@ -109,7 +108,6 @@ class PrintMetalium:
                 for block in region.blocks:
                     self.print_op(block)
 
-        # skip constants on their own, will be picked up later if used
         elif type(operation) in self._skip:
             pass
 
