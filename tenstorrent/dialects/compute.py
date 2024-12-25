@@ -1,6 +1,6 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr, i32
+from xdsl.dialects.builtin import IntegerType, Signedness, i1, IntegerAttr, i32
 from xdsl.ir import SSAValue, Operation, Dialect
-from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def
+from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, prop_def
 
 uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
