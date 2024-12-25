@@ -9,7 +9,6 @@ from xdsl.utils.hints import isa
 from tenstorrent.dialects import *
 from tenstorrent.utils import flatten, remove_duplicates, subtract
 from .dummy import *
-from .memref_context import MemrefContext
 from .type_checker import MLIRType
 
 NodeWithBody = ast.If | ast.For | ast.While | ast.FunctionDef
@@ -23,7 +22,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def __init__(self, type_checker):
         super().__init__()
-        self.symbol_table = MemrefContext()  # variable names -> memref
+        self.symbol_table = {}  # variable names -> memref
 
         self.operations: List[Operation] | ModuleOp = []
         self.type_checker = type_checker
@@ -307,7 +306,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         # create a memref
         # seen = var_name in self.symbol_table
-        seen = var_name in self.symbol_table.dictionary
+        seen = var_name in self.symbol_table
         location = self.allocate_memory(var_name) if not seen else self.symbol_table[var_name]
 
         # if the types don't match we need to insert a cast operation
@@ -632,7 +631,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         # remove any existing variables from fresh variables
         found_variables = remove_duplicates(found_variables)
-        fresh_variables = subtract(found_variables, items=self.symbol_table.dictionary)
+        fresh_variables = subtract(found_variables, items=self.symbol_table)
 
         allocations = []
         for var in list(fresh_variables):
