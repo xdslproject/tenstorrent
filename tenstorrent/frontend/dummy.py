@@ -290,7 +290,7 @@ def exp_init(fast_and_approx: Literal[True, False]):
     pass
 
 
-def exp(fast_and_approx: Literal[True, False]):
+def exp(fast_and_approx: Literal[True, False], dst: int):
     pass
 
 
@@ -498,7 +498,7 @@ def power_init():
     pass
 
 
-def power(dst: int, power: int):
+def power(dst: int, power_: int):
     pass
 
 
@@ -530,7 +530,7 @@ def reduce(cb0: int, cb1: int, tile0: int, tile1: int, dst: int):
     pass
 
 
-def transpose_wh_init():
+def transpose_wh_init(in_cb: int, out_cb: int):
     pass
 
 
