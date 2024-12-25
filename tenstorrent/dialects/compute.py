@@ -1,6 +1,6 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr, i32
+from xdsl.dialects.builtin import IntegerType, Signedness, i1, IntegerAttr, i32
 from xdsl.ir import SSAValue, Operation, Dialect
-from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def
+from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, prop_def
 
 uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
@@ -609,10 +609,13 @@ class Exp(IRDLOperation):
 
     dst = operand_def(uint32)
 
-    def __init__(self, fast_and_approx: IntegerAttr):
-        super().__init__(properties={
-            "fast_and_approx": fast_and_approx
-        })
+    def __init__(self, fast_and_approx: IntegerAttr, dst: SSAValue | Operation):
+        super().__init__(
+            operands=[dst],
+            properties={
+                "fast_and_approx": fast_and_approx
+            }
+        )
 
 
 @irdl_op_definition
@@ -1148,6 +1151,9 @@ class TransposeWHInit(IRDLOperation):
 
     in_cb = operand_def(uint32)
     out_cb = operand_def(uint32)
+
+    def __init__(self, in_cb: SSAValue | Operation, out_cb: SSAValue):
+        super().__init__(operands=[in_cb, out_cb])
 
 
 @irdl_op_definition

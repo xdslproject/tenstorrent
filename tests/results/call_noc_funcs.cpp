@@ -22,5 +22,5 @@ void kernel_main() {
     noc_semaphore_inc(a, a1, a2);
     noc_async_read_barrier(a);
     noc_async_write_barrier(a);
-    get_noc_addr_from_bank_id<true>(a, a1, 3);
+    get_noc_addr_from_bank_id<true>(a, a1, a2);
 }

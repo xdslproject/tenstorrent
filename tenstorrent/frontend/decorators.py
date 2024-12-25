@@ -63,3 +63,5 @@ def data_in(func):
     return wrapper
 
 
+compute = data_in
+

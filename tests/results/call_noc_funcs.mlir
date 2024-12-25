@@ -62,7 +62,7 @@ builtin.module attributes  {"kernel_type" = "data_in"} {
     "dm.noc_async_write_barrier"(%43) : (i32) -> ()
     %44 = memref.load %1[] : memref<i32>
     %45 = memref.load %3[] : memref<i32>
-    %46 = arith.constant 3 : i32
+    %46 = memref.load %5[] : memref<i32>
     %47 = "dm.get_noc_addr_from_bank_id"(%44, %45, %46) <{"dram" = true}> : (i32, i32, i32) -> ui64
     func.return
   }
