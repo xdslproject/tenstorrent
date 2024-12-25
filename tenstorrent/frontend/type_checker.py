@@ -6,7 +6,6 @@ from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType, NoneType
 from .dummy import *
 from tenstorrent.dialects import *
 
-
 MLIRType = IntegerType | Float32Type | IndexType | NoneType
 
 
@@ -35,6 +34,150 @@ class TypeChecker(ast.NodeVisitor):
             noc_async_read_barrier.__name__: NoneType(),
             noc_async_write_barrier.__name__: NoneType(),
             get_noc_addr_from_bank_id.__name__: IntegerType(32),
+            copy.__name__: NoneType(),
+            copy_to_dst_init_short_with_dt.__name__: NoneType(),
+            copy_to_dst_init_short.__name__: NoneType(),
+            copy_init.__name__: NoneType(),
+            acquire_dst.__name__: NoneType(),
+            release_dst.__name__: NoneType(),
+            regs_acquire.__name__: NoneType(),
+            regs_wait.__name__: NoneType(),
+            regs_commit.__name__: NoneType(),
+            regs_release.__name__: NoneType(),
+            abs_init.__name__: NoneType(),
+            abs.__name__: NoneType(),
+            add_init_nof.__name__: NoneType(),
+            add_init.__name__: NoneType(),
+            add.__name__: NoneType(),
+            sub_init_nof.__name__: NoneType(),
+            sub_init.__name__: NoneType(),
+            sub.__name__: NoneType(),
+            mul_init_f.__name__: NoneType(),
+            mul_init.__name__: NoneType(),
+            mul.__name__: NoneType(),
+            add_bcast_cols_init_short.__name__: NoneType(),
+            add_bcast_rows_init_short.__name__: NoneType(),
+            add_bcast.__name__: NoneType(),
+            sub_bcast_cols_init_short.__name__: NoneType(),
+            sub_bcast.__name__: NoneType(),
+            mul_bcast_cols_init_short.__name__: NoneType(),
+            mul_bcast_rows_init_short.__name__: NoneType(),
+            mul_bcast.__name__: NoneType(),
+            mul_bcast_scalar_init_short.__name__: NoneType(),
+            mul_bcast_scalar.__name__: NoneType(),
+            mm_init.__name__: NoneType(),
+            mm_init_short_with_dt.__name__: NoneType(),
+            mm_init_short.__name__: NoneType(),
+            matmul.__name__: NoneType(),
+            mm_block_init.__name__: NoneType(),
+            mm_block_init_short.__name__: NoneType(),
+            mm_block_init_short_with_dt.__name__: NoneType(),
+            matmul_block.__name__: NoneType(),
+            exp_init.__name__: NoneType(),
+            exp.__name__: NoneType(),
+            exp2init.__name__: NoneType(),
+            exp2.__name__: NoneType(),
+            exp_m1init.__name__: NoneType(),
+            exp_m1.__name__: NoneType(),
+            relu_init.__name__: NoneType(),
+            relu.__name__: NoneType(),
+            relu_max_init.__name__: NoneType(),
+            relu_max.__name__: NoneType(),
+            relu_min_init.__name__: NoneType(),
+            relu_min.__name__: NoneType(),
+            leaky_relu_init.__name__: NoneType(),
+            elu_init.__name__: NoneType(),
+            elu.__name__: NoneType(),
+            erf_init.__name__: NoneType(),
+            erf.__name__: NoneType(),
+            erfc_init.__name__: NoneType(),
+            erfc.__name__: NoneType(),
+            erfinv_init.__name__: NoneType(),
+            erfinv.__name__: NoneType(),
+            gelu_init.__name__: NoneType(),
+            gelu.__name__: NoneType(),
+            heaviside_init.__name__: NoneType(),
+            heaviside.__name__: NoneType(),
+            is_inf_init.__name__: NoneType(),
+            is_inf.__name__: NoneType(),
+            is_posinf_init.__name__: NoneType(),
+            is_posinf.__name__: NoneType(),
+            is_neginf_init.__name__: NoneType(),
+            is_neginf.__name__: NoneType(),
+            is_finite_init.__name__: NoneType(),
+            is_finite.__name__: NoneType(),
+            is_na_n.__name__: NoneType(),
+            i0init.__name__: NoneType(),
+            i0.__name__: NoneType(),
+            logical_not_unary_init.__name__: NoneType(),
+            logical_not_unary.__name__: NoneType(),
+            recip_init.__name__: NoneType(),
+            recip.__name__: NoneType(),
+            sign_init.__name__: NoneType(),
+            sign.__name__: NoneType(),
+            sqrt_init.__name__: NoneType(),
+            sqrt.__name__: NoneType(),
+            r_sqrt_init.__name__: NoneType(),
+            r_sqrt.__name__: NoneType(),
+            sigmoid_init.__name__: NoneType(),
+            sigmoid.__name__: NoneType(),
+            log_init.__name__: NoneType(),
+            log.__name__: NoneType(),
+            log_with_base_init.__name__: NoneType(),
+            log_with_base.__name__: NoneType(),
+            power_init.__name__: NoneType(),
+            power.__name__: NoneType(),
+            r_sub_init.__name__: NoneType(),
+            r_sub.__name__: NoneType(),
+            sign_bit_init.__name__: NoneType(),
+            sign_bit.__name__: NoneType(),
+            square_init.__name__: NoneType(),
+            square.__name__: NoneType(),
+            reduce.__name__: NoneType(),
+            transpose_wh_init.__name__: NoneType(),
+            transpose_wh.__name__: NoneType(),
+            tanh_init.__name__: NoneType(),
+            tanh.__name__: NoneType(),
+            tan_init.__name__: NoneType(),
+            tan.__name__: NoneType(),
+            sin_init.__name__: NoneType(),
+            sin.__name__: NoneType(),
+            cos_init.__name__: NoneType(),
+            cos.__name__: NoneType(),
+            asin_init.__name__: NoneType(),
+            asin.__name__: NoneType(),
+            atan_init.__name__: NoneType(),
+            atan.__name__: NoneType(),
+            acos_init.__name__: NoneType(),
+            acos.__name__: NoneType(),
+            ltz_init.__name__: NoneType(),
+            ltz.__name__: NoneType(),
+            eqz_init.__name__: NoneType(),
+            eqz.__name__: NoneType(),
+            lez_init.__name__: NoneType(),
+            lez.__name__: NoneType(),
+            gtz_init.__name__: NoneType(),
+            gtz.__name__: NoneType(),
+            gez_init.__name__: NoneType(),
+            gez.__name__: NoneType(),
+            nez_init.__name__: NoneType(),
+            nez.__name__: NoneType(),
+            unary_ne_init.__name__: NoneType(),
+            unary_ne.__name__: NoneType(),
+            unary_gt_init.__name__: NoneType(),
+            unary_gt.__name__: NoneType(),
+            unary_lt_init.__name__: NoneType(),
+            unary_lt.__name__: NoneType(),
+            tilize_init.__name__: NoneType(),
+            tilize_init_short.__name__: NoneType(),
+            tilize_init_short_with_dt.__name__: NoneType(),
+            tilize_block.__name__: NoneType(),
+            tilize_uninit.__name__: NoneType(),
+            tilize_uninit_with_dt.__name__: NoneType(),
+            untilize_init.__name__: NoneType(),
+            untilize_init_short.__name__: NoneType(),
+            untilize_block.__name__: NoneType(),
+            untilize_uninit.__name__: NoneType(),
         }
 
     def generic_visit(self, node):
@@ -45,7 +188,6 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_Pass(self, node):
         pass
-
 
     def dominating_type(self, a, b) -> MLIRType:
         if a == b:
@@ -58,7 +200,6 @@ class TypeChecker(ast.NodeVisitor):
             return IntegerType(32)
 
         raise NotImplementedError(f"Type not in type hierarchy: {a.__class__.__name__}")
-
 
     def visit_Constant(self, node: ast.Constant):
         data = node.value
@@ -90,7 +231,6 @@ class TypeChecker(ast.NodeVisitor):
             self.dominating_type(self.types[target], expected_type)
         )
 
-
     def visit_UnaryOp(self, node) -> MLIRType:
         return self.visit(node.operand)
 
@@ -111,14 +251,15 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> MLIRType:
         if isa(node.func, ast.Attribute):
-          name=node.func.attr
-          if name == "Core": return CoreCoord
+            name = node.func.attr
+            if name == "Core":
+                return CoreCoord
         else:
-          name = node.func.id
-          if name in self.types:
-              return self.types[name]
+            name = node.func.id
+            if name in self.types:
+                return self.types[name]
 
-          raise NotImplementedError(f"Unhandled call: {name}")
+            raise NotImplementedError(f"Unhandled call: {name}")
 
     # ********* Generic visits *********
     def visit_Module(self, node):
