@@ -84,7 +84,13 @@ class PrintMetalium:
             CBPagesReservableAtBack, CBPagesAvailableAtFront, ReturnOp
         ]
 
+        self._skip_next_op = False
+
     def print_op(self, operation):
+        if self._skip_next_op:
+            self._skip_next_op = False
+            return
+
         if isinstance(operation, ModuleOp):
             for region in operation.regions:
                 for block in region.blocks:
@@ -164,8 +170,16 @@ class PrintMetalium:
         var_name = self.create_fresh_variable(hint='i' if index else op.results[0].name_hint)
         type_decl = self._mlir_to_cpp_type[op.result_types[0].element_type]
 
-        self.print(type_decl + " " + var_name + ";")
+        nxt = op.next_op
+        rhs = ""
 
+        # here we are both a decl and init
+        if isinstance(nxt, StoreOp) and nxt.operands[1] == op.results[0]:
+            rhs_val = nxt.operands[0]
+            rhs = f" = {self.get_rhs_value(rhs_val)}"
+            self._skip_next_op = True
+
+        self.print(type_decl + " " + var_name + rhs + ";")
         ssa_referring_to_var = op.results[0]
         self._names[ssa_referring_to_var] = var_name
 
