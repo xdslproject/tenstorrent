@@ -27,7 +27,6 @@ def data_in(func):
 
         type_checker = TypeChecker()
         type_checker.visit(tree)
-        type_checker.print_types()
         print()
 
         tree_walker = PythonToMLIR(type_checker)
