@@ -23,6 +23,19 @@ TenstorrentOps = list(DataMovement.operations) + list(Compute.operations) + list
 #     of the boilerplate.
 
 
+def get_api_name(op_name: str) -> str:
+    first_two_chars = op_name[:2]
+    match first_two_chars:
+        case 'cb':
+            return op_name.replace('.', '_')
+        case 'dm':
+            return op_name.replace('dm.', '')
+        case 'co':
+            return op_name.replace('comp.', '')
+        case default:
+            raise Exception(f"Unhandled operation name: {op_name}")
+
+
 class PrintMetalium:
     """
     Prints the Tenstorrent Metalium API (C) given a list of xDSL operations
@@ -270,16 +283,7 @@ class PrintMetalium:
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
     def print_tt_op(self, operation):
-        first_two_chars = operation.name[:2]
-        if first_two_chars == 'cb':
-            api_name = operation.name.replace('.', '_')
-        elif first_two_chars == 'dm':
-            api_name = operation.name.replace('dm.', '')
-        elif first_two_chars == 'co':
-            api_name = operation.name.replace('comp.', '')
-        else:
-            raise ValueError(f"Unsupported operation name: {operation.name}")
-
+        api_name = get_api_name(operation.name)
         values = [self.get_rhs_value(op) for op in operation.operands]
         template_args = self.template_args_as_string(operation)
         self.print(f"{api_name}{template_args}({', '.join(values)});")
