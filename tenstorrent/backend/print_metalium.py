@@ -227,7 +227,7 @@ class PrintMetalium:
 
         return name
 
-    def get_rhs_value(self, elem: SSAValue | Attribute) -> str:
+    def get_rhs_value(self, elem: SSAValue | Attribute, brackets=False) -> str:
         """
         Returns a textual representation of the expression that the ssa_value
         is assigned to.
@@ -255,6 +255,8 @@ class PrintMetalium:
             return "static_cast<float>(" + self.get_rhs_value(creator.operands[0]) + ")"
 
         if isinstance(creator, BinaryOperation):
+            if brackets:
+                return f"({self.binary_op_string(creator)})"
             return self.binary_op_string(creator)
 
         if isinstance(creator, LoadOp):
@@ -303,42 +305,22 @@ class PrintMetalium:
         another binary operation. This method handles each case and produces a
         string.
         """
+        # TODO: add support for floating point comparison
         if isinstance(operation, ComparisonOperation):
-            # TODO: add support for floating point comparison
             op_str = self._int_comparison_ops[operation.predicate]
 
         # whilst XOrI is a binary operation, we know it can encode 'not'
         elif isinstance(operation, XOrIOp) and operation.operands[1].op.value == TRUE:
-            return "!(" + self.binary_op_string(operation.operands[0].op) + ")"
+            return "!(" + self.get_rhs_value(operation.operands[0]) + ")"
 
         else:
             op_str = self._op_to_sym[type(operation)]
 
-        values = ["ERROR", "ERROR"]
+        brackets = True
+        lhs = self.get_rhs_value(operation.operands[0], brackets)
+        rhs = self.get_rhs_value(operation.operands[1], brackets)
 
-        for i in range(0, 2):
-            operand = operation.operands[i]
-            assert isinstance(operand, OpResult)
-            creator = operand.op
-
-            if isinstance(creator, ConstantOp):
-                values[i] = creator.value.value.data
-
-            elif isinstance(creator, ExtFOp):
-                values[i] = "static_cast<float>(" + self.get_rhs_value(creator.operands[0]) + ")"
-
-            elif isinstance(creator, LoadOp):
-                values[i] = self._names[creator.operands[0]]
-
-            elif isinstance(creator, ArithmeticOperation):
-                values[i] = '(' + self.binary_op_string(creator) + ')'
-
-            elif isinstance(creator, BooleanOperation):
-                values[i] = self.binary_op_string(creator)
-            else:
-                raise Exception(f"Unhandled type: {operation.__class__} in binary_op_string")
-
-        return f"{values[0]} {op_str} {values[1]}"
+        return f"{lhs} {op_str} {rhs}"
 
     @property
     def _prefix(self):

@@ -6,5 +6,5 @@ void kernel_main() {
         a = false;
     }
     std::int32_t d = 5;
-    bool e = d < 10 || c;
+    bool e = (d < 10) || c;
 }
