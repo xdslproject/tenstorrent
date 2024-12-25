@@ -161,7 +161,7 @@ class PrintMetalium:
 
     def print_declaration(self, op: AllocOp):
         index = isinstance(op.next_op, ForOp)
-        var_name = self.create_fresh_variable(hint='i' if index else 'a')
+        var_name = self.create_fresh_variable(hint='i' if index else op.results[0].name_hint)
         type_decl = self._mlir_to_cpp_type[op.result_types[0].element_type]
 
         self.print(type_decl + " " + var_name + ";")

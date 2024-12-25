@@ -643,5 +643,6 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def allocate_memory(self, symbol: str) -> memref.AllocOp:
         memory = memref.AllocOp([], [], MemRefType(self.get_type(symbol), []))
+        memory.results[0].name_hint = symbol
         self.symbol_table[symbol] = memory
         return memory

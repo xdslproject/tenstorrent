@@ -1,11 +1,11 @@
 void kernel_main() {
     std::int32_t a;
     a = 7;
-    std::int32_t a1;
-    a1 = 3;
-    std::int32_t a2;
-    a2 = 9;
-    if ((a == 7 && a1 == 3) || a2 == 2) {
+    std::int32_t b;
+    b = 3;
+    std::int32_t c;
+    c = 9;
+    if ((a == 7 && b == 3) || c == 2) {
         a = 15;
     }
 }

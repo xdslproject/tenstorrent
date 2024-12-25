@@ -7,8 +7,8 @@ builtin.module attributes  {"kernel_type" = "data_in"} {
     %4 = arith.addi %0, %3 : i32
     %5 = arith.constant 4 : i32
     %6 = arith.addi %4, %5 : i32
-    %7 = memref.alloc() : memref<i32>
-    memref.store %6, %7[] : memref<i32>
+    %a = memref.alloc() : memref<i32>
+    memref.store %6, %a[] : memref<i32>
     func.return
   }
 }
