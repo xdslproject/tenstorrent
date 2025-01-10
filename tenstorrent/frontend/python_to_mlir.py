@@ -256,9 +256,20 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Pass(self, node) -> List[Operation]:
         return []
 
-    def visit_Module(self, node):
+    def visit_Module(self, node) -> List[Operation]:
+        operations: List[Operation] = []
+
         # at the 'module' level should just be a single function def
-        self.operations = self.visit(node.body[0])
+        for child in node.body:
+            ops = self.visit(child)
+            if isa(ops,list):
+              operations+=ops
+            else:
+              operations.append(ops)
+
+        # after all processing is done, wrap in module operation
+        self.operations = builtin.ModuleOp(operations)
+        return [self.operations]
 
     def visit_FunctionDef(self, node) -> Operation:
         operations: List[Operation] = []
@@ -324,7 +335,7 @@ class PythonToMLIR(ast.NodeVisitor):
         if isa(dest, ast.Name):
           # create a memref
           # seen = var_name in self.symbol_table
-          seen = var_name in self.symbol_table.dictionary
+          seen = var_name in self.symbol_table
           if isa(rhs_ops[-1], memref.AllocaOp):
             # This is a bit of a hack, we are allocating a list and this is done
             # in the bin op, so we pick the memref here
@@ -346,7 +357,7 @@ class PythonToMLIR(ast.NodeVisitor):
           # Array assignment
           assert isa(dest.slice, ast.Constant)
           idx_ops, idx_ssa=self.visit(dest.slice)
-          assert var_name in self.symbol_table.dictionary
+          assert var_name in self.symbol_table
           store = memref.StoreOp.get(rhs_ssa_val, self.symbol_table[var_name], [idx_ssa])
           return operations + idx_ops + [store], self.symbol_table[var_name]
 
