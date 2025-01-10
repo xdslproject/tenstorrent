@@ -4,9 +4,9 @@ from xdsl.dialects.arith import ConstantOp, AddiOp, MuliOp, AddfOp, MulfOp, Sign
     FloatingPointLikeBinaryOperation, CmpiOp, AndIOp, OrIOp, CmpfOp, ComparisonOperation, XOrIOp, SubiOp, SubfOp, ExtFOp, DivfOp
 from xdsl.dialects.scf import ForOp, YieldOp, IfOp, WhileOp
 from xdsl.dialects.memref import AllocOp, StoreOp, LoadOp
-from xdsl.ir import Block, Region, OpResult
+from xdsl.ir import Block, Region, OpResult, Attribute
 
-from dialects import *
+from tenstorrent.dialects import *
 
 
 ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
@@ -14,13 +14,25 @@ BooleanOperation = AndIOp | OrIOp | CmpiOp | CmpfOp
 BinaryOperation = ArithmeticOperation | BooleanOperation
 OpWithBody = FuncOp | ForOp | WhileOp
 CircularBufferOperationWithResult = CBPagesAvailableAtFront | CBPagesReservableAtBack
-StatefulCircularBufferOperation = CBReserveBack | CBPushBack | CBPopFront | CBWaitFront
 
 TRUE = IntegerAttr.from_int_and_width(1, 1)
+TenstorrentOps = (list(DataMovement.operations)
+                  + list(Compute.operations)
+                  + list(TTHost.operations)
+                  + list(CircularBuffer.operations))
 
-# TODO: currently printing API calls/func names is hardcoded, but should not vary based on whether the function is
-#     used on its own (as a statement) or used on the rhs (as an expression). Should handle this to remove a lot
-#     of the boilerplate.
+
+def get_api_name(op_name: str) -> str:
+    first_two_chars = op_name[:2]
+    match first_two_chars:
+        case 'cb':
+            return op_name.replace('.', '_')
+        case 'dm':
+            return op_name.replace('dm.', '')
+        case 'co':
+            return op_name.replace('comp.', '')
+        case default:
+            raise Exception(f"Unhandled operation name: {op_name}")
 
 
 class PrintMetalium:
@@ -79,61 +91,53 @@ class PrintMetalium:
         }
 
         self._skip = [
-            ConstantOp, AllocOp, LoadOp, AddiOp, MuliOp, AddfOp, MulfOp, IndexCastOp, YieldOp,
+            ConstantOp, LoadOp, AddiOp, MuliOp, AddfOp, MulfOp, IndexCastOp, YieldOp,
             CmpiOp, AndIOp, OrIOp, XOrIOp, SubiOp, SubfOp, ExtFOp, DivfOp,
-            CBPagesReservableAtBack, CBPagesAvailableAtFront
+            CBPagesReservableAtBack, CBPagesAvailableAtFront, ReturnOp
         ]
 
+        self._skip_next_op = False
+
     def print_op(self, operation):
+        if self._skip_next_op:
+            self._skip_next_op = False
+            return
+
         if isinstance(operation, ModuleOp):
-          for region in operation.regions:
-            for block in region.blocks:
-              self.print_op(block)
+            for region in operation.regions:
+                for block in region.blocks:
+                    self.print_op(block)
+
+        elif type(operation) in self._skip:
+            pass
 
         elif isinstance(operation, Block):
-          for op in operation.ops:
-            self.print_op(op)
+            for op in operation.ops:
+                self.print_op(op)
 
         elif isinstance(operation, FuncOp):
-            self.print_func(operation)
-            operation = operation.next_op
-
-        elif isinstance(operation, ReturnOp):
-          pass
+            self.print_func_def(operation)
 
         elif isinstance(operation, AllocOp):
             self.print_declaration(operation)
-            operation = operation.next_op
 
         elif isinstance(operation, StoreOp):
             self.print_assignment(operation)
-            operation = operation.next_op
 
         elif isinstance(operation, ForOp):
             self.print_for_loop(operation)
-            operation = operation.next_op
 
         elif isinstance(operation, IfOp):
             self.print_if_statement(operation)
-            operation = operation.next_op
 
-        elif isinstance(operation, StatefulCircularBufferOperation):
+        elif type(operation) in TenstorrentOps:
             self.print_tt_op(operation)
-            operation = operation.next_op
-
-        elif type(operation) in DataMovement.operations:
-            self.print_tt_op(operation)
-            operation = operation.next_op
-
-        # skip constants on their own, will be picked up later if used
-        elif type(operation) in self._skip:
-            operation = operation.next_op
 
         else:
             raise NotImplementedError(f"Unhandled operation: {operation.__class__.__name__}")
 
 
-    def print_func(self, func: FuncOp):
+    def print_func_def(self, func: FuncOp):
         """
         void func_name(typea a, typeb b, ...) {
 
@@ -156,9 +160,9 @@ class PrintMetalium:
         i = self._names[i_register]
         self._names[i_loop_ssa] = i
 
-        start = self.get_value(loop.lb)
-        stop = self.get_value(loop.ub)
-        step = self.get_value(loop.step)
+        start = self.get_rhs_value(loop.lb)
+        stop = self.get_rhs_value(loop.ub)
+        step = self.get_rhs_value(loop.step)
         self.print(f"for ({i} = {start}; {i} < {stop}; {i} += {step}) {'{'}")
 
         self._indent += 1
@@ -174,11 +178,19 @@ class PrintMetalium:
 
     def print_declaration(self, op: AllocOp):
         index = isinstance(op.next_op, ForOp)
-        var_name = self.create_fresh_variable(hint='i' if index else 'a')
+        var_name = self.create_fresh_variable(hint='i' if index else op.results[0].name_hint)
         type_decl = self._mlir_to_cpp_type[op.result_types[0].element_type]
 
-        self.print(type_decl + " " + var_name + ";")
+        nxt = op.next_op
+        rhs = ""
 
+        # here we are both a decl and init
+        if isinstance(nxt, StoreOp) and nxt.operands[1] == op.results[0]:
+            rhs_val = nxt.operands[0]
+            rhs = f" = {self.get_rhs_value(rhs_val)}"
+            self._skip_next_op = True
+
+        self.print(type_decl + " " + var_name + rhs + ";")
         ssa_referring_to_var = op.results[0]
         self._names[ssa_referring_to_var] = var_name
 
@@ -188,17 +200,17 @@ class PrintMetalium:
         ssa_value = op.operands[0]
         ssa_destination = op.operands[1]
 
-        result = self.get_value(ssa_value)
+        result = self.get_rhs_value(ssa_value)
         var_name = self._names[ssa_destination]
 
         self.print(f"{var_name} = {result};")
 
 
     def print_if_statement(self, op: IfOp):
-        self.print(f"if ({self.get_value(op.cond)}) {'{'}")
+        self.print(f"if ({self.get_rhs_value(op.cond)}) {'{'}")
 
         self._indent += 1
-        self.print_block(op.true_region.blocks[0])
+        self.print_op(op.true_region.blocks[0])
         self._indent -= 1
 
         or_else = len(op.false_region.blocks) > 0
@@ -226,42 +238,60 @@ class PrintMetalium:
 
         return name
 
-    def get_value(self, ssa_value: SSAValue) -> str:
+    def get_rhs_value(self, elem: SSAValue | Attribute, brackets=False) -> str:
         """
         Returns a textual representation of the expression that the ssa_value
         is assigned to.
         """
-        if ssa_value in self._names:
-            return self._names[ssa_value]
+        if elem in self._names:
+            return self._names[elem]
 
-        creator = ssa_value.owner
+        boolean = elem.type.name == 'integer_type' and elem.type.bitwidth == 1
+          
+        if isinstance(elem, Attribute):
+            if boolean and elem.value.data == -1:
+                return "true"
+            return str(elem.value.data).lower()
+
+        creator = elem.owner
         if isinstance(creator, ConstantOp):
-            return str(creator.value.value.data).lower()
+            if boolean and creator.value.value.data == -1:
+                return "true"
+            return str(creator.value.value.data).lower()            
 
         if isinstance(creator, IndexCastOp):
-            return self.get_value(creator.operands[0])
+            return self.get_rhs_value(creator.operands[0])
 
         if isinstance(creator, ExtFOp):
-            return "static_cast<float>(" + self.get_value(creator.operands[0]) + ")"
+            return "static_cast<float>(" + self.get_rhs_value(creator.operands[0]) + ")"
 
         if isinstance(creator, BinaryOperation):
+            if brackets:
+                return f"({self.binary_op_string(creator)})"
             return self.binary_op_string(creator)
 
         if isinstance(creator, LoadOp):
-            return self.get_value(creator.operands[0])
+            return self.get_rhs_value(creator.operands[0])
 
         if isinstance(creator, CircularBufferOperationWithResult):
-            arg1 = self.get_value(creator.operands[0])
-            arg2 = self.get_value(creator.operands[1])
+            arg1 = self.get_rhs_value(creator.operands[0])
+            arg2 = self.get_rhs_value(creator.operands[1])
             return f"{creator.name.replace('.', '_')}({arg1}, {arg2})"
 
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
-    def print_tt_op(self, operation: StatefulCircularBufferOperation):
-        api_name = operation.name.replace('.', '_').replace('dm_', '')
+    def print_tt_op(self, operation):
+        api_name = get_api_name(operation.name)
+        values = [self.get_rhs_value(op) for op in operation.operands]
+        template_args = self.template_args_as_string(operation)
+        self.print(f"{api_name}{template_args}({', '.join(values)});")
 
-        values = [self.get_value(op) for op in operation.operands]
-        self.print(f"{api_name}({', '.join(values)});")
+
+    def template_args_as_string(self, operation: IRDLOperation):
+        if not operation.properties:
+            return ""
+
+        return f"<{', '.join([self.get_rhs_value(p) for p in operation.properties.values()])}>"
 
     def print(self, s: str, indented: bool = True):
         prefix = self._prefix if indented else ""
@@ -277,42 +307,22 @@ class PrintMetalium:
         another binary operation. This method handles each case and produces a
         string.
         """
+        # TODO: add support for floating point comparison
         if isinstance(operation, ComparisonOperation):
-            # TODO: add support for floating point comparison
             op_str = self._int_comparison_ops[operation.predicate]
 
         # whilst XOrI is a binary operation, we know it can encode 'not'
-        elif isinstance(operation, XOrI) and operation.operands[1].op.value == TRUE:
-            return "!(" + self.binary_op_string(operation.operands[0].op) + ")"
+        elif isinstance(operation, XOrIOp) and operation.operands[1].op.value == TRUE:
+            return "!(" + self.get_rhs_value(operation.operands[0]) + ")"
 
         else:
             op_str = self._op_to_sym[type(operation)]
 
-        values = ["ERROR", "ERROR"]
+        brackets = True
+        lhs = self.get_rhs_value(operation.operands[0], brackets)
+        rhs = self.get_rhs_value(operation.operands[1], brackets)
 
-        for i in range(0, 2):
-            operand = operation.operands[i]
-            assert isinstance(operand, OpResult)
-            creator = operand.op
-
-            if isinstance(creator, ConstantOp):
-                values[i] = creator.value.value.data
-
-            elif isinstance(creator, ExtFOp):
-                values[i] = "static_cast<float>(" + self.get_value(creator.operands[0]) + ")"
-
-            elif isinstance(creator, LoadOp):
-                values[i] = self._names[creator.operands[0]]
-
-            elif isinstance(creator, ArithmeticOperation):
-                values[i] = '(' + self.binary_op_string(creator) + ')'
-
-            elif isinstance(creator, BooleanOperation):
-                values[i] = self.binary_op_string(creator)
-            else:
-                raise Exception(f"Unhandled type: {operation.__class__} in binary_op_string")
-
-        return f"{values[0]} {op_str} {values[1]}"
+        return f"{lhs} {op_str} {rhs}"
 
     @property
     def _prefix(self):

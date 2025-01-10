@@ -1,4 +1,3 @@
-void single_assignment() {
-    std::int32_t a;
-    a = 13;
+void kernel_main() {
+    std::int32_t a = 13;
 }

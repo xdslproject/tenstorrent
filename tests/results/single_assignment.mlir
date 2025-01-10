@@ -1,7 +1,8 @@
-builtin.module {
-  func.func @single_assignment() {
+builtin.module attributes  {"kernel_type" = "data_in"} {
+  func.func @kernel_main() {
     %0 = arith.constant 13 : i32
-    %1 = memref.alloc() : memref<1xi32>
-    memref.store %0, %1[] : memref<1xi32>
+    %a = memref.alloc() : memref<i32>
+    memref.store %0, %a[] : memref<i32>
+    func.return
   }
 }

@@ -1,1 +1,1 @@
-from .decorators import data_in
+from .decorators import data_in, compute

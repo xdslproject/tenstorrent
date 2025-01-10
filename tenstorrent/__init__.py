@@ -1,1 +1,1 @@
-from .frontend import data_in
+from .frontend import data_in, compute

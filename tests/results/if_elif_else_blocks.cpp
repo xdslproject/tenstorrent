@@ -1,17 +1,16 @@
-void if_elif_else_blocks() {
-    std::int32_t a;
-    a = 5;
-    std::int32_t a1;
+void kernel_main() {
+    std::int32_t a = 5;
+    std::int32_t b;
     if (a == 7) {
         a = 2;
-        a1 = 3;
+        b = 3;
     } else {
         if (a == 5) {
             a = 1;
-            a1 = 2;
+            b = 2;
         } else {
             a = 10;
-            a1 = 9;
+            b = 9;
         }
     }
 }

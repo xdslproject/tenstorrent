@@ -1,6 +1,4 @@
-void multiple_assignment() {
-    std::int32_t a;
-    a = 1;
-    std::int32_t a1;
-    a1 = 4;
+void kernel_main() {
+    std::int32_t a = 1;
+    std::int32_t b = 4;
 }

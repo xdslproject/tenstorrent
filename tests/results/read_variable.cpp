@@ -1,6 +1,4 @@
-void read_variable() {
-    std::int32_t a;
-    a = 5;
-    std::int32_t a1;
-    a1 = a + 1;
+void kernel_main() {
+    std::int32_t a = 5;
+    std::int32_t b = a + 1;
 }
