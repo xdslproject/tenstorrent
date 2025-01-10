@@ -442,9 +442,38 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Expr(self, node) -> List[Operation]:
         return self.visit(node.value)
 
+    def handleCreateKernel(self, node):
+      assert len(node.args)==5
+
+      program_ops, program_ssa=self.visit(node.args[0])
+      core_ops, core_ssa=self.visit(node.args[2])
+
+      assert isa(node.args[1], ast.Name)
+      target_fn_name=node.args[1].id
+
+      assert isa(node.args[3], ast.Attribute)
+
+      rv_core_flag=None
+      if node.args[3].attr == "DataMovement_0":
+        rv_core_flag=RISCVCoreFlags.DATAMOVEMENT_0
+      elif node.args[3].attr == "DataMovement_1":
+        rv_core_flag=RISCVCoreFlags.DATAMOVEMENT_1
+      elif node.args[3].attr == "Compute":
+        rv_core_flag=RISCVCoreFlags.COMPUTE
+
+      assert rv_core_flag is not None
+
+      assert isa(node.args[4], ast.Constant)
+      noc_id=node.args[4].value
+      assert noc_id == 0 or noc_id == 1
+
+      kernelCreate=TTCreateKernel(program_ssa, core_ssa, target_fn_name+"_kernel.cpp", RISCVCoreFlagsAttr([rv_core_flag]), noc_id)
+
+      return program_ops + core_ops + [kernelCreate], kernelCreate.results[0]
+
 
     def handleHostCall(self, node, operationClass, expectedNumArgs):
-      assert len(node.args)==expectedNumArgs
+      if expectedNumArgs is not None: assert len(node.args)==expectedNumArgs
       arg_ops=[]
       arg_ssas=[]
       for arg in node.args:
@@ -467,7 +496,14 @@ class PythonToMLIR(ast.NodeVisitor):
           if name == "CreateBuffer": return self.handleHostCall(node, TTCreateBuffer, 1)
           if name == "CreateDevice": return self.handleHostCall(node, TTCreateDevice, 1)
           if name == "GetCommandQueue": return self.handleHostCall(node, TTGetCommandQueue, 1)
-          if name == "EnqueueWriteBuffer": return self.handleHostCall(node, TTEnqueueWriteBuffer, 3)
+          if name == "EnqueueWriteBuffer": return self.handleHostCall(node, TTEnqueueWriteBuffer, 4)
+          if name == "EnqueueReadBuffer": return self.handleHostCall(node, TTEnqueueReadBuffer, 4)
+          if name == "CreateProgram": return self.handleHostCall(node, TTCreateProgram, 0)
+          if name == "Kernel": return self.handleCreateKernel(node)
+          if name == "SetRuntimeArgs": return self.handleHostCall(node, TTSetRuntimeArgs, None)
+          if name == "EnqueueProgram": return self.handleHostCall(node, TTEnqueueProgram, 3)
+          if name == "Finish": return self.handleHostCall(node, TTFinish, 1)
+          if name == "CloseDevice": return self.handleHostCall(node, TTCloseDevice, 1)
         else:
           name = node.func.id
           if name not in self._functions:

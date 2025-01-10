@@ -39,7 +39,14 @@ class TypeChecker(ast.NodeVisitor):
             "DRAMConfig": DRAMBufferConfig,
             "CreateBuffer": Buffer,
             "GetCommandQueue": CommandQueue,
-            "EnqueueWriteBuffer": None
+            "EnqueueWriteBuffer": None,
+            "EnqueueReadBuffer": None,
+            "CreateProgram": Program,
+            "Kernel": Kernel,
+            "SetRuntimeArgs": None,
+            "EnqueueProgram": None,
+            "Finish": None,
+            "CloseDevice": None
         }
 
     def generic_visit(self, node):
