@@ -1,7 +1,7 @@
 import ast
 from typing import Dict
 from xdsl.utils.hints import isa
-from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType, NoneType
+from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType, NoneType, MemRefType
 
 from .dummy import *
 from tenstorrent.dialects import *
@@ -32,7 +32,7 @@ class TypeChecker(ast.NodeVisitor):
             noc_semaphore_inc.__name__: NoneType(),
             noc_semaphore_wait.__name__: NoneType(),
             noc_async_read_barrier.__name__: NoneType(),
-            noc_async_write_barrier.__name__: NoneType(),
+            noc_async_write_barrier.__name__: NoneType(),            
             get_noc_addr_from_bank_id.__name__: IntegerType(32),
             copy.__name__: NoneType(),
             copy_to_dst_init_short_with_dt.__name__: NoneType(),
@@ -178,6 +178,19 @@ class TypeChecker(ast.NodeVisitor):
             untilize_init_short.__name__: NoneType(),
             untilize_block.__name__: NoneType(),
             untilize_uninit.__name__: NoneType(),
+            "CreateDevice": Device,
+            "Core": CoreCoord,
+            "DRAMConfig": DRAMBufferConfig,
+            "CreateBuffer": Buffer,
+            "GetCommandQueue": CommandQueue,
+            "EnqueueWriteBuffer": None,
+            "EnqueueReadBuffer": None,
+            "CreateProgram": Program,
+            "Kernel": Kernel,
+            "SetRuntimeArgs": None,
+            "EnqueueProgram": None,
+            "Finish": None,
+            "CloseDevice": None,
         }
 
     def generic_visit(self, node):
@@ -200,6 +213,11 @@ class TypeChecker(ast.NodeVisitor):
             return IntegerType(32)
 
         raise NotImplementedError(f"Type not in type hierarchy: {a.__class__.__name__}")
+
+    def visit_List(self, node: ast.List):
+      assert len(node.elts) == 1
+      element_type=self.visit(node.elts[0])
+      return MemRefType(element_type, [])
 
     def visit_Constant(self, node: ast.Constant):
         data = node.value
@@ -224,7 +242,12 @@ class TypeChecker(ast.NodeVisitor):
         On assignment be sure to register the type of a variable if it is not
         already registered, if it is then verify the type.
         """
-        target = node.targets[0].id
+        if isa(node.targets[0], ast.Name):
+          target = node.targets[0].id
+        elif isa(node.targets[0], ast.Subscript):
+          target = node.targets[0].value.id
+        else:
+          assert False
         expected_type = self.visit(node.value)
 
         self.types[target] = expected_type if target not in self.types else (
@@ -251,15 +274,13 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> MLIRType:
         if isa(node.func, ast.Attribute):
-            name = node.func.attr
-            if name == "Core":
-                return CoreCoord
+          name=node.func.attr
         else:
-            name = node.func.id
-            if name in self.types:
-                return self.types[name]
+          name = node.func.id
+        if name in self.types:
+            return self.types[name]
 
-            raise NotImplementedError(f"Unhandled call: {name}")
+        raise NotImplementedError(f"Unhandled call: {name}")
 
     # ********* Generic visits *********
     def visit_Module(self, node):
