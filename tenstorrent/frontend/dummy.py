@@ -1,6 +1,6 @@
 import inspect
 from functools import wraps
-from typing import Literal, get_type_hints
+from typing import Literal, get_type_hints, List
 import ast
 
 
@@ -61,19 +61,19 @@ def cb_pop_front(cb_id: int, num_tiles: int):
 
 
 # Data movement dialect
-def noc_async_read(src_noc_addr: int, dst_local_l1_addr: int, size: int, noc: int):
+def noc_async_read(src_noc_addr: int, dst_cb: List[int | float], size: int, noc: int = -1):
     pass
 
 
-def noc_async_write(src_local_l1_addr: int, dst_noc_addr: int, size: int, noc: int):
+def noc_async_write(src_cb: List[int | float], dst_noc_addr: int, size: int, noc: int = -1):
     pass
 
 
-def noc_async_read_barrier(noc: int):
+def noc_async_read_barrier(noc: int = -1):
     pass
 
 
-def noc_async_write_barrier(noc: int):
+def noc_async_write_barrier(noc: int = -1):
     pass
 
 
@@ -119,7 +119,7 @@ def get_noc_addr_from_bank_id(
         dram: Literal[True, False],
         bank_id: int,
         bank_address_offset: int,
-        noc: int
+        noc: int = -1
 ) -> int:
     pass
 
