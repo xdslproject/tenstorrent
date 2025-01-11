@@ -253,6 +253,9 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Import(self, node) -> List[Operation]:
         return []
 
+    def visit_ImportFrom(self, node) -> List[Operation]:
+        return []
+
     def visit_Pass(self, node) -> List[Operation]:
         return []
 
@@ -262,10 +265,10 @@ class PythonToMLIR(ast.NodeVisitor):
         # at the 'module' level should just be a single function def
         for child in node.body:
             ops = self.visit(child)
-            if isa(ops,list):
-              operations+=ops
+            if isa(ops, list):
+                operations += ops
             else:
-              operations.append(ops)
+                operations.append(ops)
 
         # after all processing is done, wrap in module operation
         self.operations = builtin.ModuleOp(operations)
@@ -313,13 +316,13 @@ class PythonToMLIR(ast.NodeVisitor):
         # get the variable name to store the result in
         dest = node.targets[0]
         if isa(dest, ast.Name):
-          # Scalar assignment
-          var_name = dest.id
+            # Scalar assignment
+            var_name = dest.id
         elif isa(dest, ast.Subscript):
-          # Array assignment
-          var_name = dest.value.id
+            # Array assignment
+            var_name = dest.value.id
         else:
-          assert False
+            assert False
 
         # if the types don't match we need to insert a cast operation
         target_type = self.type_checker.types[var_name]
@@ -333,34 +336,33 @@ class PythonToMLIR(ast.NodeVisitor):
                 assert cast_ssa is None
 
         if isa(dest, ast.Name):
-          # create a memref
-          # seen = var_name in self.symbol_table
-          seen = var_name in self.symbol_table
-          if isa(rhs_ops[-1], memref.AllocaOp):
-            # This is a bit of a hack, we are allocating a list and this is done
-            # in the bin op, so we pick the memref here
-            self.symbol_table[var_name] = rhs_ops[-1].results[0]
-            assert seen == False
-            location = self.symbol_table[var_name]
-          else:
-            # This is a normal value, so just store as usual
-            if not seen:
-              operations += [self.allocate_memory(var_name)]
+            # create a memref
+            # seen = var_name in self.symbol_table
+            seen = var_name in self.symbol_table
+            if isa(rhs_ops[-1], memref.AllocaOp):
+                # This is a bit of a hack, we are allocating a list and this is done
+                # in the bin op, so we pick the memref here
+                self.symbol_table[var_name] = rhs_ops[-1].results[0]
+                assert seen == False
+                location = self.symbol_table[var_name]
+            else:
+                # This is a normal value, so just store as usual
+                if not seen:
+                    operations += [self.allocate_memory(var_name)]
 
-            location = self.symbol_table[var_name]
+                location = self.symbol_table[var_name]
 
-            # store result in that memref
-            store = memref.StoreOp.get(rhs_ssa_val, location, [])
-            operations.append(store)
-          return operations, location
+                # store result in that memref
+                store = memref.StoreOp.get(rhs_ssa_val, location, [])
+                operations.append(store)
+            return operations, location
         elif isa(dest, ast.Subscript):
-          # Array assignment
-          assert isa(dest.slice, ast.Constant)
-          idx_ops, idx_ssa=self.visit(dest.slice)
-          assert var_name in self.symbol_table
-          store = memref.StoreOp.get(rhs_ssa_val, self.symbol_table[var_name], [idx_ssa])
-          return operations + idx_ops + [store], self.symbol_table[var_name]
-
+            # Array assignment
+            assert isa(dest.slice, ast.Constant)
+            idx_ops, idx_ssa = self.visit(dest.slice)
+            assert var_name in self.symbol_table
+            store = memref.StoreOp.get(rhs_ssa_val, self.symbol_table[var_name], [idx_ssa])
+            return operations + idx_ops + [store], self.symbol_table[var_name]
 
     def get_cast(self, target_type: MLIRType, ssa_val: SSAValue) -> Tuple[List[Operation], Optional[OpResult]]:
         if isinstance(ssa_val.type, IntegerType):
@@ -371,6 +373,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
                 case IndexType():
                     conv_op = arith.IndexCastOp(ssa_val, IndexType())
+
             if conv_op is not None:
                 return [conv_op], conv_op.results[0]
         return [], None
@@ -393,78 +396,80 @@ class PythonToMLIR(ast.NodeVisitor):
         return [arith_op], arith_op.results[0]
 
     def visit_List(self, node: ast.List):
-      assert len(node.elts) == 1
-      element_type_ops, element_type_ssa=self.visit(node.elts[0])
-      return None, MemRefType(element_type_ssa.type, [])
+        assert len(node.elts) == 1
+        element_type_ops, element_type_ssa = self.visit(node.elts[0])
+        return None, MemRefType(element_type_ssa.type, [])
 
-    def visit_BinOp(self, node: ast.BinOp) -> List[Operation]:
+    def visit_BinOp(self, node: ast.BinOp) -> Tuple[List[Operation], OpResult]:
         lhs_ops, lhs_ssa_val = self.visit(node.left)
         rhs_ops, rhs_ssa_val = self.visit(node.right)
 
         if isa(lhs_ssa_val, MemRefType):
-          # This is a list definition, grab the size on the RHS and use memref alloc
-          if isa(rhs_ops[0], arith.ConstantOp):
-            assert isa(rhs_ops[0].value.type, IntegerType)
-            size_val=rhs_ops[0].value.value.data
-            alloc_shape=[size_val]
-            dynamic_size=[]
-          else:
-            alloc_shape=[-1]
-            dynamic_size=[rhs_ssa_val]
+            # This is a list definition, grab the size on the RHS and use memref alloc
+            if isa(rhs_ops[0], arith.ConstantOp):
+                assert isa(rhs_ops[0].value.type, IntegerType)
+                size_val = rhs_ops[0].value.value.data
+                alloc_shape = [size_val]
+                dynamic_size = []
+            else:
+                alloc_shape = [-1]
+                dynamic_size = [rhs_ssa_val]
 
-          memory = memref.AllocaOp.get(lhs_ssa_val.element_type, shape=alloc_shape, dynamic_sizes=dynamic_size)
-          operations = rhs_ops + [memory]
-          return operations, memory.results[0]
+            memory = memref.AllocaOp.get(lhs_ssa_val.element_type, shape=alloc_shape, dynamic_sizes=dynamic_size)
+            operations = rhs_ops + [memory]
+            return operations, memory.results[0]
         else:
-          operations = lhs_ops + rhs_ops
+            operations = lhs_ops + rhs_ops
 
-          # if types differ, we need to cast for the operation
-          if lhs_ssa_val.type != rhs_ssa_val.type:
-              target_type = self.type_checker.dominating_type(lhs_ssa_val.type, rhs_ssa_val.type)
-              if lhs_ssa_val.type != target_type:
-                  l_cast = self.get_cast(target_type, lhs_ssa_val)
-                  operations += [l_cast]
-                  lhs_ssa_val = l_cast.results[0]
+            # if types differ, we need to cast for the operation
+            if lhs_ssa_val.type != rhs_ssa_val.type:
+                target_type = self.type_checker.dominating_type(lhs_ssa_val.type, rhs_ssa_val.type)
+                if lhs_ssa_val.type != target_type:
+                    cast_ops, cast_ssa = self.get_cast(target_type, lhs_ssa_val)
+                    if cast_ops:
+                        operations += cast_ops
+                        lhs_ssa_val = cast_ssa
 
-              if rhs_ssa_val.type != target_type:
-                  r_cast = self.get_cast(target_type, rhs_ssa_val)
-                  operations += [r_cast]
-                  rhs_ssa_val = r_cast.results[0]
+                if rhs_ssa_val.type != target_type:
+                    cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
+                    if cast_ops:
+                        operations += cast_ops
+                        rhs_ssa_val = cast_ssa
 
-          # special case: if we have a division, we also want to cast
-          if isinstance(node, ast.Div):
-              target_type = Float32Type()
-              if lhs_ssa_val.type != target_type:
-                  l_cast = self.get_cast(target_type, lhs_ssa_val)
-                  operations += [l_cast]
-                  lhs_ssa_val = l_cast.results[0]
+            # special case: if we have a division, we also want to cast
+            if isinstance(node, ast.Div):
+                target_type = Float32Type()
+                if lhs_ssa_val.type != target_type:
+                    cast_ops, cast_ssa = self.get_cast(target_type, lhs_ssa_val)
+                    if cast_ops:
+                        operations += cast_ops
+                        lhs_ssa_val = cast_ssa
 
-              if rhs_ssa_val.type != target_type:
-                  r_cast = self.get_cast(target_type, rhs_ssa_val)
-                  operations += [r_cast]
-                  rhs_ssa_val = r_cast.results[0]
+                if rhs_ssa_val.type != target_type:
+                    cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
+                    if cast_ops:
+                        operations += cast_ops
+                        rhs_ssa_val = cast_ssa
 
-          op_constructor = self.get_operation(node)
-          bin_op=op_constructor(
-              lhs_ssa_val,
-              rhs_ssa_val,
-              None
-          )
-          return operations + [bin_op], bin_op.results[0]
-
+            op_constructor = self.get_operation(node)
+            bin_op = op_constructor(
+                lhs_ssa_val,
+                rhs_ssa_val,
+                None
+            )
+            return operations + [bin_op], bin_op.results[0]
 
     def visit_Name(self, node: ast.Name) -> Tuple[List[Operation], OpResult]:
         from_location = self.symbol_table[node.id]
         assert isa(from_location.type, MemRefType)
         if (len(from_location.type.shape) == 0):
-          # If this is a scalar then load it from the memref
-          load = memref.LoadOp.get(from_location, [])
-          return [load], load.results[0]
+            # If this is a scalar then load it from the memref
+            load = memref.LoadOp.get(from_location, [])
+            return [load], load.results[0]
         else:
-          # If it is an array then return directly as we don't have array indexes
-          # because if we did then this would be a subscript instead
-          return [], from_location
-
+            # If it is an array then return directly as we don't have array indexes
+            # because if we did then this would be a subscript instead
+            return [], from_location
 
     def visit_If(self, node: ast.If) -> Tuple[List[Operation], Optional[OpResult]]:
         allocations = self.allocate_new_variables(node)
@@ -594,67 +599,66 @@ class PythonToMLIR(ast.NodeVisitor):
         return self.visit(node.value)
 
     def handleCreateKernel(self, node):
-      assert len(node.args)==5
+        assert len(node.args) == 5
 
-      program_ops, program_ssa=self.visit(node.args[0])
-      core_ops, core_ssa=self.visit(node.args[2])
+        program_ops, program_ssa = self.visit(node.args[0])
+        core_ops, core_ssa = self.visit(node.args[2])
 
-      assert isa(node.args[1], ast.Name)
-      target_fn_name=node.args[1].id
+        assert isa(node.args[1], ast.Name)
+        target_fn_name = node.args[1].id
 
-      assert isa(node.args[3], ast.Attribute)
+        assert isa(node.args[3], ast.Attribute)
 
-      rv_core_flag=None
-      if node.args[3].attr == "DataMovement_0":
-        rv_core_flag=RISCVCoreFlags.DATAMOVEMENT_0
-      elif node.args[3].attr == "DataMovement_1":
-        rv_core_flag=RISCVCoreFlags.DATAMOVEMENT_1
-      elif node.args[3].attr == "Compute":
-        rv_core_flag=RISCVCoreFlags.COMPUTE
+        rv_core_flag = None
+        if node.args[3].attr == "DataMovement_0":
+            rv_core_flag = RISCVCoreFlags.DATAMOVEMENT_0
+        elif node.args[3].attr == "DataMovement_1":
+            rv_core_flag = RISCVCoreFlags.DATAMOVEMENT_1
+        elif node.args[3].attr == "Compute":
+            rv_core_flag = RISCVCoreFlags.COMPUTE
 
-      assert rv_core_flag is not None
+        assert rv_core_flag is not None
 
-      assert isa(node.args[4], ast.Constant)
-      noc_id=node.args[4].value
-      assert noc_id == 0 or noc_id == 1
+        assert isa(node.args[4], ast.Constant)
+        noc_id = node.args[4].value
+        assert noc_id == 0 or noc_id == 1
 
-      kernelCreate=TTCreateKernel(program_ssa, core_ssa, target_fn_name+"_kernel.cpp", RISCVCoreFlagsAttr([rv_core_flag]), noc_id)
+        kernelCreate = TTCreateKernel(program_ssa, core_ssa, target_fn_name + "_kernel.cpp",
+                                      RISCVCoreFlagsAttr([rv_core_flag]), noc_id)
 
-      return program_ops + core_ops + [kernelCreate], kernelCreate.results[0]
-
+        return program_ops + core_ops + [kernelCreate], kernelCreate.results[0]
 
     def handleHostCall(self, node, operationClass, expectedNumArgs):
-      if expectedNumArgs is not None: assert len(node.args)==expectedNumArgs
-      arg_ops=[]
-      arg_ssas=[]
-      for arg in node.args:
-        ops, ssa=self.visit(arg)
-        arg_ops+=ops
-        arg_ssas.append(ssa)
+        if expectedNumArgs is not None: assert len(node.args) == expectedNumArgs
+        arg_ops = []
+        arg_ssas = []
+        for arg in node.args:
+            ops, ssa = self.visit(arg)
+            arg_ops += ops
+            arg_ssas.append(ssa)
 
-      operation=operationClass(*arg_ssas)
-      if len(operation.results) > 0:
-        return arg_ops+[operation], operation.results[0]
-      else:
-        return arg_ops+[operation], None
-
+        operation = operationClass(*arg_ssas)
+        if len(operation.results) > 0:
+            return arg_ops + [operation], operation.results[0]
+        else:
+            return arg_ops + [operation], None
 
     def visit_Call(self, node) -> Tuple[List[Operation], Optional[OpResult]]:
         if isa(node.func, ast.Attribute):
-          name=node.func.attr
-          if name == "Core": return self.handleHostCall(node, TTHostCore, 2)
-          if name == "DRAMConfig": return self.handleHostCall(node, TTCreateDRAMConfig, 2)
-          if name == "CreateBuffer": return self.handleHostCall(node, TTCreateBuffer, 1)
-          if name == "CreateDevice": return self.handleHostCall(node, TTCreateDevice, 1)
-          if name == "GetCommandQueue": return self.handleHostCall(node, TTGetCommandQueue, 1)
-          if name == "EnqueueWriteBuffer": return self.handleHostCall(node, TTEnqueueWriteBuffer, 4)
-          if name == "EnqueueReadBuffer": return self.handleHostCall(node, TTEnqueueReadBuffer, 4)
-          if name == "CreateProgram": return self.handleHostCall(node, TTCreateProgram, 0)
-          if name == "Kernel": return self.handleCreateKernel(node)
-          if name == "SetRuntimeArgs": return self.handleHostCall(node, TTSetRuntimeArgs, None)
-          if name == "EnqueueProgram": return self.handleHostCall(node, TTEnqueueProgram, 3)
-          if name == "Finish": return self.handleHostCall(node, TTFinish, 1)
-          if name == "CloseDevice": return self.handleHostCall(node, TTCloseDevice, 1)
+            name = node.func.attr
+            if name == "Core": return self.handleHostCall(node, TTHostCore, 2)
+            if name == "DRAMConfig": return self.handleHostCall(node, TTCreateDRAMConfig, 2)
+            if name == "CreateBuffer": return self.handleHostCall(node, TTCreateBuffer, 1)
+            if name == "CreateDevice": return self.handleHostCall(node, TTCreateDevice, 1)
+            if name == "GetCommandQueue": return self.handleHostCall(node, TTGetCommandQueue, 1)
+            if name == "EnqueueWriteBuffer": return self.handleHostCall(node, TTEnqueueWriteBuffer, 4)
+            if name == "EnqueueReadBuffer": return self.handleHostCall(node, TTEnqueueReadBuffer, 4)
+            if name == "CreateProgram": return self.handleHostCall(node, TTCreateProgram, 0)
+            if name == "Kernel": return self.handleCreateKernel(node)
+            if name == "SetRuntimeArgs": return self.handleHostCall(node, TTSetRuntimeArgs, None)
+            if name == "EnqueueProgram": return self.handleHostCall(node, TTEnqueueProgram, 3)
+            if name == "Finish": return self.handleHostCall(node, TTFinish, 1)
+            if name == "CloseDevice": return self.handleHostCall(node, TTCloseDevice, 1)
         else:
             name = node.func.id
             if name not in self._functions:
@@ -711,7 +715,6 @@ class PythonToMLIR(ast.NodeVisitor):
             operations.append(ops)
 
         return list(flatten(operations))
-
 
     def get_assigned_variables(self, statement: ast.stmt) -> List[str]:
         if isinstance(statement, ast.Assign):
