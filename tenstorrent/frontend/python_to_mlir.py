@@ -358,6 +358,10 @@ class PythonToMLIR(ast.NodeVisitor):
           assert isa(dest.slice, ast.Constant)
           idx_ops, idx_ssa=self.visit(dest.slice)
           assert var_name in self.symbol_table
+          if isa(idx_ssa.type, builtin.IntegerType):
+            index_cast=arith.IndexCastOp(idx_ssa, builtin.IndexType())
+            idx_ops.append(index_cast)
+            idx_ssa=index_cast.results[0]
           store = memref.StoreOp.get(rhs_ssa_val, self.symbol_table[var_name], [idx_ssa])
           return operations + idx_ops + [store], self.symbol_table[var_name]
 
