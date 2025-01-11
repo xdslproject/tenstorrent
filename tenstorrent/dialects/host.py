@@ -301,21 +301,21 @@ class TTSetRuntimeArgs(IRDLOperation):
     name = "tthost.set_runtime_args"
 
     program = operand_def(Program)
-    core = operand_def(CoreCoord)
     kernel = operand_def(Kernel)
+    core = operand_def(CoreCoord)
     args = var_operand_def(Attribute)
 
     irdl_options = [AttrSizedOperandSegments()]
 
     def __init__(self,
                  program: SSAValue | Operation,
-                 core: SSAValue | Operation,
                  kernel: SSAValue | Operation,
+                 core: SSAValue | Operation,
                  *args: SSAValue | Operation,):
         super().__init__(operands=[
             program,
-            core,
             kernel,
+            core,
             list(args)])
 
 TTHost = Dialect(
