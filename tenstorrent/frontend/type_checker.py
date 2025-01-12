@@ -32,7 +32,7 @@ class TypeChecker(ast.NodeVisitor):
             noc_semaphore_inc.__name__: NoneType(),
             noc_semaphore_wait.__name__: NoneType(),
             noc_async_read_barrier.__name__: NoneType(),
-            noc_async_write_barrier.__name__: NoneType(),            
+            noc_async_write_barrier.__name__: NoneType(),
             get_noc_addr_from_bank_id.__name__: IntegerType(32),
             copy.__name__: NoneType(),
             copy_to_dst_init_short_with_dt.__name__: NoneType(),
@@ -191,6 +191,7 @@ class TypeChecker(ast.NodeVisitor):
             "EnqueueProgram": None,
             "Finish": None,
             "CloseDevice": None,
+            "GetMemoryAddress": IndexType(),
         }
 
     def generic_visit(self, node):

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from xdsl.utils.hints import isa
 
-from xdsl.dialects.builtin import IntegerType, Signedness, i32, MemRefType, StringAttr, IntAttr, i1
+from xdsl.dialects.builtin import IntegerType, Signedness, i32, MemRefType, StringAttr, IntAttr, i1, IndexType
 from xdsl.ir import SSAValue, Operation, Dialect, ParametrizedAttribute, TypeAttribute, OpResult, Data
 from xdsl.ir.core import Attribute
 from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, irdl_attr_definition, prop_def, var_operand_def, AttrSizedOperandSegments
@@ -255,6 +255,19 @@ class TTEnqueueReadBuffer(IRDLOperation):
             )
 
 @irdl_op_definition
+class TTGetMemoryAddress(IRDLOperation):
+    name = "tthost.get_memory_address"
+
+    buffer = operand_def(Buffer)
+    res: OpResult = result_def(Attribute)
+
+    def __init__(self,
+                 buffer: SSAValue | Operation):
+        super().__init__(operands=[
+            buffer],
+          result_types=[IndexType()])
+
+@irdl_op_definition
 class TTEnqueueProgram(IRDLOperation):
     name = "tthost.enqueue_program"
 
@@ -318,6 +331,7 @@ class TTSetRuntimeArgs(IRDLOperation):
             core,
             list(args)])
 
+
 TTHost = Dialect(
     "tthost",
     [
@@ -325,6 +339,7 @@ TTHost = Dialect(
         TTCreateDevice,
         TTCreateDRAMConfig,
         TTCreateBuffer,
+        TTGetMemoryAddress,
         TTGetCommandQueue,
         TTEnqueueWriteBuffer,
         TTEnqueueReadBuffer,

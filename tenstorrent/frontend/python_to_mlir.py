@@ -340,6 +340,7 @@ class PythonToMLIR(ast.NodeVisitor):
             # This is a bit of a hack, we are allocating a list and this is done
             # in the bin op, so we pick the memref here
             self.symbol_table[var_name] = rhs_ops[-1].results[0]
+            rhs_ops[-1].results[0].name_hint = var_name
             assert seen == False
             location = self.symbol_table[var_name]
           else:
@@ -659,6 +660,7 @@ class PythonToMLIR(ast.NodeVisitor):
           if name == "EnqueueProgram": return self.handleHostCall(node, TTEnqueueProgram, 3)
           if name == "Finish": return self.handleHostCall(node, TTFinish, 1)
           if name == "CloseDevice": return self.handleHostCall(node, TTCloseDevice, 1)
+          if name == "GetMemoryAddress": return self.handleHostCall(node, TTGetMemoryAddress, 1)
         else:
             name = node.func.id
             if name not in self._functions:
