@@ -389,7 +389,7 @@ class PrintMetalium:
             self.print_op(block)
 
 
-    def print_declaration(self, op: memref.AllocOp):
+    def print_declaration(self, op: memref.AllocOp | memref.AllocaOp):
         if isa(op.result_types[0].element_type, host.DRAMBufferConfig):
           # Need to handle this differently as it is not allocated and this is
           # done in the assignment
@@ -406,8 +406,13 @@ class PrintMetalium:
             for s in op.result_types[0].shape:
               # Might not be correct for multi-dimensional arrays
               total_size*=s.data
-            self.print(f"{type_decl} * {var_name} =({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
-            self._free_end_of_fn.append(var_name)
+            if isa(op, memref.AllocOp):
+              self.print(f"{type_decl} * {var_name} =({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
+              self._free_end_of_fn.append(var_name)
+            elif isa(op, memref.AllocaOp):
+              self.print(f"{type_decl} {var_name}[{total_size}];", indented=True, end='\n')
+            else:
+              assert False
 
           self._names[op.results[0]] = var_name
 
