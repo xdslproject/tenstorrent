@@ -1,6 +1,6 @@
 from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr
 from xdsl.ir import SSAValue, Operation, Dialect
-from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def
+from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def, opt_operand_def
 
 
 uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
@@ -181,18 +181,18 @@ class DMNocSemaphoreInc(IRDLOperation):
 class DMGetNocAddrFromBankId(IRDLOperation):
     name = "dm.get_noc_addr_from_bank_id"
 
-    dram = prop_def(i1)
+    dram = prop_def(IntegerAttr)
 
     bank_id = operand_def(uint32)
     bank_address_offset = operand_def(uint32)
-    noc = operand_def(uint8)  # should have default = noc_index
+    noc = opt_operand_def(uint8)  # should have default = noc_index
     result = result_def(uint64)
 
     def __init__(self,
                  dram: IntegerAttr,
                  bank_id: SSAValue | Operation,
                  bank_address_offset: SSAValue | Operation,
-                 noc: SSAValue | Operation,
+                 noc: SSAValue | Operation = None,
                  ):
         super().__init__(
             operands=[bank_id, bank_address_offset, noc],
