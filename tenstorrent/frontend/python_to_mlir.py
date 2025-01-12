@@ -523,7 +523,7 @@ class PythonToMLIR(ast.NodeVisitor):
         # adds variables to the symbol table and allocates memory for them
         var_allocations = self.allocate_new_variables(node)
 
-        block = Block(arg_types=[IndexType()])
+        block = Block(arg_types=[i32])
 
         body = Region()
         body.add_block(block)
