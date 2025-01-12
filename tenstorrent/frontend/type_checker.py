@@ -33,7 +33,7 @@ class TypeChecker(ast.NodeVisitor):
             noc_semaphore_wait.__name__: NoneType(),
             noc_async_read_barrier.__name__: NoneType(),
             noc_async_write_barrier.__name__: NoneType(),            
-            get_noc_addr_from_bank_id.__name__: IntegerType(32),
+            get_noc_addr_from_bank_id.__name__: IntegerType(64, signedness=Signedness.UNSIGNED),
             copy.__name__: NoneType(),
             copy_to_dst_init_short_with_dt.__name__: NoneType(),
             copy_to_dst_init_short.__name__: NoneType(),
@@ -293,7 +293,7 @@ class TypeChecker(ast.NodeVisitor):
     def visit_arguments(self, node):
         for arg in node.args:
             # TODO: update later
-            self.types[arg.arg] = IntegerType(32)
+            self.types[arg.arg] = IntegerType(32, signedness=Signedness.UNSIGNED)
 
     def visit_FunctionDef(self, node):
         self.visit(node.args)
@@ -303,7 +303,7 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_For(self, node):
         identifier = node.target.id
-        t = IntegerType(32)
+        t = IndexType()
 
         if identifier in self.types:
             assert self.types[identifier] == t

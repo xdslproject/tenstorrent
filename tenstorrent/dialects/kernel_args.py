@@ -13,14 +13,14 @@ class KGetArgVal(IRDLOperation):
     name = "k.get_arg_val"
 
     datatype = prop_def(TypeAttribute)
-    index = operand_def(i32)
+    index = operand_def(uint32)
 
-    # TODO: later use datatype
+    # TODO: later use parametric datatype
     result = result_def(uint32)
 
     def __init__(self, dt: TypeAttribute, index: SSAValue | Operation):
         super().__init__(
-            properties={"T": dt},
+            properties={"datatype": dt},
             operands=[index],
             result_types=[uint32]
         )

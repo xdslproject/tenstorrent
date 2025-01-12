@@ -291,7 +291,7 @@ class PythonToMLIR(ast.NodeVisitor):
             memory = self.allocate_memory(arg_name)
             store_op = memref.StoreOp.get(ssa, memory, [])
 
-            operations += [const_op, get_op, store_op]
+            operations += [const_op, get_op, memory, store_op]
             position += 1
 
         return operations
@@ -731,7 +731,8 @@ class PythonToMLIR(ast.NodeVisitor):
             if name == untilize_block.__name__:
                 properties.append(IntegerAttr(node.args.pop(0).value, i32))
             else:
-                properties.append(IntegerAttr(node.args.pop(0).value, IntegerType(1)))
+                val = int(node.args.pop(0).value)
+                properties.append(IntegerAttr(val, IntegerType(1)))
 
         # We evaluate args in Python order (programmer intention) and then swap
         # only the SSA results that are given to the operation to preserve semantics
