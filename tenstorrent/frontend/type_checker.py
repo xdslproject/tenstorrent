@@ -290,7 +290,14 @@ class TypeChecker(ast.NodeVisitor):
         for child in node.body:
             self.visit(child)
 
+    def visit_arguments(self, node):
+        for arg in node.args:
+            # TODO: update later
+            self.types[arg.arg] = IntegerType(32)
+
     def visit_FunctionDef(self, node):
+        self.visit(node.args)
+
         for child in node.body:
             self.visit(child)
 

@@ -18,7 +18,7 @@ def single_assignment(src0_dram, src1_dram, dst_dram, src0_bank_id, src1_bank_id
     noc_async_read(src1_dram_noc_addr, src1_data, 100)
     noc_async_read_barrier()
 
-    for x in range(100):
+    for x in range(0, 100):
         dest_data[x] = src0_data[x] + src1_data[x]
 
     # write result back to DRAM

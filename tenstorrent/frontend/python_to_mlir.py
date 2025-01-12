@@ -1,3 +1,4 @@
+import ast
 from typing import Dict, List, Tuple, Optional
 
 from xdsl.dialects import builtin, func, arith, memref, scf
@@ -22,7 +23,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def __init__(self, type_checker):
         super().__init__()
-        self.symbol_table = {}  # variable names -> memref
+        self.symbol_table: Dict[str, OpResult] = {}  # variable names -> memref ssa value
 
         self.operations: List[Operation] | ModuleOp = []
         self.type_checker = type_checker
@@ -274,7 +275,29 @@ class PythonToMLIR(ast.NodeVisitor):
         self.operations = builtin.ModuleOp(operations)
         return [self.operations]
 
-    def visit_FunctionDef(self, node) -> Operation:
+    def visit_arguments(self, node: ast.arguments) -> List[Operation]:
+        operations = []
+        position = 0
+
+        for arg in node.args:
+            # create an operation of get_arg_val(position)
+            const_op = arith.ConstantOp(IntegerAttr(position, uint32))
+            get_op = KGetArgVal(uint32, const_op)
+            ssa = get_op.results[0]
+
+            # allocate memory for the symbol, and store the result of
+            # get_arg_val<uint32_t>(index)
+            arg_name = arg.arg
+            memory = self.allocate_memory(arg_name)
+            store_op = memref.StoreOp.get(ssa, memory, [])
+
+            operations += [const_op, get_op, store_op]
+            position += 1
+
+        return operations
+
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> Operation:
         operations: List[Operation] = []
 
         decorator_name = None
@@ -284,7 +307,10 @@ class PythonToMLIR(ast.NodeVisitor):
         # set the current scope
         self.operations = operations
 
-        operations = self.generate_body_ops(node)
+        # handle function params
+        operations += self.visit_arguments(node.args)
+
+        operations += self.generate_body_ops(node)
         operations.append(func.ReturnOp())
 
         block = Block(list(flatten(operations)))
@@ -337,11 +363,11 @@ class PythonToMLIR(ast.NodeVisitor):
 
         if isa(dest, ast.Name):
             # create a memref
-            # seen = var_name in self.symbol_table
             seen = var_name in self.symbol_table
             if isa(rhs_ops[-1], memref.AllocaOp):
                 # This is a bit of a hack, we are allocating a list and this is done
                 # in the bin op, so we pick the memref here
+                rhs_ops[-1].results[0].name_hint = dest.id
                 self.symbol_table[var_name] = rhs_ops[-1].results[0]
                 assert seen == False
                 location = self.symbol_table[var_name]
@@ -358,7 +384,6 @@ class PythonToMLIR(ast.NodeVisitor):
             return operations, location
         elif isa(dest, ast.Subscript):
             # Array assignment
-            assert isa(dest.slice, ast.Constant)
             idx_ops, idx_ssa = self.visit(dest.slice)
             assert var_name in self.symbol_table
             store = memref.StoreOp.get(rhs_ssa_val, self.symbol_table[var_name], [idx_ssa])
@@ -459,7 +484,7 @@ class PythonToMLIR(ast.NodeVisitor):
             )
             return operations + [bin_op], bin_op.results[0]
 
-    def visit_Name(self, node: ast.Name) -> Tuple[List[Operation], OpResult]:
+    def visit_Name(self, node: ast.Name | ast.Slice) -> Tuple[List[Operation], OpResult]:
         from_location = self.symbol_table[node.id]
         assert isa(from_location.type, MemRefType)
         if (len(from_location.type.shape) == 0):
@@ -598,6 +623,25 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Expr(self, node) -> Tuple[List[Operation], OpResult]:
         return self.visit(node.value)
 
+    def visit_Subscript(self, node) -> Tuple[List[Operation], OpResult]:
+        """
+        Handles reading from an array using subscript notation
+        """
+        operations = []
+
+        # load from array referenced (get the memref from symbol table)
+        array_name = node.value.id
+        arr_memref_ssa = self.symbol_table[array_name]
+
+        # get value of subscript slice as an integer
+        ops, index_ssa = self.visit_Name(node.slice)
+        operations += ops
+
+        array_access = memref.LoadOp.get(arr_memref_ssa, [index_ssa])
+        operations += [array_access]
+
+        return operations, array_access.results[0]
+
     def handleCreateKernel(self, node):
         assert len(node.args) == 5
 
@@ -700,6 +744,26 @@ class PythonToMLIR(ast.NodeVisitor):
                 results[4], results[5], results[6] = results[5], results[6], results[4]
             case noc_semaphore_set_multicast.__name__:
                 results[3], results[4], results[5] = results[4], results[5], results[3]
+            case get_noc_addr_from_bank_id.__name__:
+                noc_index_op = arith.ConstantOp(IntegerAttr(0, uint8))
+                operations.append(noc_index_op)
+                results += [noc_index_op.results[0]]  # TODO: Get correct noc_index from annotation
+            case noc_async_read.__name__:
+                noc_index_op = arith.ConstantOp(IntegerAttr(0, uint8))
+                operations.append(noc_index_op)
+                results += [noc_index_op.results[0]]
+            case noc_async_read_barrier.__name__:
+                noc_index_op = arith.ConstantOp(IntegerAttr(0, uint8))
+                operations.append(noc_index_op)
+                results += [noc_index_op.results[0]]
+            case noc_async_write.__name__:
+                noc_index_op = arith.ConstantOp(IntegerAttr(0, uint8))
+                operations.append(noc_index_op)
+                results += [noc_index_op.results[0]]
+            case noc_async_write_barrier.__name__:
+                noc_index_op = arith.ConstantOp(IntegerAttr(0, uint8))
+                operations.append(noc_index_op)
+                results += [noc_index_op.results[0]]
 
         args = properties + results
         operation = self._functions[name](*args)
@@ -718,7 +782,13 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def get_assigned_variables(self, statement: ast.stmt) -> List[str]:
         if isinstance(statement, ast.Assign):
-            return [statement.targets[0].id]
+            target = statement.targets[0]
+
+            # Handle array access
+            if isinstance(target, ast.Subscript):
+                return [target.value.id]
+
+            return [target.id]
 
         if isinstance(statement, ast.For | ast.If | ast.While):
             names = []
