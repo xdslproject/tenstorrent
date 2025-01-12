@@ -13,6 +13,10 @@ from .type_checker import MLIRType
 
 NodeWithBody = ast.If | ast.For | ast.While | ast.FunctionDef
 
+uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
+
+TYPE_STR_TO_MLIR_TYPE={"int": builtin.i32, "uint": uint32, "long": builtin.i64, "bool": builtin.i1, "half": builtin.f16, "float": builtin.f32, "double": builtin.f64}
+
 
 class PythonToMLIR(ast.NodeVisitor):
     """
@@ -274,6 +278,19 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_FunctionDef(self, node) -> Operation:
         operations: List[Operation] = []
 
+        arg_types=[]
+        arg_names=[]
+        for arg in node.args.args:
+          assert arg.annotation.id in TYPE_STR_TO_MLIR_TYPE
+          arg_types.append(TYPE_STR_TO_MLIR_TYPE[arg.annotation.id])
+          arg_names.append(arg.arg)
+
+        block = Block(arg_types=arg_types)
+        # Need to improve here with scoping, it's OK for now but will need to nest this
+        # in order to push and pop when handling functions
+        for index, arg_name in enumerate(arg_names):
+          self.symbol_table[arg_name] = block.args[index]
+
         decorator_name = None
         if len(node.decorator_list) == 1:
             decorator_name = node.decorator_list[0].attr
@@ -284,7 +301,7 @@ class PythonToMLIR(ast.NodeVisitor):
         operations = self.generate_body_ops(node)
         operations.append(func.ReturnOp())
 
-        block = Block(list(flatten(operations)))
+        block.add_ops(list(flatten(operations)))
         region = Region(block)
 
         fn_name = node.name
@@ -295,7 +312,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         func_op = func.FuncOp(
             fn_name,
-            FunctionType.from_lists([], []),
+            FunctionType.from_lists(arg_types, []),
             region
         )
 
@@ -460,14 +477,18 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def visit_Name(self, node: ast.Name) -> Tuple[List[Operation], OpResult]:
         from_location = self.symbol_table[node.id]
-        assert isa(from_location.type, MemRefType)
-        if (len(from_location.type.shape) == 0):
-          # If this is a scalar then load it from the memref
-          load = memref.LoadOp.get(from_location, [])
-          return [load], load.results[0]
+        if isa(from_location.type, MemRefType):
+          if (len(from_location.type.shape) == 0):
+            # If this is a scalar then load it from the memref
+            load = memref.LoadOp.get(from_location, [])
+            return [load], load.results[0]
+          else:
+            # If it is an array then return directly as we don't have array indexes
+            # because if we did then this would be a subscript instead
+            return [], from_location
         else:
-          # If it is an array then return directly as we don't have array indexes
-          # because if we did then this would be a subscript instead
+          # If this is not a memref then just return it, it's likely a block argument
+          # that is specifically typed e.g. an argument to the function
           return [], from_location
 
 
@@ -693,9 +714,15 @@ class PythonToMLIR(ast.NodeVisitor):
 
         # We evaluate args in Python order (programmer intention) and then swap
         # only the SSA results that are given to the operation to preserve semantics
-        arg_evals = list(flatten([self.visit(arg) for arg in node.args]))
-        operations = list(flatten(map(lambda x: x[0], arg_evals)))
-        results = list(map(lambda x: x[1], arg_evals))
+
+        results=[]
+        operations=[]
+        # Need to generically look at argument and ensure that types match arg type and operand type in operation
+        # Then a conversion would be inserted in the below if needed
+        for idx, arg in enumerate(node.args):
+          ops, ssa_val=self.visit(arg)
+          operations+=ops
+          results.append(ssa_val)
 
         match name:
             case noc_async_write_multicast.__name__:
@@ -705,6 +732,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         args = properties + results
         operation = self._functions[name](*args)
+
         result = operation.results[0] if operation.results else None
 
         return operations + [operation], result
