@@ -2,6 +2,7 @@ from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue
 from xdsl.irdl import IRDLOperation
 
 from xdsl.utils.hints import isa
+from tenstorrent.utils import flatten
 
 import xdsl.dialects.arith as arith
 import xdsl.dialects.memref as memref
@@ -22,9 +23,9 @@ OpWithBody = func.FuncOp | scf.ForOp | scf.WhileOp
 CircularBufferOperationWithResult = circular_buffer.CBPagesAvailableAtFront | circular_buffer.CBPagesReservableAtBack
 
 TRUE = builtin.IntegerAttr.from_int_and_width(1, 1)
-TenstorrentOps = (list(data_movement.DataMovement.operations)
-                  + list(compute.Compute.operations)
-                  + list(circular_buffer.CircularBuffer.operations))
+TenstorrentOps = []
+
+TenstorrentExpr = [data_movement.DMGetNocAddrFromBankId]
 
 CMP_PREDICATE_TO_SYMBOL = ["==", "!=", "<", "<=", ">", ">=", "<", "<=", ">", ">="]
 
@@ -45,12 +46,19 @@ SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
             arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
             circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, func.ReturnOp, host.TTHostCore, host.TTCreateDevice,
-            host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress
+            host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
+            *TenstorrentExpr
         ]
+
+uint32 = builtin.IntegerType(32, signedness=builtin.Signedness.UNSIGNED)
+uint64 = builtin.IntegerType(64, signedness=builtin.Signedness.UNSIGNED)
 
 MLIR_TO_CPP_TYPES = {
             builtin.IndexType(): "std::int32_t",
             builtin.i32: "std::int32_t",
+            uint32: "uint32_t",
+            builtin.i64: "std::int64_t",
+            uint64: "uint64_t",
             builtin.f32: "float",
             builtin.i1: "bool",
             host.CoreCoord(): "CoreCoord",
@@ -123,7 +131,7 @@ class PrintMetalium:
         elif isa(operation, host.TTSetRuntimeArgs):
           self.print_ttset_runtime_args(operation)
         elif type(operation) in TenstorrentOps:
-            self.print_tt_op(operation)
+            self.print_tt_op_generic(operation)
 
         #if isinstance(creator, CircularBufferOperationWithResult):
         #    arg1 = self.get_rhs_value(creator.operands[0])
@@ -135,34 +143,34 @@ class PrintMetalium:
 
     def print_ttset_runtime_args(self, op):
         self.print("SetRuntimeArgs(", indented=True)
-        self.print_expr(op.program.owner)
+        self.print_expr(op.program)
         self.print(", ")
-        self.print_expr(op.kernel.owner)
+        self.print_expr(op.kernel)
         self.print(", ")
-        self.print_expr(op.core.owner)
+        self.print_expr(op.core)
         self.print(", {")
         for idx, arg in enumerate(op.args):
           if idx > 0: self.print(", ")
-          self.print_expr(arg.owner)
+          self.print_expr(arg)
         self.print("});", end='\n')
 
     def print_ttclose_device(self, op):
         self.print("CloseDevice(", indented=True)
-        self.print_expr(op.device.owner)
+        self.print_expr(op.device)
         self.print(");", end='\n')
 
     def print_ttfinish(self, op):
         self.print("Finish(", indented=True)
-        self.print_expr(op.command_queue.owner)
+        self.print_expr(op.command_queue)
         self.print(");", end='\n')
 
     def print_ttenqueue_program(self, op):
         self.print("EnqueueProgram(", indented=True)
-        self.print_expr(op.command_queue.owner)
+        self.print_expr(op.command_queue)
         self.print(", ")
-        self.print_expr(op.program.owner)
+        self.print_expr(op.program)
         self.print(", ")
-        self.print_expr(op.blocking.owner)
+        self.print_expr(op.blocking)
         self.print(");", end='\n')
 
     def print_ttenqueue_readwrite_buffer(self, op):
@@ -172,16 +180,17 @@ class PrintMetalium:
           self.print("EnqueueReadBuffer(", indented=True)
         else:
           assert False
-        self.print_expr(op.command_queue.owner)
+        self.print_expr(op.command_queue)
         self.print(", ")
-        self.print_expr(op.buffer.owner)
+        self.print_expr(op.buffer)
         self.print(", ")
-        self.print_expr(op.data.owner)
+        self.print_expr(op.data)
         self.print(", ")
-        self.print_expr(op.blocking.owner)
+        self.print_expr(op.blocking)
         self.print(");", end='\n')
 
-    def print_expr(self, expr):
+    def print_expr(self, ssa_val):
+      expr=ssa_val.owner
       if isa(expr, arith.ConstantOp):
         if isa(expr.result.type, builtin.IntegerType) and expr.result.type.width.data==1:
           self.print(f"{'false' if expr.value.value.data==0 else 'true'}")
@@ -205,6 +214,8 @@ class PrintMetalium:
           self.print_ttget_memory_address(expr)
       elif isa(expr, memref.LoadOp):
           self.print(expr.memref.name_hint)
+      elif isa(expr, Block):
+          self.print(f"fn_arg{ssa_val.index}")
       elif isa(expr, memref.AllocaOp) or isa(expr, memref.AllocOp):
           self.print(expr.results[0].name_hint)
       elif isa(expr,BinaryOperation):
@@ -213,32 +224,34 @@ class PrintMetalium:
           self.print_cast_to_float(expr)
       elif isa(expr, arith.IndexCastOp):
           # Go directly to the operation used as an input and process this
-          self.print_expr(expr.input.owner)
+          self.print_expr(expr.input)
+      elif type(expr) in TenstorrentExpr:
+          self.print_tt_expr_generic(expr)
       else:
         raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
 
 
     def print_cast_to_float(self, op):
         self.print("static_cast<float>(")
-        self.print_expr(op.operands[0].owner)
+        self.print_expr(op.operands[0])
         self.print("(")
 
     def print_tthost_core(self, op):
         self.print("{")
-        self.print_expr(op.src_noc_x.owner)
+        self.print_expr(op.src_noc_x)
         self.print(", ")
-        self.print_expr(op.src_noc_y.owner)
+        self.print_expr(op.src_noc_y)
         self.print("}");
 
     def print_ttget_memory_address(self, op):
-        self.print_expr(op.buffer.owner)
+        self.print_expr(op.buffer)
         self.print("->address()")
 
     def print_ttcreate_kernel(self, op):
         self.print("CreateKernel(")
-        self.print_expr(op.program.owner)
+        self.print_expr(op.program)
         self.print(f", {op.kernel_name}, ")
-        self.print_expr(op.core.owner)
+        self.print_expr(op.core)
         self.print(", ")
 
         rv_core_flag=list(op.riscv_core.flags)[0]
@@ -255,16 +268,16 @@ class PrintMetalium:
 
     def print_ttcreate_buffer(self, op):
         self.print("CreateBuffer(")
-        self.print_expr(op.config.owner)
+        self.print_expr(op.config)
         self.print(")")
 
     def print_ttcreate_dram_config(self, op):
         self.print("{")
         self.print(".device=device")
         self.print(", .size=")
-        self.print_expr(op.size.owner)
+        self.print_expr(op.size)
         self.print(", .page_size=")
-        self.print_expr(op.page_size.owner)
+        self.print_expr(op.page_size)
         self.print(", .buffer_type = BufferType::DRAM")
         self.print("}");
 
@@ -272,7 +285,7 @@ class PrintMetalium:
 
     def print_ttcreate_device(self, op):
         self.print("CreateDevice(")
-        self.print_expr(op.index.owner)
+        self.print_expr(op.index)
         self.print(")")
 
     def print_ttcreate_program(self, op):
@@ -284,22 +297,22 @@ class PrintMetalium:
 
     def print_binary_op(self, op):
       if isinstance(op, arith.ComparisonOperation):
-        self.print_expr(op.lhs.owner)
+        self.print_expr(op.lhs)
 
         assert op.predicate.value.data < len(CMP_PREDICATE_TO_SYMBOL)
         print(f" {CMP_PREDICATE_TO_SYMBOL[op.predicate.value.data]} ", end='')
 
-        self.print_expr(op.rhs.owner)
+        self.print_expr(op.rhs)
       else:
         if isa(op, arith.XOrIOp):
           self.print("!")
 
-        self.print_expr(op.lhs.owner)
+        self.print_expr(op.lhs)
 
         if not isa(op, arith.XOrIOp):
           self.print(f" {ARITH_OP_TO_SYM[op.__class__]} ", end='')
 
-        self.print_expr(op.rhs.owner)
+        self.print_expr(op.rhs)
 
     def print_func_def(self, func: func.FuncOp):
         """
@@ -307,9 +320,24 @@ class PrintMetalium:
 
         }
         """
-        self.print(f"void {func.sym_name.data}() {'{'}", indented=True, end='\n')
+        is_tt_kernel=self.is_tt_kernel(func)
+        self.print(f"void {func.sym_name.data}(", indented=True)
+
+        if not is_tt_kernel:
+          for idx, input in enumerate(func.function_type.inputs):
+            type_decl = MLIR_TO_CPP_TYPES[input]
+            if idx > 0: self.print(", ")
+            self.print(f"{type_decl} fn_arg_{idx}")
+
+        self.print(") {", end='\n')
 
         self._indent += 1
+
+        if is_tt_kernel:
+          for idx, input in enumerate(func.function_type.inputs):
+            type_decl = MLIR_TO_CPP_TYPES[input]
+            self.print(f"{type_decl} fn_arg_{idx} = get_arg_val<{type_decl}>({idx});", indented=True, end='\n')
+
         self.print_region(func.body)
         for free_c in self._free_end_of_fn:
           self.print(f"free({free_c});", indented=True, end='\n');
@@ -318,6 +346,13 @@ class PrintMetalium:
         self._free_end_of_fn=[]
 
         self.print("}", indented=True, end='\n')
+
+    def is_tt_kernel(self, func):
+      op=func.parent.parent.parent
+      assert isa(op, builtin.ModuleOp)
+      kernel_type=op.attributes["kernel_type"].data
+      return kernel_type == "data_in" or kernel_type == "data_out"
+
 
     def print_for_loop(self, loop: scf.ForOp):
         # we know the first operation in the loop should be the store into i
@@ -329,11 +364,11 @@ class PrintMetalium:
         self._names[i_loop_ssa] = i
 
         self.print(f"for ({i}=", indented=True)
-        self.print_expr(loop.lb.owner)
+        self.print_expr(loop.lb)
         self.print(f";{i}<")
-        self.print_expr(loop.ub.owner)
+        self.print_expr(loop.ub)
         self.print(f";{i}+=")
-        self.print_expr(loop.step.owner)
+        self.print_expr(loop.step)
         self.print(") {", end='\n')
 
         self._indent += 1
@@ -391,17 +426,17 @@ class PrintMetalium:
             # For now we limit ourselves to one dimensional arrays
             assert len(op.indices) == 1
             self.print("[")
-            self.print_expr(op.indices[0].owner)
+            self.print_expr(op.indices[0])
             self.print("]")
           self.print(" = ")
 
-        self.print_expr(ssa_value.owner)
+        self.print_expr(ssa_value)
         self.print(";", end='\n')
 
 
     def print_if_statement(self, op: scf.IfOp):
         self.print("if (", indented=True)
-        self.print_expr(op.cond.owner)
+        self.print_expr(op.cond)
         self.print(") {", end='\n')
 
         self._indent += 1
@@ -432,27 +467,29 @@ class PrintMetalium:
 
         return name
 
-    def get_rhs_value(self, elem: SSAValue | Attribute, brackets=False) -> str:
-        """
-        Returns a textual representation of the expression that the ssa_value
-        is assigned to.
-        """
+    def print_tt_expr_generic(self, expression):
+      self.print_tt_operation_generic(expression, False)
 
+    def print_tt_op_generic(self, operation):
+      self.print_tt_operation_generic(expression, True)
 
-        raise Exception(f"Unhandled type {creator.__class__} in get_value()")
-
-    def print_tt_op(self, operation):
+    def print_tt_operation_generic(self, operation, is_expression):
         api_name = get_api_name(operation.name)
-        values = [self.get_rhs_value(op) for op in operation.operands]
-        template_args = self.template_args_as_string(operation)
-        self.print(f"{api_name}{template_args}({', '.join(values)});")
+        self.print(api_name, indented=is_expression)
+        if operation.properties:
+          self.print("<")
+          for idx, p in enumerate(operation.properties.values()):
+            if idx > 0: self.print(", ")
+            self.print(str(p))
+          self.print(">")
+        self.print("(")
+        for idx, expr in enumerate(operation.operands):
+          if idx > 0: self.print(", ")
+          self.print_expr(expr)
+        self.print(")")
+        if is_expression:
+          self.print(";", end='\n')
 
-
-    def template_args_as_string(self, operation: IRDLOperation):
-        if not operation.properties:
-            return ""
-
-        return f"<{', '.join([self.get_rhs_value(p) for p in operation.properties.values()])}>"
 
     def print(self, s: str, indented: bool = False, end=''):
         prefix = self._prefix if indented else ""
