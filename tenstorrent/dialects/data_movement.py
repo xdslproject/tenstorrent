@@ -13,7 +13,7 @@ class DMNocAsyncRead(IRDLOperation):
     name = "dm.noc_async_read"
 
     src_noc_address = operand_def(uint64)
-    dst_local_l1_addr = operand_def(uint32)
+    dst_cb_memref = operand_def(MemRefType)
     size = operand_def(uint32)
     noc = operand_def(uint8)  # TODO: default value of noc_index?
 
@@ -34,7 +34,7 @@ class DMNocAsyncRead(IRDLOperation):
 class DMNocAsyncWrite(IRDLOperation):
     name = "dm.noc_async_write"
 
-    src_local_l1_addr = operand_def(uint32)
+    src_cb_memref = operand_def(MemRefType)
     dst_noc_addr = operand_def(uint64)
     size = operand_def(uint32)
     noc = operand_def(uint8)

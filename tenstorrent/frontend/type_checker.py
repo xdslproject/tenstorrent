@@ -195,9 +195,12 @@ class TypeChecker(ast.NodeVisitor):
         }
 
     def generic_visit(self, node):
-        raise Exception(f"Unhandled node type {node.__class__.__name__}")
+        raise Exception(f"Unhandled node type {node.__class__.__name__} in TypeChecker")
 
     def visit_Import(self, node):
+        pass
+
+    def visit_ImportFrom(self, node):
         pass
 
     def visit_Pass(self, node):
@@ -217,7 +220,7 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_List(self, node: ast.List):
       assert len(node.elts) == 1
-      element_type=self.visit(node.elts[0])
+      element_type = self.visit(node.elts[0])
       return MemRefType(element_type, [])
 
     def visit_Constant(self, node: ast.Constant):
@@ -288,13 +291,20 @@ class TypeChecker(ast.NodeVisitor):
         for child in node.body:
             self.visit(child)
 
+    def visit_arguments(self, node):
+        for arg in node.args:
+            # TODO: update later
+            self.types[arg.arg] = IntegerType(32, signedness=Signedness.UNSIGNED)
+
     def visit_FunctionDef(self, node):
+        self.visit(node.args)
+
         for child in node.body:
             self.visit(child)
 
     def visit_For(self, node):
         identifier = node.target.id
-        t = IntegerType(32)
+        t = IndexType()
 
         if identifier in self.types:
             assert self.types[identifier] == t
@@ -318,3 +328,8 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_BoolOp(self, node):
         return IntegerType(1)
+
+
+    def visit_Subscript(self, node):
+        # TODO: later will need to return type of list subscripting
+        return IntegerType(32)
