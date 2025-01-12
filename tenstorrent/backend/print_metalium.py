@@ -1,25 +1,65 @@
-from xdsl.dialects.builtin import ModuleOp, IndexType, Float32Type, IntegerAttr, i1, i32, f32
-from xdsl.dialects.func import FuncOp, ReturnOp
-from xdsl.dialects.arith import ConstantOp, AddiOp, MuliOp, AddfOp, MulfOp, SignlessIntegerBinaryOperation, IndexCastOp, \
-    FloatingPointLikeBinaryOperation, CmpiOp, AndIOp, OrIOp, CmpfOp, ComparisonOperation, XOrIOp, SubiOp, SubfOp, ExtFOp, DivfOp
-from xdsl.dialects.scf import ForOp, YieldOp, IfOp, WhileOp
-from xdsl.dialects.memref import AllocOp, StoreOp, LoadOp
-from xdsl.ir import Block, Region, OpResult, Attribute
+from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue
+from xdsl.irdl import IRDLOperation
 
-from tenstorrent.dialects import *
+from xdsl.utils.hints import isa
+
+import xdsl.dialects.arith as arith
+import xdsl.dialects.memref as memref
+import xdsl.dialects.scf as scf
+import xdsl.dialects.func as func
+import xdsl.dialects.builtin as builtin
+
+import tenstorrent.dialects.host as host
+import tenstorrent.dialects.circular_buffer as circular_buffer
+import tenstorrent.dialects.data_movement as data_movement
+import tenstorrent.dialects.compute as compute
 
 
-ArithmeticOperation = SignlessIntegerBinaryOperation | FloatingPointLikeBinaryOperation
-BooleanOperation = AndIOp | OrIOp | CmpiOp | CmpfOp
+ArithmeticOperation = arith.SignlessIntegerBinaryOperation | arith.FloatingPointLikeBinaryOperation
+BooleanOperation = arith.AndIOp | arith.OrIOp | arith.CmpiOp | arith.CmpfOp
 BinaryOperation = ArithmeticOperation | BooleanOperation
-OpWithBody = FuncOp | ForOp | WhileOp
-CircularBufferOperationWithResult = CBPagesAvailableAtFront | CBPagesReservableAtBack
+OpWithBody = func.FuncOp | scf.ForOp | scf.WhileOp
+CircularBufferOperationWithResult = circular_buffer.CBPagesAvailableAtFront | circular_buffer.CBPagesReservableAtBack
 
-TRUE = IntegerAttr.from_int_and_width(1, 1)
-TenstorrentOps = (list(DataMovement.operations)
-                  + list(Compute.operations)
-                  + list(TTHost.operations)
-                  + list(CircularBuffer.operations))
+TRUE = builtin.IntegerAttr.from_int_and_width(1, 1)
+TenstorrentOps = (list(data_movement.DataMovement.operations)
+                  + list(compute.Compute.operations)
+                  + list(circular_buffer.CircularBuffer.operations))
+
+CMP_PREDICATE_TO_SYMBOL = ["==", "!=", "<", "<=", ">", ">=", "<", "<=", ">", ">="]
+
+ARITH_OP_TO_SYM = {
+            arith.AddiOp: "+",
+            arith.MuliOp: "*",
+            arith.AddfOp: "+",
+            arith.MulfOp: "*",
+            arith.AndIOp: "&&",
+            arith.OrIOp: "||",
+            arith.XOrIOp: "^",
+            arith.SubiOp: "-",
+            arith.SubfOp: "-",
+            arith.DivfOp: "/",
+        }
+
+SkipOps = [
+            arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
+            arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
+            circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, func.ReturnOp, host.TTHostCore, host.TTCreateDevice,
+            host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress
+        ]
+
+MLIR_TO_CPP_TYPES = {
+            builtin.IndexType(): "std::int32_t",
+            builtin.i32: "std::int32_t",
+            builtin.f32: "float",
+            builtin.i1: "bool",
+            host.CoreCoord(): "CoreCoord",
+            host.Device(): "IDevice*",
+            host.CommandQueue(): "CommandQueue&",
+            host.Program(): "Program",
+            host.Buffer(): "std::shared_ptr<Buffer>",
+            host.Kernel(): "KernelHandle",
+        }
 
 
 def get_api_name(op_name: str) -> str:
@@ -43,58 +83,7 @@ class PrintMetalium:
         self._indent = 0
         self._file = file
         self._names = {}  # SSAVal -> Variable Name
-        self._op_to_sym = {
-            AddiOp: "+",
-            MuliOp: "*",
-            AddfOp: "+",
-            MulfOp: "*",
-            AndIOp: "&&",
-            OrIOp: "||",
-            XOrIOp: "^",
-            SubiOp: "-",
-            SubfOp: "-",
-            DivfOp: "/",
-        }
-
-        self._int_comparison_ops = {
-            IntegerAttr.from_int_and_width(0, 64): "==",
-            IntegerAttr.from_int_and_width(1, 64): "!=",
-
-            # signed
-            IntegerAttr.from_int_and_width(2, 64): "<",
-            IntegerAttr.from_int_and_width(3, 64): "<=",
-            IntegerAttr.from_int_and_width(4, 64): ">",
-            IntegerAttr.from_int_and_width(5, 64): ">=",
-
-            # unsigned
-            IntegerAttr.from_int_and_width(6, 64): "<",
-            IntegerAttr.from_int_and_width(7, 64): "<=",
-            IntegerAttr.from_int_and_width(8, 64): ">",
-            IntegerAttr.from_int_and_width(9, 64): ">=",
-        }
-
-        self._float_comparison_ops = {
-            # ordered
-            IntegerAttr.from_int_and_width(1, 64): "==",
-            IntegerAttr.from_int_and_width(2, 64): ">",
-            IntegerAttr.from_int_and_width(3, 64): ">=",
-            IntegerAttr.from_int_and_width(4, 64): "<",
-            IntegerAttr.from_int_and_width(5, 64): "<=",
-            IntegerAttr.from_int_and_width(6, 64): "!=",
-        }
-
-        self._mlir_to_cpp_type = {
-            IndexType(): "std::int32_t",
-            i32: "std::int32_t",
-            f32: "float",
-            i1: "bool",
-        }
-
-        self._skip = [
-            ConstantOp, LoadOp, AddiOp, MuliOp, AddfOp, MulfOp, IndexCastOp, YieldOp,
-            CmpiOp, AndIOp, OrIOp, XOrIOp, SubiOp, SubfOp, ExtFOp, DivfOp,
-            CBPagesReservableAtBack, CBPagesAvailableAtFront, ReturnOp
-        ]
+        self._free_end_of_fn=[]
 
         self._skip_next_op = False
 
@@ -103,55 +92,234 @@ class PrintMetalium:
             self._skip_next_op = False
             return
 
-        if isinstance(operation, ModuleOp):
+        if type(operation) in SkipOps:
+            return
+
+        if isa(operation, builtin.ModuleOp):
             for region in operation.regions:
                 for block in region.blocks:
                     self.print_op(block)
-
-        elif type(operation) in self._skip:
-            pass
-
-        elif isinstance(operation, Block):
+        elif isa(operation, Block):
             for op in operation.ops:
                 self.print_op(op)
-
-        elif isinstance(operation, FuncOp):
+        elif isa(operation, func.FuncOp):
             self.print_func_def(operation)
-
-        elif isinstance(operation, AllocOp):
+        elif isa(operation, memref.AllocOp) or isa(operation, memref.AllocaOp):
             self.print_declaration(operation)
-
-        elif isinstance(operation, StoreOp):
+        elif isa(operation, memref.StoreOp):
             self.print_assignment(operation)
-
-        elif isinstance(operation, ForOp):
+        elif isa(operation, scf.ForOp):
             self.print_for_loop(operation)
-
-        elif isinstance(operation, IfOp):
+        elif isa(operation, scf.IfOp):
             self.print_if_statement(operation)
-
+        elif isa(operation, host.TTEnqueueWriteBuffer) or isa(operation, host.TTEnqueueReadBuffer):
+          self.print_ttenqueue_readwrite_buffer(operation)
+        elif isa(operation, host.TTEnqueueProgram):
+          self.print_ttenqueue_program(operation)
+        elif isa(operation, host.TTFinish):
+          self.print_ttfinish(operation)
+        elif isa(operation, host.TTCloseDevice):
+          self.print_ttclose_device(operation)
+        elif isa(operation, host.TTSetRuntimeArgs):
+          self.print_ttset_runtime_args(operation)
         elif type(operation) in TenstorrentOps:
             self.print_tt_op(operation)
+
+        #if isinstance(creator, CircularBufferOperationWithResult):
+        #    arg1 = self.get_rhs_value(creator.operands[0])
+        #    arg2 = self.get_rhs_value(creator.operands[1])
+        #    return f"{creator.name.replace('.', '_')}({arg1}, {arg2})"
 
         else:
             raise NotImplementedError(f"Unhandled operation: {operation.__class__.__name__}")
 
+    def print_ttset_runtime_args(self, op):
+        self.print("SetRuntimeArgs(", indented=True)
+        self.print_expr(op.program.owner)
+        self.print(", ")
+        self.print_expr(op.kernel.owner)
+        self.print(", ")
+        self.print_expr(op.core.owner)
+        self.print(", {")
+        for idx, arg in enumerate(op.args):
+          if idx > 0: self.print(", ")
+          self.print_expr(arg.owner)
+        self.print("});", end='\n')
 
-    def print_func_def(self, func: FuncOp):
+    def print_ttclose_device(self, op):
+        self.print("CloseDevice(", indented=True)
+        self.print_expr(op.device.owner)
+        self.print(");", end='\n')
+
+    def print_ttfinish(self, op):
+        self.print("Finish(", indented=True)
+        self.print_expr(op.command_queue.owner)
+        self.print(");", end='\n')
+
+    def print_ttenqueue_program(self, op):
+        self.print("EnqueueProgram(", indented=True)
+        self.print_expr(op.command_queue.owner)
+        self.print(", ")
+        self.print_expr(op.program.owner)
+        self.print(", ")
+        self.print_expr(op.blocking.owner)
+        self.print(");", end='\n')
+
+    def print_ttenqueue_readwrite_buffer(self, op):
+        if isa(op, host.TTEnqueueWriteBuffer):
+          self.print("EnqueueWriteBuffer(", indented=True)
+        elif isa(op, host.TTEnqueueReadBuffer):
+          self.print("EnqueueReadBuffer(", indented=True)
+        else:
+          assert False
+        self.print_expr(op.command_queue.owner)
+        self.print(", ")
+        self.print_expr(op.buffer.owner)
+        self.print(", ")
+        self.print_expr(op.data.owner)
+        self.print(", ")
+        self.print_expr(op.blocking.owner)
+        self.print(");", end='\n')
+
+    def print_expr(self, expr):
+      if isa(expr, arith.ConstantOp):
+        if isa(expr.result.type, builtin.IntegerType) and expr.result.type.width.data==1:
+          self.print(f"{'false' if expr.value.value.data==0 else 'true'}")
+        else:
+          self.print(str(expr.value.value.data))
+      elif isa(expr, host.TTHostCore):
+          self.print_tthost_core(expr)
+      elif isa(expr, host.TTCreateDevice):
+          self.print_ttcreate_device(expr)
+      elif isa(expr, host.TTGetCommandQueue):
+          self.print_ttget_command_queue(expr)
+      elif isa(expr, host.TTCreateProgram):
+          self.print_ttcreate_program(expr)
+      elif isa(expr, host.TTCreateDRAMConfig):
+          self.print_ttcreate_dram_config(expr)
+      elif isa(expr, host.TTCreateBuffer):
+          self.print_ttcreate_buffer(expr)
+      elif isa(expr, host.TTCreateKernel):
+          self.print_ttcreate_kernel(expr)
+      elif isa(expr, host.TTGetMemoryAddress):
+          self.print_ttget_memory_address(expr)
+      elif isa(expr, memref.LoadOp):
+          self.print(expr.memref.name_hint)
+      elif isa(expr, memref.AllocaOp) or isa(expr, memref.AllocOp):
+          self.print(expr.results[0].name_hint)
+      elif isa(expr,BinaryOperation):
+          self.print_binary_op(expr)
+      elif isa(expr, arith.ExtFOp):
+          self.print_cast_to_float(expr)
+      elif isa(expr, arith.IndexCastOp):
+          # Go directly to the operation used as an input and process this
+          self.print_expr(expr.input.owner)
+      else:
+        raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
+
+
+    def print_cast_to_float(self, op):
+        self.print("static_cast<float>(")
+        self.print_expr(op.operands[0].owner)
+        self.print("(")
+
+    def print_tthost_core(self, op):
+        self.print("{")
+        self.print_expr(op.src_noc_x.owner)
+        self.print(", ")
+        self.print_expr(op.src_noc_y.owner)
+        self.print("}");
+
+    def print_ttget_memory_address(self, op):
+        self.print_expr(op.buffer.owner)
+        self.print("->address()")
+
+    def print_ttcreate_kernel(self, op):
+        self.print("CreateKernel(")
+        self.print_expr(op.program.owner)
+        self.print(f", {op.kernel_name}, ")
+        self.print_expr(op.core.owner)
+        self.print(", ")
+
+        rv_core_flag=list(op.riscv_core.flags)[0]
+        if rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0 or rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_1:
+          self.print("DataMovementConfig{.processor = DataMovementProcessor::RISCV_")
+          if rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0:
+            self.print("0")
+          else:
+            self.print("1")
+
+          self.print(f", .noc=NOC::RISCV_{op.noc_id.data}_default}}")
+
+        self.print(")")
+
+    def print_ttcreate_buffer(self, op):
+        self.print("CreateBuffer(")
+        self.print_expr(op.config.owner)
+        self.print(")")
+
+    def print_ttcreate_dram_config(self, op):
+        self.print("{")
+        self.print(".device=device")
+        self.print(", .size=")
+        self.print_expr(op.size.owner)
+        self.print(", .page_size=")
+        self.print_expr(op.page_size.owner)
+        self.print(", .buffer_type = BufferType::DRAM")
+        self.print("}");
+
+        #.device = device, .size = single_tile_size, .page_size = single_tile_size, .buffer_type = BufferType::DRAM};
+
+    def print_ttcreate_device(self, op):
+        self.print("CreateDevice(")
+        self.print_expr(op.index.owner)
+        self.print(")")
+
+    def print_ttcreate_program(self, op):
+        self.print("CreateProgram()")
+
+    def print_ttget_command_queue(self, op):
+        assert isa(op.device.owner, memref.LoadOp)
+        self.print(f"{op.device.owner.memref.name_hint}->command_queue()")
+
+    def print_binary_op(self, op):
+      if isinstance(op, arith.ComparisonOperation):
+        self.print_expr(op.lhs.owner)
+
+        assert op.predicate.value.data < len(CMP_PREDICATE_TO_SYMBOL)
+        print(f" {CMP_PREDICATE_TO_SYMBOL[op.predicate.value.data]} ", end='')
+
+        self.print_expr(op.rhs.owner)
+      else:
+        if isa(op, arith.XOrIOp):
+          self.print("!")
+
+        self.print_expr(op.lhs.owner)
+
+        if not isa(op, arith.XOrIOp):
+          self.print(f" {ARITH_OP_TO_SYM[op.__class__]} ", end='')
+
+        self.print_expr(op.rhs.owner)
+
+    def print_func_def(self, func: func.FuncOp):
         """
         void func_name(typea a, typeb b, ...) {
 
         }
         """
-        self.print(f"void {func.sym_name.data}() {'{'}")
+        self.print(f"void {func.sym_name.data}() {'{'}", indented=True, end='\n')
 
         self._indent += 1
         self.print_region(func.body)
+        for free_c in self._free_end_of_fn:
+          self.print(f"free({free_c});", indented=True, end='\n');
         self._indent -= 1
 
-        self.print("}")
+        self._free_end_of_fn=[]
 
-    def print_for_loop(self, loop: ForOp):
+        self.print("}", indented=True, end='\n')
+
+    def print_for_loop(self, loop: scf.ForOp):
         # we know the first operation in the loop should be the store into i
         store_i = loop.body.block.first_op
         i_loop_ssa = store_i.operands[0]
@@ -160,54 +328,81 @@ class PrintMetalium:
         i = self._names[i_register]
         self._names[i_loop_ssa] = i
 
-        start = self.get_rhs_value(loop.lb)
-        stop = self.get_rhs_value(loop.ub)
-        step = self.get_rhs_value(loop.step)
-        self.print(f"for ({i} = {start}; {i} < {stop}; {i} += {step}) {'{'}")
+        self.print(f"for ({i}=", indented=True)
+        self.print_expr(loop.lb.owner)
+        self.print(f";{i}<")
+        self.print_expr(loop.ub.owner)
+        self.print(f";{i}+=")
+        self.print_expr(loop.step.owner)
+        self.print(") {", end='\n')
 
         self._indent += 1
-        self.print_region(loop.body)
+        # Remove the first operation as this assigns the loop variable and
+        # we have handled this above already by looking into that operation and
+        # extracting the name
+        self.print_region(list(loop.body.ops)[1:])
         self._indent -= 1
 
-        self.print("}")
+        self.print("}", indented=True, end='\n')
 
-    def print_region(self, body: Region):
-        for block in body.blocks:
+    def print_region(self, body: Region | list):
+        if isa(body, list):
+          for op in body:
+            self.print_op(op)
+        else:
+          for block in body.blocks:
             self.print_op(block)
 
 
-    def print_declaration(self, op: AllocOp):
-        index = isinstance(op.next_op, ForOp)
-        var_name = self.create_fresh_variable(hint='i' if index else op.results[0].name_hint)
-        type_decl = self._mlir_to_cpp_type[op.result_types[0].element_type]
+    def print_declaration(self, op: memref.AllocOp):
+        if isa(op.result_types[0].element_type, host.DRAMBufferConfig):
+          # Need to handle this differently as it is not allocated and this is
+          # done in the assignment
+          pass
+        else:
+          index = isinstance(op.next_op, scf.ForOp)
+          var_name = self.create_fresh_variable(hint='i' if index else op.results[0].name_hint)
+          type_decl = MLIR_TO_CPP_TYPES[op.result_types[0].element_type]
 
-        nxt = op.next_op
-        rhs = ""
+          if len(op.result_types[0].shape) == 0:
+            self.print(type_decl + " " + var_name+";", indented=True, end='\n')
+          else:
+            total_size=1
+            for s in op.result_types[0].shape:
+              # Might not be correct for multi-dimensional arrays
+              total_size*=s.data
+            self.print(f"{type_decl} * {var_name} =({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
+            self._free_end_of_fn.append(var_name)
 
-        # here we are both a decl and init
-        if isinstance(nxt, StoreOp) and nxt.operands[1] == op.results[0]:
-            rhs_val = nxt.operands[0]
-            rhs = f" = {self.get_rhs_value(rhs_val)}"
-            self._skip_next_op = True
-
-        self.print(type_decl + " " + var_name + rhs + ";")
-        ssa_referring_to_var = op.results[0]
-        self._names[ssa_referring_to_var] = var_name
+          self._names[op.results[0]] = var_name
 
 
-    def print_assignment(self, op: StoreOp):
-        # memref.store value, destination[]
+    def print_assignment(self, op: memref.StoreOp):
         ssa_value = op.operands[0]
         ssa_destination = op.operands[1]
 
-        result = self.get_rhs_value(ssa_value)
-        var_name = self._names[ssa_destination]
+        if isa(ssa_destination.type.element_type, host.DRAMBufferConfig):
+          self.print(f"InterleavedBufferConfig{ssa_destination.name_hint} ", indented=True)
 
-        self.print(f"{var_name} = {result};")
+        else:
+          var_name = self._names[ssa_destination]
+          self.print(f"{var_name}", indented=True)
+          if len(op.indices) > 0:
+            # For now we limit ourselves to one dimensional arrays
+            assert len(op.indices) == 1
+            self.print("[")
+            self.print_expr(op.indices[0].owner)
+            self.print("]")
+          self.print(" = ")
+
+        self.print_expr(ssa_value.owner)
+        self.print(";", end='\n')
 
 
-    def print_if_statement(self, op: IfOp):
-        self.print(f"if ({self.get_rhs_value(op.cond)}) {'{'}")
+    def print_if_statement(self, op: scf.IfOp):
+        self.print("if (", indented=True)
+        self.print_expr(op.cond.owner)
+        self.print(") {", end='\n')
 
         self._indent += 1
         self.print_op(op.true_region.blocks[0])
@@ -215,14 +410,13 @@ class PrintMetalium:
 
         or_else = len(op.false_region.blocks) > 0
 
-        self.print("}" + (" else {" if or_else else ""))
+        self.print("}" + (" else {" if or_else else ""), indented=True, end='\n')
 
-        # here need to print the or-else
         if or_else:
             self._indent += 1
             self.print_region(op.false_region)
             self._indent -= 1
-            self.print("}")
+            self.print("}", indented=True, end='\n')
 
 
     def create_fresh_variable(self, hint='a') -> str:
@@ -243,40 +437,7 @@ class PrintMetalium:
         Returns a textual representation of the expression that the ssa_value
         is assigned to.
         """
-        if elem in self._names:
-            return self._names[elem]
 
-        boolean = elem.type.name == 'integer_type' and elem.type.bitwidth == 1
-          
-        if isinstance(elem, Attribute):
-            if boolean and elem.value.data == -1:
-                return "true"
-            return str(elem.value.data).lower()
-
-        creator = elem.owner
-        if isinstance(creator, ConstantOp):
-            if boolean and creator.value.value.data == -1:
-                return "true"
-            return str(creator.value.value.data).lower()            
-
-        if isinstance(creator, IndexCastOp):
-            return self.get_rhs_value(creator.operands[0])
-
-        if isinstance(creator, ExtFOp):
-            return "static_cast<float>(" + self.get_rhs_value(creator.operands[0]) + ")"
-
-        if isinstance(creator, BinaryOperation):
-            if brackets:
-                return f"({self.binary_op_string(creator)})"
-            return self.binary_op_string(creator)
-
-        if isinstance(creator, LoadOp):
-            return self.get_rhs_value(creator.operands[0])
-
-        if isinstance(creator, CircularBufferOperationWithResult):
-            arg1 = self.get_rhs_value(creator.operands[0])
-            arg2 = self.get_rhs_value(creator.operands[1])
-            return f"{creator.name.replace('.', '_')}({arg1}, {arg2})"
 
         raise Exception(f"Unhandled type {creator.__class__} in get_value()")
 
@@ -293,36 +454,12 @@ class PrintMetalium:
 
         return f"<{', '.join([self.get_rhs_value(p) for p in operation.properties.values()])}>"
 
-    def print(self, s: str, indented: bool = True):
+    def print(self, s: str, indented: bool = False, end=''):
         prefix = self._prefix if indented else ""
         if self._file:
-            print(prefix + s, file=self._file)
+            print(prefix + s, file=self._file, end=end)
         else:
-            print(prefix + s)
-
-
-    def binary_op_string(self, operation: BinaryOperation):
-        """
-        In a binary operation, each operand will either be a constant, load, or
-        another binary operation. This method handles each case and produces a
-        string.
-        """
-        # TODO: add support for floating point comparison
-        if isinstance(operation, ComparisonOperation):
-            op_str = self._int_comparison_ops[operation.predicate]
-
-        # whilst XOrI is a binary operation, we know it can encode 'not'
-        elif isinstance(operation, XOrIOp) and operation.operands[1].op.value == TRUE:
-            return "!(" + self.get_rhs_value(operation.operands[0]) + ")"
-
-        else:
-            op_str = self._op_to_sym[type(operation)]
-
-        brackets = True
-        lhs = self.get_rhs_value(operation.operands[0], brackets)
-        rhs = self.get_rhs_value(operation.operands[1], brackets)
-
-        return f"{lhs} {op_str} {rhs}"
+            print(prefix + s, end=end)
 
     @property
     def _prefix(self):
