@@ -1,4 +1,4 @@
-from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue
+from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue, BlockArgument
 from xdsl.irdl import IRDLOperation
 
 from xdsl.utils.hints import isa
@@ -235,7 +235,7 @@ class PrintMetalium:
       elif isa(expr, memref.LoadOp):
           self.print_load_variable(expr)
       elif isa(expr, Block):
-          self.print(f"fn_arg{ssa_val.index}")
+          self.print(f"fn_arg_{ssa_val.index}")
       elif isa(expr, memref.AllocaOp) or isa(expr, memref.AllocOp):
           self.print(expr.results[0].name_hint)
       elif isa(expr,BinaryOperation):
@@ -446,12 +446,14 @@ class PrintMetalium:
             # because sometimes in CPP you require that on the declaration (e.g. a reference)
             store_op_use=self.retrieve_store(op.results[0].uses)
             assert isa(store_op_use.operation, memref.StoreOp)
-            self.print("=")
-            self.print_expr(store_op_use.operation.operands[0])
+            if not isa(store_op_use.operation.operands[0], BlockArgument):
+              self.print("=")
+              self.print_expr(store_op_use.operation.operands[0])
+              # A bit of a hack, we add this attribute to the store itself so that when this is
+              # subsequently picked up by the assignment it can be ignored
+              store_op_use.operation.attributes["ignore"]=True
+
             self.print(";", end='\n')
-            # A bit of a hack, we add this attribute to the store itself so that when this is
-            # subsequently picked up by the assignment it can be ignored
-            store_op_use.operation.attributes["ignore"]=True
           else:
             total_size=1
             for s in op.result_types[0].shape:
