@@ -368,11 +368,11 @@ class PrintMetalium:
         store_i = loop.body.block.first_op
         loop_index_name=store_i.operands[1].name_hint
 
-        self.print(f"for ({loop_index_name}=", indented=True)
+        self.print(f"for ({loop_index_name} = ", indented=True)
         self.print_expr(loop.lb)
-        self.print(f";{loop_index_name}<")
+        self.print(f"; {loop_index_name} < ")
         self.print_expr(loop.ub)
-        self.print(f";{loop_index_name}+=")
+        self.print(f"; {loop_index_name} += ")
         self.print_expr(loop.step)
         self.print(") {", end='\n')
 
@@ -411,7 +411,7 @@ class PrintMetalium:
               # Might not be correct for multi-dimensional arrays
               total_size*=s.data
             if isa(op, memref.AllocOp):
-              self.print(f"{type_decl} * {var_name} =({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
+              self.print(f"{type_decl} * {var_name} = ({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
               self._free_end_of_fn.append(var_name)
             elif isa(op, memref.AllocaOp):
               self.print(f"{type_decl} {var_name}[{total_size}];", indented=True, end='\n')
