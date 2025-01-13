@@ -1,13 +1,13 @@
-#!/usr/bin/env .venv/bin/python
+#!/usr/bin/env python3.10
 
 import argparse
 from typing import IO
 from xdsl.dialects.builtin import ModuleOp
 from typing import Callable, Dict, List
 from xdsl.xdsl_opt_main import xDSLOptMain
-from tenstorrent.dialects.kernel_args import KernelArgs
 from tenstorrent.dialects.data_movement import DataMovement
 from tenstorrent.dialects.circular_buffer import CircularBuffer
+from tenstorrent.dialects.host import TTHost
 from tenstorrent.backend.print_metalium import PrintMetalium
 
 
@@ -35,7 +35,7 @@ class TTOptMain(xDSLOptMain):
         super().register_all_dialects()
         self.ctx.load_dialect(DataMovement)
         self.ctx.load_dialect(CircularBuffer)
-        self.ctx.load_dialect(KernelArgs)
+        self.ctx.load_dialect(TTHost)
 
     @staticmethod
     def get_passes_as_dict(
