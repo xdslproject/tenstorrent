@@ -24,7 +24,7 @@ CircularBufferOperationWithResult = circular_buffer.CBPagesAvailableAtFront | ci
 
 TRUE = builtin.IntegerAttr.from_int_and_width(1, 1)
 
-TenstorrentOps = [data_movement.DMNocAsyncRead, data_movement.DMNocAsyncReadBarrier]
+TenstorrentOps = [data_movement.DMNocAsyncRead, data_movement.DMNocAsyncWrite, data_movement.DMNocAsyncReadBarrier, data_movement.DMNocAsyncWriteBarrier]
 
 TenstorrentExpr = [data_movement.DMGetNocAddrFromBankId]
 
