@@ -23,7 +23,8 @@ OpWithBody = func.FuncOp | scf.ForOp | scf.WhileOp
 CircularBufferOperationWithResult = circular_buffer.CBPagesAvailableAtFront | circular_buffer.CBPagesReservableAtBack
 
 TRUE = builtin.IntegerAttr.from_int_and_width(1, 1)
-TenstorrentOps = []
+
+TenstorrentOps = [data_movement.DMNocAsyncRead, data_movement.DMNocAsyncReadBarrier]
 
 TenstorrentExpr = [data_movement.DMGetNocAddrFromBankId]
 
@@ -476,7 +477,7 @@ class PrintMetalium:
       self.print_tt_operation_generic(expression, False)
 
     def print_tt_op_generic(self, operation):
-      self.print_tt_operation_generic(expression, True)
+      self.print_tt_operation_generic(operation, True)
 
     def print_tt_operation_generic(self, operation, is_expression):
         api_name = get_api_name(operation.name)
