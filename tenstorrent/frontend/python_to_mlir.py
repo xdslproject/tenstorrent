@@ -286,6 +286,8 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_FunctionDef(self, node) -> Operation:
         operations: List[Operation] = []
 
+        return_types=[]
+
         arg_types=[]
         arg_names=[]
         for arg in node.args.args:
@@ -315,14 +317,21 @@ class PythonToMLIR(ast.NodeVisitor):
             self.fn_kernel_type=KernelType.HOST
 
         operations = self.generate_body_ops(node)
-        operations.append(func.ReturnOp())
+
+        if self.fn_kernel_type==KernelType.HOST:
+          return_types.append(i32)
+          zero_c=arith.ConstantOp(IntegerAttr(0, i32))
+          ret=func.ReturnOp(zero_c)
+          operations+=[zero_c, ret]
+        else:
+          operations.append(func.ReturnOp())
 
         block.add_ops(list(flatten(operations)))
         region = Region(block)
 
         func_op = func.FuncOp(
             fn_name,
-            FunctionType.from_lists(arg_types, []),
+            FunctionType.from_lists(arg_types, return_types),
             region
         )
 

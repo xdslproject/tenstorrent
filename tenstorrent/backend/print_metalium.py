@@ -46,7 +46,7 @@ ARITH_OP_TO_SYM = {
 SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
             arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
-            circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, func.ReturnOp, host.TTHostCore, host.TTCreateDevice,
+            circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, host.TTHostCore, host.TTCreateDevice,
             host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
             *TenstorrentExpr
         ]
@@ -113,6 +113,8 @@ class PrintMetalium:
                 self.print_op(op)
         elif isa(operation, func.FuncOp):
             self.print_func_def(operation)
+        elif isa(operation, func.ReturnOp):
+            self.print_return(operation)
         elif isa(operation, memref.AllocOp) or isa(operation, memref.AllocaOp):
             self.print_declaration(operation)
         elif isa(operation, memref.StoreOp):
@@ -141,6 +143,13 @@ class PrintMetalium:
 
         else:
             raise NotImplementedError(f"Unhandled operation: {operation.__class__.__name__}")
+
+    def print_return(self, op):
+      if len(op.arguments) > 0:
+        assert len(op.arguments)==1
+        self.print("return ", indented=True)
+        self.print_expr(op.arguments[0])
+        self.print(";", end='\n')
 
     def print_ttset_runtime_args(self, op):
         self.print("SetRuntimeArgs(", indented=True)
@@ -323,17 +332,23 @@ class PrintMetalium:
 
         self.print_expr(op.rhs)
 
-    def print_func_def(self, func: func.FuncOp):
+    def print_func_def(self, func_op: func.FuncOp):
         """
         void func_name(typea a, typeb b, ...) {
 
         }
         """
-        is_tt_kernel=self.is_tt_kernel(func)
-        self.print(f"void {func.sym_name.data}(", indented=True)
+        is_tt_kernel=self.is_tt_kernel(func_op)
+        return_type="void"
+
+        if len(func_op.function_type.outputs) > 0:
+          assert len(func_op.function_type.outputs) == 1
+          return_type = MLIR_TO_CPP_TYPES[func_op.function_type.outputs.data[0]]
+
+        self.print(f"{return_type} {func_op.sym_name.data}(", indented=True)
 
         if not is_tt_kernel:
-          for idx, input in enumerate(func.function_type.inputs):
+          for idx, input in enumerate(func_op.function_type.inputs):
             type_decl = MLIR_TO_CPP_TYPES[input]
             if idx > 0: self.print(", ")
             self.print(f"{type_decl} fn_arg_{idx}")
@@ -343,13 +358,23 @@ class PrintMetalium:
         self._indent += 1
 
         if is_tt_kernel:
-          for idx, input in enumerate(func.function_type.inputs):
+          for idx, input in enumerate(func_op.function_type.inputs):
             type_decl = MLIR_TO_CPP_TYPES[input]
             self.print(f"{type_decl} fn_arg_{idx} = get_arg_val<{type_decl}>({idx});", indented=True, end='\n')
 
-        self.print_region(func.body)
+        # Have to do some messing around here with the return operation, which must be the last operation. That is
+        # because we insert free for heap allocated memory, but that must be before the return, hence extract this,
+        # print the rest, then print the free and lastly print the return
+        ret_op=func_op.body.block.ops.last
+        assert isa(ret_op, func.ReturnOp)
+
+        self.print_region(list(func_op.body.block.ops)[:-1])
+
         for free_c in self._free_end_of_fn:
           self.print(f"free({free_c});", indented=True, end='\n');
+
+        self.print_op(ret_op)
+
         self._indent -= 1
 
         self._free_end_of_fn=[]
