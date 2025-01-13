@@ -96,6 +96,14 @@ class CommandQueue(ParametrizedAttribute, TypeAttribute):
 class DRAMBufferConfig(ParametrizedAttribute, TypeAttribute):
     name = "tthost.dram_buffer_config"
 
+@irdl_attr_definition
+class CircularBufferConfig(ParametrizedAttribute, TypeAttribute):
+    name = "tthost.circular_buffer_config"
+
+@irdl_attr_definition
+class CBHandle(ParametrizedAttribute, TypeAttribute):
+    name = "tthost.cb_handle"
+
 @irdl_op_definition
 class TTHostCore(IRDLOperation):
     name = "tthost.core"
@@ -176,6 +184,53 @@ class TTCreateDRAMConfig(IRDLOperation):
             size,
             page_size],
           result_types=[DRAMBufferConfig()])
+
+@irdl_op_definition
+class TTCreateCBConfig(IRDLOperation):
+    name = "tthost.create_cb_configuration"
+
+    data_type = prop_def(StringAttr)
+    num_buffers = operand_def(i32)
+    page_size = operand_def(i32)
+    cb_index = operand_def(i32)
+    res: OpResult = result_def(Attribute)
+
+    def __init__(self,
+                 num_buffers: SSAValue | Operation,
+                 page_size: SSAValue | Operation,
+                 cb_index: SSAValue | Operation,
+                 data_type: str | StringAttr):
+
+        if isa(data_type, str):
+          data_type=StringAttr(data_type)
+
+        super().__init__(operands=[
+            num_buffers,
+            page_size,
+            cb_index],
+          properties={
+            "data_type": data_type
+          },
+          result_types=[CircularBufferConfig()])
+
+@irdl_op_definition
+class TTCreateCircularBuffer(IRDLOperation):
+    name = "tthost.create_circular_buffer"
+
+    program = operand_def(Program)
+    core = operand_def(CoreCoord)
+    config = operand_def(CircularBufferConfig)
+    res: OpResult = result_def(Attribute)
+
+    def __init__(self,
+                 program: SSAValue | Operation,
+                 core: SSAValue | Operation,
+                 config: SSAValue | Operation):
+        super().__init__(operands=[
+            program,
+            core,
+            config],
+          result_types=[CBHandle()])
 
 @irdl_op_definition
 class TTCreateKernel(IRDLOperation):
@@ -338,6 +393,8 @@ TTHost = Dialect(
         TTHostCore,
         TTCreateDevice,
         TTCreateDRAMConfig,
+        TTCreateCBConfig,
+        TTCreateCircularBuffer,
         TTCreateBuffer,
         TTGetMemoryAddress,
         TTGetCommandQueue,
@@ -354,8 +411,10 @@ TTHost = Dialect(
         CoreCoord,
         CommandQueue,
         Buffer,
+        CBHandle,
         Device,
         DRAMBufferConfig,
+        CircularBufferConfig,
         Program,
         RISCVCoreFlagsAttr,
         Kernel,

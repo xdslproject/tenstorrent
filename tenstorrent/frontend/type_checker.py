@@ -192,6 +192,8 @@ class TypeChecker(ast.NodeVisitor):
             "Finish": None,
             "CloseDevice": None,
             "GetMemoryAddress": IndexType(),
+            "CBConfig": CircularBufferConfig(),
+            "CreateCircularBuffer": CBHandle(),
         }
 
     def generic_visit(self, node):

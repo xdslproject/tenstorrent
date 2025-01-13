@@ -700,6 +700,19 @@ class PythonToMLIR(ast.NodeVisitor):
       else:
         return arg_ops+[operation], None
 
+    def handleCreateCBConfig(self, node):
+      assert len(node.args)==4
+
+      num_buffers_ops, num_buffers_ssa=self.visit(node.args[0])
+      page_size_ops, page_size_ssa=self.visit(node.args[1])
+      cb_index_ops, cb_index_ssa=self.visit(node.args[2])
+      assert isa(node.args[3], ast.Constant)
+      data_type=node.args[3].value
+
+      cbConfig=TTCreateCBConfig(num_buffers_ssa, page_size_ssa, cb_index_ssa, data_type)
+
+      return num_buffers_ops + page_size_ops + cb_index_ops + [cbConfig], cbConfig.results[0]
+
 
     def visit_Call(self, node) -> Tuple[List[Operation], Optional[OpResult]]:
         if isa(node.func, ast.Attribute):
@@ -718,6 +731,8 @@ class PythonToMLIR(ast.NodeVisitor):
           if name == "Finish": return self.handleHostCall(node, TTFinish, 1)
           if name == "CloseDevice": return self.handleHostCall(node, TTCloseDevice, 1)
           if name == "GetMemoryAddress": return self.handleHostCall(node, TTGetMemoryAddress, 1)
+          if name == "CBConfig": return self.handleCreateCBConfig(node)
+          if name == "CreateCircularBuffer": return self.handleHostCall(node, TTCreateCircularBuffer, 3)
         else:
             name = node.func.id
             if name not in self._functions:

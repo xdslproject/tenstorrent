@@ -47,6 +47,7 @@ SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
             arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
             circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, host.TTHostCore, host.TTCreateDevice,
+            host.TTCreateCBConfig, host.TTCreateCircularBuffer,
             host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
             *TenstorrentExpr
         ]
@@ -68,6 +69,12 @@ MLIR_TO_CPP_TYPES = {
             host.Program(): "Program",
             host.Buffer(): "std::shared_ptr<Buffer>",
             host.Kernel(): "KernelHandle",
+            host.CircularBufferConfig(): "CircularBufferConfig",
+            host.CBHandle(): "CBHandle",
+        }
+
+TYPE_STR_TO_TT_DATA_FORMAT = {
+            "int": "Int32"
         }
 
 
@@ -226,8 +233,12 @@ class PrintMetalium:
           self.print_ttcreate_program(expr)
       elif isa(expr, host.TTCreateDRAMConfig):
           self.print_ttcreate_dram_config(expr)
+      elif isa(expr, host.TTCreateCBConfig):
+          self.print_ttcreate_cb_config(expr)
       elif isa(expr, host.TTCreateBuffer):
           self.print_ttcreate_buffer(expr)
+      elif isa(expr, host.TTCreateCircularBuffer):
+          self.print_ttcreate_circular_buffer(expr)
       elif isa(expr, host.TTCreateKernel):
           self.print_ttcreate_kernel(expr)
       elif isa(expr, host.TTGetMemoryAddress):
@@ -294,6 +305,15 @@ class PrintMetalium:
 
         self.print(")")
 
+    def print_ttcreate_circular_buffer(self, op):
+        self.print("tt_metal::CreateCircularBuffer(")
+        self.print_expr(op.program)
+        self.print(", ")
+        self.print_expr(op.core)
+        self.print(", ")
+        self.print_expr(op.config)
+        self.print(")")
+
     def print_ttcreate_buffer(self, op):
         self.print("CreateBuffer(")
         self.print_expr(op.config)
@@ -309,7 +329,19 @@ class PrintMetalium:
         self.print(", .buffer_type = BufferType::DRAM")
         self.print("}");
 
-        #.device = device, .size = single_tile_size, .page_size = single_tile_size, .buffer_type = BufferType::DRAM};
+    def print_ttcreate_cb_config(self, op):
+        self.print("CircularBufferConfig(")
+        self.print_expr(op.num_buffers)
+        self.print("*")
+        self.print_expr(op.page_size)
+        self.print(", {{")
+        self.print_expr(op.cb_index)
+        assert op.data_type.data in TYPE_STR_TO_TT_DATA_FORMAT
+        self.print(", tt::DataFormat::"+TYPE_STR_TO_TT_DATA_FORMAT[op.data_type.data]+"}}).set_page_size(")
+        self.print_expr(op.cb_index)
+        self.print(", ")
+        self.print_expr(op.page_size)
+        self.print(")")
 
     def print_ttcreate_device(self, op):
         self.print("CreateDevice(")
