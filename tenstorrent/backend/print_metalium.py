@@ -63,7 +63,7 @@ MLIR_TO_CPP_TYPES = {
             builtin.f32: "float",
             builtin.i1: "bool",
             host.CoreCoord(): "CoreCoord",
-            host.Device(): "IDevice*",
+            host.Device(): "Device*",
             host.CommandQueue(): "CommandQueue&",
             host.Program(): "Program",
             host.Buffer(): "std::shared_ptr<Buffer>",
