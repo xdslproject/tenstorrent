@@ -35,7 +35,7 @@ class DMNocAsyncWrite(IRDLOperation):
 
     src_local_l1_addr = operand_def(IntegerType | MemRefType)
     dst_noc_addr = operand_def(uint64)
-    size = operand_def(uint32)
+    size = operand_def(i32)
     noc = opt_operand_def(uint8)
 
     def __init__(self,
