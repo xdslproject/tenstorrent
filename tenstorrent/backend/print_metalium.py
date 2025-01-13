@@ -64,7 +64,7 @@ MLIR_TO_CPP_TYPES = {
             builtin.i1: "bool",
             host.CoreCoord(): "CoreCoord",
             host.Device(): "Device*",
-            host.CommandQueue(): "CommandQueue&",
+            host.CommandQueue(): "CommandQueue &",
             host.Program(): "Program",
             host.Buffer(): "std::shared_ptr<Buffer>",
             host.Kernel(): "KernelHandle",
@@ -436,10 +436,22 @@ class PrintMetalium:
           pass
         else:
           var_name = self.create_fresh_variable(op.results[0].name_hint)
+          self._names[op.results[0]] = var_name
           type_decl = MLIR_TO_CPP_TYPES[op.result_types[0].element_type]
 
           if len(op.result_types[0].shape) == 0:
-            self.print(type_decl + " " + var_name+";", indented=True, end='\n')
+            self.print(type_decl + " " + var_name, indented=True)
+
+            # We are grabbing the assignment RHS and doing the assign in the declaration here, this is
+            # because sometimes in CPP you require that on the declaration (e.g. a reference)
+            store_op_use=self.retrieve_store(op.results[0].uses)
+            assert isa(store_op_use.operation, memref.StoreOp)
+            self.print("=")
+            self.print_expr(store_op_use.operation.operands[0])
+            self.print(";", end='\n')
+            # A bit of a hack, we add this attribute to the store itself so that when this is
+            # subsequently picked up by the assignment it can be ignored
+            store_op_use.operation.attributes["ignore"]=True
           else:
             total_size=1
             for s in op.result_types[0].shape:
@@ -453,10 +465,15 @@ class PrintMetalium:
             else:
               assert False
 
-          self._names[op.results[0]] = var_name
+    def retrieve_store(self, uses):
+      for use in uses:
+        if isa(use.operation, memref.StoreOp): return use
+      return None
 
 
     def print_assignment(self, op: memref.StoreOp):
+        if "ignore" in op.attributes:
+          if op.attributes["ignore"]: return
         ssa_value = op.operands[0]
         ssa_destination = op.operands[1]
 
