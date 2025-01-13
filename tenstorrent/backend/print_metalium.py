@@ -426,7 +426,7 @@ class PrintMetalium:
         ssa_destination = op.operands[1]
 
         if isa(ssa_destination.type.element_type, host.DRAMBufferConfig):
-          self.print(f"InterleavedBufferConfig{ssa_destination.name_hint} ", indented=True)
+          self.print(f"InterleavedBufferConfig {ssa_destination.name_hint} ", indented=True)
 
         else:
           var_name = self._names[ssa_destination]
