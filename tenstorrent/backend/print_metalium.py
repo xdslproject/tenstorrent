@@ -105,6 +105,13 @@ class PrintMetalium:
             return
 
         if isa(operation, builtin.ModuleOp):
+            if "kernel_type" in operation.attributes:
+              if operation.attributes["kernel_type"].data == "host":
+                self.print("#include \"tt_metal/host_api.hpp\"", indented=True, end='\n')
+                self.print("#include \"tt_metal/impl/device/device.hpp\"", indented=True, end='\n')
+                self.print("#include \"tt_metal/common/bfloat16.hpp\"", indented=True, end='\n')
+                self.print("\nusing namespace tt;", indented=True, end='\n')
+                self.print("using namespace tt::tt_metal;\n", indented=True, end='\n')
             for region in operation.regions:
                 for block in region.blocks:
                     self.print_op(block)
