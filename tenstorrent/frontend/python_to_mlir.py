@@ -10,6 +10,13 @@ from tenstorrent.dialects import *
 from tenstorrent.utils import flatten, remove_duplicates, subtract
 from .dummy import *
 from .type_checker import MLIRType
+from enum import Enum
+
+class KernelType(Enum):
+    DATA_IN = 1
+    COMPUTE = 2
+    DATA_OUT = 3
+    HOST = 4
 
 NodeWithBody = ast.If | ast.For | ast.While | ast.FunctionDef
 
@@ -26,6 +33,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def __init__(self, type_checker):
         super().__init__()
+        self.fn_kernel_type=None
         self.symbol_table = {}  # variable names -> memref
 
         self.operations: List[Operation] | ModuleOp = []
@@ -298,23 +306,27 @@ class PythonToMLIR(ast.NodeVisitor):
         # set the current scope
         self.operations = operations
 
+        fn_name = node.name
+        if decorator_name == "data_in":
+            fn_name = "kernel_main"
+            self.fn_kernel_type=KernelType.DATA_IN
+        elif decorator_name == "host":
+            fn_name = "main"
+            self.fn_kernel_type=KernelType.HOST
+
         operations = self.generate_body_ops(node)
         operations.append(func.ReturnOp())
 
         block.add_ops(list(flatten(operations)))
         region = Region(block)
 
-        fn_name = node.name
-        if decorator_name == "data_in":
-            fn_name = "kernel_main"
-        elif decorator_name == "host":
-            fn_name = "main"
-
         func_op = func.FuncOp(
             fn_name,
             FunctionType.from_lists(arg_types, []),
             region
         )
+
+        self.fn_kernel_type=None
 
         # return some function definition with contents
         return builtin.ModuleOp(
@@ -353,7 +365,7 @@ class PythonToMLIR(ast.NodeVisitor):
           # create a memref
           # seen = var_name in self.symbol_table
           seen = var_name in self.symbol_table
-          if isa(rhs_ops[-1], memref.AllocaOp):
+          if isa(rhs_ops[-1], memref.AllocaOp) or isa(rhs_ops[-1], memref.AllocOp):
             # This is a bit of a hack, we are allocating a list and this is done
             # in the bin op, so we pick the memref here
             self.symbol_table[var_name] = rhs_ops[-1].results[0]
@@ -433,7 +445,12 @@ class PythonToMLIR(ast.NodeVisitor):
             alloc_shape=[-1]
             dynamic_size=[rhs_ssa_val]
 
-          memory = memref.AllocaOp.get(lhs_ssa_val.element_type, shape=alloc_shape, dynamic_sizes=dynamic_size)
+          assert self.fn_kernel_type is not None
+          if self.fn_kernel_type == KernelType.HOST:
+            # On the host use an alloc to allocate on the heap, use the stack on the device in a kernel
+            memory = memref.AllocOp.get(lhs_ssa_val.element_type, shape=alloc_shape, dynamic_sizes=dynamic_size)
+          else:
+            memory = memref.AllocaOp.get(lhs_ssa_val.element_type, shape=alloc_shape, dynamic_sizes=dynamic_size)
           operations = rhs_ops + [memory]
           return operations, memory.results[0]
         else:
