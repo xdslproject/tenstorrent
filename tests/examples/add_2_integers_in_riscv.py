@@ -14,20 +14,20 @@ def single_assignment(src0_dram:uint, src1_dram:uint, dst_dram:uint, src0_dram_i
     src1_data=[0]*100
     dst_data=[0]*100
 
-    noc_async_read(src0_dram_noc_addr, src0_data, 100)
-    noc_async_read(src1_dram_noc_addr, src1_data, 100)
+    noc_async_read(src0_dram_noc_addr, src0_data, 400)
+    noc_async_read(src1_dram_noc_addr, src1_data, 400)
     noc_async_read_barrier()
 
     for x in range(0, 100):
       dst_data[x]=src0_data[x]+src1_data[x]
 
-    noc_async_write(dst_data, dst_dram_noc_addr, 100)
+    noc_async_write(dst_data, dst_dram_noc_addr, 400)
     noc_async_write_barrier()  
 
 @tt.host
 def host_code():
   core = tt.Core(0,0)
-  single_tile_size = 2 * 1024
+  single_tile_size = 4 * 100
 
   device=tt.CreateDevice(0)
   command_queue=tt.GetCommandQueue(device)
@@ -38,6 +38,15 @@ def host_code():
   src0_dram_buffer=tt.CreateBuffer(dram_configuration)
   src1_dram_buffer=tt.CreateBuffer(dram_configuration)
   dst_dram_buffer=tt.CreateBuffer(dram_configuration)
+
+  cb_0_config=tt.CBConfig(1, 400, 0, "int")
+  cb_0=tt.CreateCircularBuffer(program, core, cb_0_config)
+
+  cb_1_config=tt.CBConfig(1, 400, 1, "int")
+  cb_1=tt.CreateCircularBuffer(program, core, cb_1_config)
+
+  cb_2_config=tt.CBConfig(1, 400, 2, "int")
+  cb_2=tt.CreateCircularBuffer(program, core, cb_2_config)
 
   host_src0=[0]*100
   host_src1=[0]*100
