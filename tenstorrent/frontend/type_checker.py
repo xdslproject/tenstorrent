@@ -8,6 +8,10 @@ from tenstorrent.dialects import *
 
 MLIRType = IntegerType | Float32Type | IndexType | NoneType
 
+TYPE_STR_TO_MLIR_TYPE = {
+                        "int": IntegerType(32)
+                        }
+
 
 def types_equal(a, b) -> bool:
     int_comparable = [IntegerType, IndexType]
@@ -194,6 +198,7 @@ class TypeChecker(ast.NodeVisitor):
             "GetMemoryAddress": IndexType(),
             "CBConfig": CircularBufferConfig(),
             "CreateCircularBuffer": CBHandle(),
+            "cb_get_write_ptr": IntegerType(32, signedness=Signedness.UNSIGNED),
         }
 
     def generic_visit(self, node):
@@ -283,7 +288,11 @@ class TypeChecker(ast.NodeVisitor):
           name=node.func.attr
         else:
           name = node.func.id
-        if name in self.types:
+
+        if name == "to_array":
+          assert node.args[1].id in TYPE_STR_TO_MLIR_TYPE
+          return MemRefType(TYPE_STR_TO_MLIR_TYPE[node.args[1].id], [])
+        elif name in self.types:
             return self.types[name]
 
         raise NotImplementedError(f"Unhandled call: {name}")

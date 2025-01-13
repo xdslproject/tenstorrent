@@ -47,7 +47,7 @@ SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
             arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
             circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, host.TTHostCore, host.TTCreateDevice,
-            host.TTCreateCBConfig, host.TTCreateCircularBuffer,
+            host.TTCreateCBConfig, host.TTCreateCircularBuffer, circular_buffer.CBGetWritePointer,
             host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
             *TenstorrentExpr
         ]
@@ -150,6 +150,8 @@ class PrintMetalium:
           self.print_ttclose_device(operation)
         elif isa(operation, host.TTSetRuntimeArgs):
           self.print_ttset_runtime_args(operation)
+        elif isa(operation, builtin.UnrealizedConversionCastOp):
+          self.print_unrealized_conversion_cast(operation)
         elif type(operation) in TenstorrentOps:
             self.print_tt_op_generic(operation)
 
@@ -243,6 +245,8 @@ class PrintMetalium:
           self.print_ttcreate_kernel(expr)
       elif isa(expr, host.TTGetMemoryAddress):
           self.print_ttget_memory_address(expr)
+      elif isa(expr, circular_buffer.CBGetWritePointer):
+          self.print_cb_get_write_pointer(expr)
       elif isa(expr, memref.LoadOp):
           self.print_load_variable(expr)
       elif isa(expr, Block):
@@ -253,6 +257,8 @@ class PrintMetalium:
           self.print_binary_op(expr)
       elif isa(expr, arith.ExtFOp):
           self.print_cast_to_float(expr)
+      elif isa(expr, builtin.UnrealizedConversionCastOp):
+          self.print(expr.results[0].name_hint)
       elif isa(expr, arith.IndexCastOp):
           # Go directly to the operation used as an input and process this
           self.print_expr(expr.input)
@@ -260,6 +266,24 @@ class PrintMetalium:
           self.print_tt_expr_generic(expr)
       else:
         raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
+
+    def print_unrealized_conversion_cast(self, op):
+      if isa(op.results[0].type, builtin.MemRefType):
+        assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
+        type_str=MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
+        var_name=op.results[0].name_hint
+
+        self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
+        self.print_expr(op.inputs[0])
+        self.print(";", end='\n')
+        self._names[op.results[0]] = var_name
+      else:
+        assert False
+
+    def print_cb_get_write_pointer(self, op):
+      self.print("get_write_ptr(")
+      self.print_expr(op.cb_id)
+      self.print(")")
 
     def print_load_variable(self, op):
       self.print(op.memref.name_hint)

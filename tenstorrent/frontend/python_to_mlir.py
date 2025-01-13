@@ -256,6 +256,7 @@ class PythonToMLIR(ast.NodeVisitor):
     def get_operation(self, node) -> type:
         assert isinstance(node, ast.BinOp)
         t = self.type_checker.visit(node)
+        if isa(t, builtin.MemRefType): t=t.element_type
         return self._operations[t][type(node.op)]
 
     def generic_visit(self, node):
@@ -374,7 +375,7 @@ class PythonToMLIR(ast.NodeVisitor):
           # create a memref
           # seen = var_name in self.symbol_table
           seen = var_name in self.symbol_table
-          if isa(rhs_ops[-1], memref.AllocaOp) or isa(rhs_ops[-1], memref.AllocOp):
+          if isa(rhs_ops[-1], memref.AllocaOp) or isa(rhs_ops[-1], memref.AllocOp) or isa(rhs_ops[-1], builtin.UnrealizedConversionCastOp):
             # This is a bit of a hack, we are allocating a list and this is done
             # in the bin op, so we pick the memref here
             self.symbol_table[var_name] = rhs_ops[-1].results[0]
@@ -713,6 +714,19 @@ class PythonToMLIR(ast.NodeVisitor):
 
       return num_buffers_ops + page_size_ops + cb_index_ops + [cbConfig], cbConfig.results[0]
 
+    def handleConvertToArray(self, node):
+        source_ops, source_ssa=self.visit(node.args[0])
+        assert isa(node.args[1], ast.Name)
+        str_data_type=node.args[1].id
+        assert isa(node.args[2], ast.Constant)
+        data_size=node.args[2].value
+
+        assert str_data_type in TYPE_STR_TO_MLIR_TYPE
+        data_type=TYPE_STR_TO_MLIR_TYPE[str_data_type]
+
+        target_memref=MemRefType(data_type, [data_size])
+        conversion_op=builtin.UnrealizedConversionCastOp.get([source_ssa], [target_memref])
+        return source_ops + [conversion_op], conversion_op.results[0]
 
     def visit_Call(self, node) -> Tuple[List[Operation], Optional[OpResult]]:
         if isa(node.func, ast.Attribute):
@@ -733,6 +747,8 @@ class PythonToMLIR(ast.NodeVisitor):
           if name == "GetMemoryAddress": return self.handleHostCall(node, TTGetMemoryAddress, 1)
           if name == "CBConfig": return self.handleCreateCBConfig(node)
           if name == "CreateCircularBuffer": return self.handleHostCall(node, TTCreateCircularBuffer, 3)
+          if name == "cb_get_write_ptr": return self.handleHostCall(node, CBGetWritePointer, 1)
+          if name == "to_array": return self.handleConvertToArray(node)
         else:
             name = node.func.id
             if name not in self._functions:
