@@ -112,6 +112,9 @@ class PrintMetalium:
                 self.print("#include \"tt_metal/common/bfloat16.hpp\"", indented=True, end='\n')
                 self.print("\nusing namespace tt;", indented=True, end='\n')
                 self.print("using namespace tt::tt_metal;\n", indented=True, end='\n')
+              elif operation.attributes["kernel_type"].data == "data_in":
+                self.print("#include <stdint.h>", indented=True, end='\n')
+                self.print("#include \"dataflow_api.h\"\n", indented=True, end='\n')
             for region in operation.regions:
                 for block in region.blocks:
                     self.print_op(block)
