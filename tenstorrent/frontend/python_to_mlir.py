@@ -4,6 +4,7 @@ from xdsl.dialects import builtin, func, arith, memref, scf
 from xdsl.dialects.builtin import (FunctionType,
                                    ModuleOp, IndexType, FloatAttr, Float32Type, BoolAttr)
 from xdsl.ir import Region, Block
+from xdsl.irdl import AnyOf, EqAttrConstraint
 from xdsl.utils.hints import isa
 
 from tenstorrent.dialects import *
@@ -253,10 +254,9 @@ class PythonToMLIR(ast.NodeVisitor):
     def get_type(self, variable_name: str):
         return self.type_checker.types[variable_name]
 
-    def get_operation(self, node) -> type:
+    def get_operation(self, node, mlir_type) -> type:
         assert isinstance(node, ast.BinOp)
-        t = self.type_checker.visit(node)
-        return self._operations[t][type(node.op)]
+        return self._operations[mlir_type][type(node.op)]
 
     def generic_visit(self, node):
         print("Missing handling for: " + node.__class__.__name__)
@@ -344,14 +344,15 @@ class PythonToMLIR(ast.NodeVisitor):
         if isa(dest, ast.Name):
           # Scalar assignment
           var_name = dest.id
+          target_type = self.type_checker.types[var_name]
         elif isa(dest, ast.Subscript):
           # Array assignment
           var_name = dest.value.id
+          target_type = self.type_checker.types[var_name].element_type
         else:
           assert False
 
         # if the types don't match we need to insert a cast operation
-        target_type = self.type_checker.types[var_name]
         if target_type != rhs_ssa_val.type:
             cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
             if len(cast_ops) > 0:
@@ -395,18 +396,35 @@ class PythonToMLIR(ast.NodeVisitor):
           return operations + idx_ops + [store], self.symbol_table[var_name]
 
 
-    def get_cast(self, target_type: MLIRType, ssa_val: SSAValue) -> Tuple[List[Operation], Optional[OpResult]]:
-        if isinstance(ssa_val.type, IntegerType):
-            conv_op = None
-            match target_type:
-                case Float32Type():
-                    conv_op = arith.ExtFOp(ssa_val, Float32Type())
+    def get_cast(self, target_type: MLIRType, ssa_val: SSAValue) -> Tuple[List[Operation], OpResult]:
+        if target_type == ssa_val.type:
+            return [], ssa_val
 
-                case IndexType():
-                    conv_op = arith.IndexCastOp(ssa_val, IndexType())
-            if conv_op is not None:
-                return [conv_op], conv_op.results[0]
-        return [], None
+        # TODO: not strictly correct, should check elem types and lengths
+        if target_type == MemRefType and isinstance(ssa_val.type, MemRefType):
+            return [], ssa_val
+
+        if isinstance(ssa_val.type, IntegerType):
+            if target_type == Float32Type():
+                conv_op = arith.ExtFOp(ssa_val, Float32Type())
+
+            elif target_type == IndexType():
+                conv_op = arith.IndexCastOp(ssa_val, IndexType())
+
+            elif target_type.bitwidth == 32 and ssa_val.type.bitwidth == 32:
+                cast_to_index = arith.IndexCastOp(ssa_val, IndexType())
+                cast_to_target = arith.IndexCastOp(cast_to_index.results[0], target_type)
+                return [
+                    cast_to_index,
+                    cast_to_target
+                ], cast_to_target.results[0]
+
+            else:
+                raise NotImplementedError(f"Unsupported type cast from IntegerType: {target_type}")
+
+            return [conv_op], conv_op.results[0]
+
+        raise NotImplementedError(f"Unsupported type cast {ssa_val.type} to {target_type}")
 
     def visit_Constant(self, node) -> Tuple[List[Operation], OpResult]:
         data = node.value
@@ -482,7 +500,7 @@ class PythonToMLIR(ast.NodeVisitor):
                   operations += [r_cast]
                   rhs_ssa_val = r_cast.results[0]
 
-          op_constructor = self.get_operation(node)
+          op_constructor = self.get_operation(node, lhs_ssa_val.type)
           bin_op=op_constructor(
               lhs_ssa_val,
               rhs_ssa_val,
@@ -758,11 +776,52 @@ class PythonToMLIR(ast.NodeVisitor):
                 results[3], results[4], results[5] = results[4], results[5], results[3]
 
         args = properties + results
-        operation = self._functions[name](*args)
+        constructor = self._functions[name]
+        operation = constructor(*args)
+
+        type_cast_ops = self.fix_types(constructor, operation, properties, results)
+        operation = type_cast_ops[-1]
 
         result = operation.results[0] if operation.results else None
 
-        return operations + [operation], result
+        return operations + type_cast_ops, result
+
+    def fix_types(self, constructor, operation, props, results) -> List[Operation]:
+        op_def = operation.get_irdl_definition()
+        type_cast_ops = []
+
+        for i, operand in enumerate(op_def.operands):
+            # handle optional operands -- although assumes they are always at end
+            if i >= len(results):
+                break
+
+            ssa_val = results[i]
+            runtime_type = ssa_val.type
+            types = operand[1].constr.constr
+
+            # get first match if many possible (same types work)
+            if isinstance(types, AnyOf):
+                matched = False
+                for target_type in types.attr_constrs:
+                    try:
+                        ops, ssa = self.get_cast(target_type.attr, ssa_val)
+                        matched = True
+                        type_cast_ops += ops
+                        results[i] = ssa
+                        break
+                    except NotImplementedError as e:
+                        continue
+
+                if not matched:
+                    raise NotImplementedError(f"Unable to cast from {runtime_type} to one of: {types}")
+
+            if isinstance(types, EqAttrConstraint):
+                ops, ssa = self.get_cast(types.attr, ssa_val)
+                type_cast_ops += ops
+                results[i] = ssa
+
+        new_operation = constructor(*(props + results))
+        return type_cast_ops + [new_operation]
 
     def generate_body_ops(self, node: NodeWithBody) -> List[Operation]:
         operations = []

@@ -6,7 +6,7 @@ from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType, NoneType,
 from .dummy import *
 from tenstorrent.dialects import *
 
-MLIRType = IntegerType | Float32Type | IndexType | NoneType
+MLIRType = IntegerType | Float32Type | IndexType | MemRefType | NoneType
 
 
 def types_equal(a, b) -> bool:
@@ -216,9 +216,9 @@ class TypeChecker(ast.NodeVisitor):
         raise NotImplementedError(f"Type not in type hierarchy: {a.__class__.__name__}")
 
     def visit_List(self, node: ast.List):
-      assert len(node.elts) == 1
-      element_type=self.visit(node.elts[0])
-      return MemRefType(element_type, [])
+        assert len(node.elts) == 1
+        element_type = self.visit(node.elts[0])
+        return MemRefType(element_type, [])
 
     def visit_Constant(self, node: ast.Constant):
         data = node.value
@@ -239,7 +239,7 @@ class TypeChecker(ast.NodeVisitor):
         return self.types[node.id]
 
     def visit_Subscript(self, node: ast.Subscript):
-        return self.types[node.value.id]
+        return self.types[node.value.id].element_type
 
     def visit_Assign(self, node: ast.Assign):
         """
@@ -247,16 +247,19 @@ class TypeChecker(ast.NodeVisitor):
         already registered, if it is then verify the type.
         """
         if isa(node.targets[0], ast.Name):
-          target = node.targets[0].id
-        elif isa(node.targets[0], ast.Subscript):
-          target = node.targets[0].value.id
-        else:
-          assert False
-        expected_type = self.visit(node.value)
+            target = node.targets[0].id
+            expected_type = self.visit(node.value)
 
-        self.types[target] = expected_type if target not in self.types else (
-            self.dominating_type(self.types[target], expected_type)
-        )
+            self.types[target] = expected_type if target not in self.types else (
+                self.dominating_type(self.types[target], expected_type)
+            )
+
+        # if we are writing to an array, the array should have already been
+        # given a type as would have been declared above
+        elif isa(node.targets[0], ast.Subscript):
+            return
+        else:
+            assert False
 
     def visit_UnaryOp(self, node) -> MLIRType:
         return self.visit(node.operand)
@@ -264,6 +267,11 @@ class TypeChecker(ast.NodeVisitor):
     def visit_BinOp(self, node: ast.BinOp) -> MLIRType:
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
+
+        if (isinstance(left_type, MemRefType)
+                and isinstance(right_type, IntegerType)
+                and isinstance(node.op, ast.Mult)):
+            return MemRefType(left_type.element_type, [node.right.value])
 
         if isinstance(node.op, ast.Div):
             return Float32Type()
@@ -278,9 +286,9 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> MLIRType:
         if isa(node.func, ast.Attribute):
-          name=node.func.attr
+            name = node.func.attr
         else:
-          name = node.func.id
+            name = node.func.id
         if name in self.types:
             return self.types[name]
 
