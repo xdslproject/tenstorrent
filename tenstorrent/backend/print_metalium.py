@@ -214,7 +214,7 @@ class PrintMetalium:
       elif isa(expr, host.TTGetMemoryAddress):
           self.print_ttget_memory_address(expr)
       elif isa(expr, memref.LoadOp):
-          self.print(expr.memref.name_hint)
+          self.print_load_variable(expr)
       elif isa(expr, Block):
           self.print(f"fn_arg{ssa_val.index}")
       elif isa(expr, memref.AllocaOp) or isa(expr, memref.AllocOp):
@@ -231,6 +231,14 @@ class PrintMetalium:
       else:
         raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
 
+    def print_load_variable(self, op):
+      self.print(op.memref.name_hint)
+      if len(op.indices) > 0:
+        # For now we limit ourselves to one dimensional arrays
+        assert len(op.indices) == 1
+        self.print("[")
+        self.print_expr(op.indices[0])
+        self.print("]")
 
     def print_cast_to_float(self, op):
         self.print("static_cast<float>(")
@@ -358,17 +366,13 @@ class PrintMetalium:
     def print_for_loop(self, loop: scf.ForOp):
         # we know the first operation in the loop should be the store into i
         store_i = loop.body.block.first_op
-        i_loop_ssa = store_i.operands[0]
-        i_register = store_i.operands[1]
+        loop_index_name=store_i.operands[1].name_hint
 
-        i = self._names[i_register]
-        self._names[i_loop_ssa] = i
-
-        self.print(f"for ({i}=", indented=True)
+        self.print(f"for ({loop_index_name}=", indented=True)
         self.print_expr(loop.lb)
-        self.print(f";{i}<")
+        self.print(f";{loop_index_name}<")
         self.print_expr(loop.ub)
-        self.print(f";{i}+=")
+        self.print(f";{loop_index_name}+=")
         self.print_expr(loop.step)
         self.print(") {", end='\n')
 
@@ -396,8 +400,7 @@ class PrintMetalium:
           # done in the assignment
           pass
         else:
-          index = isinstance(op.next_op, scf.ForOp)
-          var_name = self.create_fresh_variable(hint='i' if index else op.results[0].name_hint)
+          var_name = self.create_fresh_variable(op.results[0].name_hint)
           type_decl = MLIR_TO_CPP_TYPES[op.result_types[0].element_type]
 
           if len(op.result_types[0].shape) == 0:

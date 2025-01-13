@@ -238,6 +238,9 @@ class TypeChecker(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name):
         return self.types[node.id]
 
+    def visit_Subscript(self, node: ast.Subscript):
+        return self.types[node.value.id]
+
     def visit_Assign(self, node: ast.Assign):
         """
         On assignment be sure to register the type of a variable if it is not

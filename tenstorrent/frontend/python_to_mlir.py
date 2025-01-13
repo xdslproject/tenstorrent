@@ -373,7 +373,6 @@ class PythonToMLIR(ast.NodeVisitor):
           return operations, location
         elif isa(dest, ast.Subscript):
           # Array assignment
-          assert isa(dest.slice, ast.Constant)
           idx_ops, idx_ssa=self.visit(dest.slice)
           assert var_name in self.symbol_table
           if isa(idx_ssa.type, builtin.IntegerType):
@@ -473,6 +472,17 @@ class PythonToMLIR(ast.NodeVisitor):
               None
           )
           return operations + [bin_op], bin_op.results[0]
+
+
+    def visit_Subscript(self, node: ast.Subscript):
+        from_location = self.symbol_table[node.value.id]
+        idx_ops, idx_ssa=self.visit(node.slice)
+        if isa(idx_ssa.type, builtin.IntegerType):
+          index_cast=arith.IndexCastOp(idx_ssa, builtin.IndexType())
+          idx_ops.append(index_cast)
+          idx_ssa=index_cast.results[0]
+        load = memref.LoadOp.get(from_location, [idx_ssa])
+        return idx_ops + [load], load.results[0]
 
 
     def visit_Name(self, node: ast.Name) -> Tuple[List[Operation], OpResult]:
@@ -749,7 +759,12 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def get_assigned_variables(self, statement: ast.stmt) -> List[str]:
         if isinstance(statement, ast.Assign):
-            return [statement.targets[0].id]
+            if isa(statement.targets[0], ast.Name):
+              return [statement.targets[0].id]
+            elif isa(statement.targets[0], ast.Subscript):
+              return [statement.targets[0].value.id]
+            else:
+              assert False
 
         if isinstance(statement, ast.For | ast.If | ast.While):
             names = []
