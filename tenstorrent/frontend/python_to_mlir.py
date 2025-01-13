@@ -707,8 +707,8 @@ class PythonToMLIR(ast.NodeVisitor):
       num_buffers_ops, num_buffers_ssa=self.visit(node.args[0])
       page_size_ops, page_size_ssa=self.visit(node.args[1])
       cb_index_ops, cb_index_ssa=self.visit(node.args[2])
-      assert isa(node.args[3], ast.Constant)
-      data_type=node.args[3].value
+      assert isa(node.args[3], ast.Name)
+      data_type=node.args[3].id
 
       cbConfig=TTCreateCBConfig(num_buffers_ssa, page_size_ssa, cb_index_ssa, data_type)
 
