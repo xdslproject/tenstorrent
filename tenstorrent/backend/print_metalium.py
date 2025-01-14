@@ -46,7 +46,7 @@ ARITH_OP_TO_SYM = {
 
 SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
-            arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp, builtin.UnrealizedConversionCastOp
+            arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp, builtin.UnrealizedConversionCastOp,
             circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, host.TTHostCore, host.TTCreateDevice,
             host.TTCreateCBConfig, host.TTCreateCircularBuffer, circular_buffer.CBGetWritePointer,
             host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
@@ -259,50 +259,27 @@ class PrintMetalium:
       elif isa(expr, arith.ExtFOp):
           self.print_cast_to_float(expr)
       elif isa(expr, builtin.UnrealizedConversionCastOp):
-          self.print(expr.results[0].name_hint)
+          self.print_unrealized_conversion_cast(expr)
       elif isa(expr, arith.IndexCastOp):
           # Go directly to the operation used as an input and process this
           self.print_expr(expr.input)
-      elif isa(expr, builtin.UnrealizedConversionCastOp):
-          self.print_cast_unrealized(expr)
       elif type(expr) in TenstorrentExpr:
           self.print_tt_expr_generic(expr)
       else:
         raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
 
     def print_unrealized_conversion_cast(self, op):
-      if isa(op.results[0].type, builtin.MemRefType):
-        assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
-        type_str=MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
-        var_name=op.results[0].name_hint
+        if isa(op.results[0].type, builtin.MemRefType):
+            assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
+            type_str = MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
+            var_name = op.results[0].name_hint
 
-        self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
-        self.print_expr(op.inputs[0])
-        self.print(";", end='\n')
-        self._names[op.results[0]] = var_name
-      else:
-        assert False
+            self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
+            self.print_expr(op.inputs[0])
+            self.print(";", end='\n')
+            self._names[op.results[0]] = var_name
+            return
 
-    def print_cb_get_write_pointer(self, op):
-      self.print("get_write_ptr(")
-      self.print_expr(op.cb_id)
-      self.print(")")
-
-    def print_load_variable(self, op):
-      self.print(op.memref.name_hint)
-      if len(op.indices) > 0:
-        # For now we limit ourselves to one dimensional arrays
-        assert len(op.indices) == 1
-        self.print("[")
-        self.print_expr(op.indices[0])
-        self.print("]")
-
-    def print_cast_to_float(self, op):
-        self.print("static_cast<float>(")
-        self.print_expr(op.operands[0])
-        self.print(")")
-
-    def print_cast_unrealized(self, op):
         operand = op.inputs[0]
         in_type = operand.type
         out_type = op.outputs[0].type
@@ -346,6 +323,25 @@ class PrintMetalium:
                 self.print_expr(operand)
                 self.print(")")
 
+
+    def print_cb_get_write_pointer(self, op):
+      self.print("get_write_ptr(")
+      self.print_expr(op.cb_id)
+      self.print(")")
+
+    def print_load_variable(self, op):
+      self.print(op.memref.name_hint)
+      if len(op.indices) > 0:
+        # For now we limit ourselves to one dimensional arrays
+        assert len(op.indices) == 1
+        self.print("[")
+        self.print_expr(op.indices[0])
+        self.print("]")
+
+    def print_cast_to_float(self, op):
+        self.print("static_cast<float>(")
+        self.print_expr(op.operands[0])
+        self.print(")")
 
     def print_tthost_core(self, op):
         self.print("{")
