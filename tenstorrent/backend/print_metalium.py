@@ -1,3 +1,4 @@
+from xdsl.dialects.builtin import Signedness
 from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue
 from xdsl.irdl import IRDLOperation
 
@@ -45,7 +46,7 @@ ARITH_OP_TO_SYM = {
 
 SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
-            arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
+            arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp, builtin.UnrealizedConversionCastOp,
             circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, func.ReturnOp, host.TTHostCore, host.TTCreateDevice,
             host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
             *TenstorrentExpr
@@ -226,6 +227,8 @@ class PrintMetalium:
       elif isa(expr, arith.IndexCastOp):
           # Go directly to the operation used as an input and process this
           self.print_expr(expr.input)
+      elif isa(expr, builtin.UnrealizedConversionCastOp):
+          self.print_cast_unrealized(expr)
       elif type(expr) in TenstorrentExpr:
           self.print_tt_expr_generic(expr)
       else:
@@ -243,7 +246,52 @@ class PrintMetalium:
     def print_cast_to_float(self, op):
         self.print("static_cast<float>(")
         self.print_expr(op.operands[0])
-        self.print("(")
+        self.print(")")
+
+    def print_cast_unrealized(self, op):
+        operand = op.inputs[0]
+        in_type = operand.type
+        out_type = op.outputs[0].type
+
+        in_int = in_type.name == 'integer_type'
+        out_int = out_type.name == 'integer_type'
+
+        width = in_type.width
+
+        if in_int and not out_int:
+            # casting from i32, si32, ui32 to float
+            assert width == 32
+            self.print_cast_to_float(op)
+            return
+
+        if in_int and in_type.signedness == Signedness.UNSIGNED:
+            # we know i32, si32 become int32_t so we need to cast
+            # uint32 -> int32
+            self.print(f"static_cast<std::int{width}_t>(")
+            self.print_expr(operand)
+            self.print(")")
+            return
+
+        if in_int:
+            # here the int is signless/signed => int32
+            # also out_int == True
+            if out_type.signedness == Signedness.UNSIGNED:
+                self.print(f"static_cast<std::uint{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+
+            return
+
+        if not in_int:
+            if out_type.signedness == Signedness.UNSIGNED:
+                self.print(f"static_cast<std::uint{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+            else:
+                self.print(f"static_cast<std::int{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+
 
     def print_tthost_core(self, op):
         self.print("{")

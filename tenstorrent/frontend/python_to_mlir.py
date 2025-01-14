@@ -412,12 +412,10 @@ class PythonToMLIR(ast.NodeVisitor):
                 conv_op = arith.IndexCastOp(ssa_val, IndexType())
 
             elif target_type.bitwidth == 32 and ssa_val.type.bitwidth == 32:
-                cast_to_index = arith.IndexCastOp(ssa_val, IndexType())
-                cast_to_target = arith.IndexCastOp(cast_to_index.results[0], target_type)
+                cast = builtin.UnrealizedConversionCastOp(operands=[ssa_val], result_types=[target_type])
                 return [
-                    cast_to_index,
-                    cast_to_target
-                ], cast_to_target.results[0]
+                    cast
+                ], cast.results[0]
 
             else:
                 raise NotImplementedError(f"Unsupported type cast from IntegerType: {target_type}")
