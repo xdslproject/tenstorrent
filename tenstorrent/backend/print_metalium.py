@@ -287,7 +287,15 @@ class PrintMetalium:
         in_int = in_type.name == 'integer_type'
         out_int = out_type.name == 'integer_type'
 
-        width = in_type.width
+        self._names[op.results[0]] = op.results[0].name_hint
+
+        if in_int:
+            in_sign = in_type.signedness.data
+
+        if out_int:
+            out_sign = out_type.signedness.data
+
+        width = in_type.width.data
 
         if in_int and not out_int:
             # casting from i32, si32, ui32 to float
@@ -295,7 +303,7 @@ class PrintMetalium:
             self.print_cast_to_float(op)
             return
 
-        if in_int and in_type.signedness == Signedness.UNSIGNED:
+        if in_int and in_sign == Signedness.UNSIGNED:
             # we know i32, si32 become int32_t so we need to cast
             # uint32 -> int32
             self.print(f"static_cast<std::int{width}_t>(")
@@ -306,7 +314,7 @@ class PrintMetalium:
         if in_int:
             # here the int is signless/signed => int32
             # also out_int == True
-            if out_type.signedness == Signedness.UNSIGNED:
+            if out_sign == Signedness.UNSIGNED:
                 self.print(f"static_cast<std::uint{width}_t>(")
                 self.print_expr(operand)
                 self.print(")")
@@ -314,7 +322,7 @@ class PrintMetalium:
             return
 
         if not in_int:
-            if out_type.signedness == Signedness.UNSIGNED:
+            if out_sign == Signedness.UNSIGNED:
                 self.print(f"static_cast<std::uint{width}_t>(")
                 self.print_expr(operand)
                 self.print(")")
@@ -547,7 +555,7 @@ class PrintMetalium:
             store_op_use=self.retrieve_store(op.results[0].uses)
             assert isa(store_op_use.operation, memref.StoreOp)
             if not isa(store_op_use.operation.operands[0], BlockArgument):
-              self.print("=")
+              self.print(" = ")
               self.print_expr(store_op_use.operation.operands[0])
               # A bit of a hack, we add this attribute to the store itself so that when this is
               # subsequently picked up by the assignment it can be ignored
