@@ -46,7 +46,7 @@ ARITH_OP_TO_SYM = {
 
 SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
-            arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp, builtin.UnrealizedConversionCastOp,
+            arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
             circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, host.TTHostCore, host.TTCreateDevice,
             host.TTCreateCBConfig, host.TTCreateCircularBuffer, circular_buffer.CBGetWritePointer,
             host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
@@ -259,7 +259,7 @@ class PrintMetalium:
       elif isa(expr, arith.ExtFOp):
           self.print_cast_to_float(expr)
       elif isa(expr, builtin.UnrealizedConversionCastOp):
-          self.print_unrealized_conversion_cast(expr)
+          self.print_unrealized_conversion_cast(expr, is_expr=True)
       elif isa(expr, arith.IndexCastOp):
           # Go directly to the operation used as an input and process this
           self.print_expr(expr.input)
@@ -268,26 +268,13 @@ class PrintMetalium:
       else:
         raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
 
-    def print_unrealized_conversion_cast(self, op):
-        if isa(op.results[0].type, builtin.MemRefType):
-            assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
-            type_str = MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
-            var_name = op.results[0].name_hint
-
-            self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
-            self.print_expr(op.inputs[0])
-            self.print(";", end='\n')
-            self._names[op.results[0]] = var_name
-            return
-
+    def print_unrealized_conversion_cast_expr(self, op):
         operand = op.inputs[0]
         in_type = operand.type
         out_type = op.outputs[0].type
 
         in_int = in_type.name == 'integer_type'
         out_int = out_type.name == 'integer_type'
-
-        self._names[op.results[0]] = op.results[0].name_hint
 
         if in_int:
             in_sign = in_type.signedness.data
@@ -330,6 +317,24 @@ class PrintMetalium:
                 self.print(f"static_cast<std::int{width}_t>(")
                 self.print_expr(operand)
                 self.print(")")
+
+    def print_unrealized_conversion_cast_stmt(self, op):
+        if isa(op.results[0].type, builtin.MemRefType):
+            assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
+            type_str = MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
+            var_name = op.results[0].name_hint
+
+            self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
+            self.print_expr(op.inputs[0])
+            self.print(";", end='\n')
+            self._names[op.results[0]] = var_name
+
+    def print_unrealized_conversion_cast(self, op, is_expr=False):
+        if is_expr:
+            self.print_unrealized_conversion_cast_expr(op)
+            return
+
+        self.print_unrealized_conversion_cast_stmt(op)
 
 
     def print_cb_get_write_pointer(self, op):
