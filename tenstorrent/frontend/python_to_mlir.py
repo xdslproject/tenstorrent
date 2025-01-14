@@ -286,6 +286,8 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_FunctionDef(self, node) -> Operation:
         operations: List[Operation] = []
 
+        return_types=[]
+
         arg_types=[]
         arg_names=[]
         for arg in node.args.args:
@@ -315,14 +317,21 @@ class PythonToMLIR(ast.NodeVisitor):
             self.fn_kernel_type=KernelType.HOST
 
         operations = self.generate_body_ops(node)
-        operations.append(func.ReturnOp())
+
+        if self.fn_kernel_type==KernelType.HOST:
+          return_types.append(i32)
+          zero_c=arith.ConstantOp(IntegerAttr(0, i32))
+          ret=func.ReturnOp(zero_c)
+          operations+=[zero_c, ret]
+        else:
+          operations.append(func.ReturnOp())
 
         block.add_ops(list(flatten(operations)))
         region = Region(block)
 
         func_op = func.FuncOp(
             fn_name,
-            FunctionType.from_lists(arg_types, []),
+            FunctionType.from_lists(arg_types, return_types),
             region
         )
 
@@ -366,7 +375,7 @@ class PythonToMLIR(ast.NodeVisitor):
           # create a memref
           # seen = var_name in self.symbol_table
           seen = var_name in self.symbol_table
-          if isa(rhs_ops[-1], memref.AllocaOp) or isa(rhs_ops[-1], memref.AllocOp):
+          if isa(rhs_ops[-1], memref.AllocaOp) or isa(rhs_ops[-1], memref.AllocOp) or isa(rhs_ops[-1], builtin.UnrealizedConversionCastOp):
             # This is a bit of a hack, we are allocating a list and this is done
             # in the bin op, so we pick the memref here
             self.symbol_table[var_name] = rhs_ops[-1].results[0]
@@ -707,6 +716,32 @@ class PythonToMLIR(ast.NodeVisitor):
       else:
         return arg_ops+[operation], None
 
+    def handleCreateCBConfig(self, node):
+      assert len(node.args)==4
+
+      num_buffers_ops, num_buffers_ssa=self.visit(node.args[0])
+      page_size_ops, page_size_ssa=self.visit(node.args[1])
+      cb_index_ops, cb_index_ssa=self.visit(node.args[2])
+      assert isa(node.args[3], ast.Name)
+      data_type=node.args[3].id
+
+      cbConfig=TTCreateCBConfig(num_buffers_ssa, page_size_ssa, cb_index_ssa, data_type)
+
+      return num_buffers_ops + page_size_ops + cb_index_ops + [cbConfig], cbConfig.results[0]
+
+    def handleConvertToArray(self, node):
+        source_ops, source_ssa=self.visit(node.args[0])
+        assert isa(node.args[1], ast.Name)
+        str_data_type=node.args[1].id
+        assert isa(node.args[2], ast.Constant)
+        data_size=node.args[2].value
+
+        assert str_data_type in TYPE_STR_TO_MLIR_TYPE
+        data_type=TYPE_STR_TO_MLIR_TYPE[str_data_type]
+
+        target_memref=MemRefType(data_type, [data_size])
+        conversion_op=builtin.UnrealizedConversionCastOp.get([source_ssa], [target_memref])
+        return source_ops + [conversion_op], conversion_op.results[0]
 
     def visit_Call(self, node) -> Tuple[List[Operation], Optional[OpResult]]:
         if isa(node.func, ast.Attribute):
@@ -725,6 +760,10 @@ class PythonToMLIR(ast.NodeVisitor):
           if name == "Finish": return self.handleHostCall(node, TTFinish, 1)
           if name == "CloseDevice": return self.handleHostCall(node, TTCloseDevice, 1)
           if name == "GetMemoryAddress": return self.handleHostCall(node, TTGetMemoryAddress, 1)
+          if name == "CBConfig": return self.handleCreateCBConfig(node)
+          if name == "CreateCircularBuffer": return self.handleHostCall(node, TTCreateCircularBuffer, 3)
+          if name == "cb_get_write_ptr": return self.handleHostCall(node, CBGetWritePointer, 1)
+          if name == "to_array": return self.handleConvertToArray(node)
         else:
             name = node.func.id
             if name not in self._functions:

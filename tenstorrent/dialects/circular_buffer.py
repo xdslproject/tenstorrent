@@ -1,9 +1,11 @@
-from xdsl.dialects.builtin import i1, i32
+from xdsl.dialects.builtin import i1, i32, IntegerType, Signedness
 from xdsl.ir import SSAValue, Operation, Dialect
 from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def
 
 # TODO: add traits?
 # TODO: pages vs tiles?
+
+uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
 
 
 @irdl_op_definition
@@ -73,6 +75,16 @@ class CBPopFront(IRDLOperation):
     def __init__(self, cb_id: SSAValue | Operation, num_tiles: SSAValue | Operation):
         super().__init__(operands=[cb_id, num_tiles])
 
+@irdl_op_definition
+class CBGetWritePointer(IRDLOperation):
+    name = "cb.get_write_pointer"
+
+    cb_id = operand_def(i32)
+    result = result_def(uint32)
+
+    def __init__(self, cb_id: SSAValue | Operation):
+        super().__init__(operands=[cb_id], result_types=[uint32])
+
 
 CircularBufferOperation = (
         CBReserveBack
@@ -93,6 +105,7 @@ CircularBuffer = Dialect(
         CBReserveBack,
         CBPushBack,
         CBPopFront,
+        CBGetWritePointer,
     ],
     [],
 )
