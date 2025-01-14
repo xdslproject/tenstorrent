@@ -368,8 +368,6 @@ class PythonToMLIR(ast.NodeVisitor):
                 assert cast_ssa is not None
                 rhs_ssa_val = cast_ssa
                 operations += cast_ops
-            else:
-                assert cast_ssa is None
 
         if isa(dest, ast.Name):
           # create a memref
@@ -410,7 +408,7 @@ class PythonToMLIR(ast.NodeVisitor):
             return [], ssa_val
 
         # TODO: not strictly correct, should check elem types and lengths
-        if target_type == MemRefType and isinstance(ssa_val.type, MemRefType):
+        if isa(target_type, MemRefType) and isa(ssa_val.type, MemRefType):
             return [], ssa_val
 
         if isinstance(ssa_val.type, IntegerType):
@@ -419,6 +417,9 @@ class PythonToMLIR(ast.NodeVisitor):
 
             elif target_type == IndexType():
                 conv_op = arith.IndexCastOp(ssa_val, IndexType())
+
+            elif target_type == IntegerType:
+                return [], ssa_val
 
             elif target_type.bitwidth == 32 and ssa_val.type.bitwidth == 32:
                 cast = builtin.UnrealizedConversionCastOp(operands=[ssa_val], result_types=[target_type])
