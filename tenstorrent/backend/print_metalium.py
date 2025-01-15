@@ -1,3 +1,4 @@
+from xdsl.dialects.builtin import Signedness
 from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue, BlockArgument
 from xdsl.irdl import IRDLOperation
 
@@ -258,7 +259,7 @@ class PrintMetalium:
       elif isa(expr, arith.ExtFOp):
           self.print_cast_to_float(expr)
       elif isa(expr, builtin.UnrealizedConversionCastOp):
-          self.print(expr.results[0].name_hint)
+          self.print_unrealized_conversion_cast(expr, is_expr=True)
       elif isa(expr, arith.IndexCastOp):
           # Go directly to the operation used as an input and process this
           self.print_expr(expr.input)
@@ -267,18 +268,74 @@ class PrintMetalium:
       else:
         raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
 
-    def print_unrealized_conversion_cast(self, op):
-      if isa(op.results[0].type, builtin.MemRefType):
-        assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
-        type_str=MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
-        var_name=op.results[0].name_hint
+    def print_unrealized_conversion_cast_expr(self, op):
+        operand = op.inputs[0]
+        in_type = operand.type
+        out_type = op.outputs[0].type
 
-        self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
-        self.print_expr(op.inputs[0])
-        self.print(";", end='\n')
-        self._names[op.results[0]] = var_name
-      else:
-        assert False
+        in_int = in_type.name == 'integer_type'
+        out_int = out_type.name == 'integer_type'
+
+        if in_int:
+            in_sign = in_type.signedness.data
+
+        if out_int:
+            out_sign = out_type.signedness.data
+
+        width = in_type.width.data
+
+        if in_int and not out_int:
+            # casting from i32, si32, ui32 to float
+            assert width == 32
+            self.print_cast_to_float(op)
+            return
+
+        if in_int and in_sign == Signedness.UNSIGNED:
+            # we know i32, si32 become int32_t so we need to cast
+            # uint32 -> int32
+            self.print(f"static_cast<std::int{width}_t>(")
+            self.print_expr(operand)
+            self.print(")")
+            return
+
+        if in_int:
+            # here the int is signless/signed => int32
+            # also out_int == True
+            if out_sign == Signedness.UNSIGNED:
+                self.print(f"static_cast<std::uint{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+
+            return
+
+        if not in_int:
+            if out_sign == Signedness.UNSIGNED:
+                self.print(f"static_cast<std::uint{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+            else:
+                self.print(f"static_cast<std::int{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+
+    def print_unrealized_conversion_cast_stmt(self, op):
+        if isa(op.results[0].type, builtin.MemRefType):
+            assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
+            type_str = MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
+            var_name = op.results[0].name_hint
+
+            self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
+            self.print_expr(op.inputs[0])
+            self.print(";", end='\n')
+            self._names[op.results[0]] = var_name
+
+    def print_unrealized_conversion_cast(self, op, is_expr=False):
+        if is_expr:
+            self.print_unrealized_conversion_cast_expr(op)
+            return
+
+        self.print_unrealized_conversion_cast_stmt(op)
+
 
     def print_cb_get_write_pointer(self, op):
       self.print("get_write_ptr(")
@@ -297,7 +354,7 @@ class PrintMetalium:
     def print_cast_to_float(self, op):
         self.print("static_cast<float>(")
         self.print_expr(op.operands[0])
-        self.print("(")
+        self.print(")")
 
     def print_tthost_core(self, op):
         self.print("{")
@@ -459,11 +516,11 @@ class PrintMetalium:
         store_i = loop.body.block.first_op
         loop_index_name=store_i.operands[1].name_hint
 
-        self.print(f"for ({loop_index_name}=", indented=True)
+        self.print(f"for ({loop_index_name} = ", indented=True)
         self.print_expr(loop.lb)
-        self.print(f";{loop_index_name}<")
+        self.print(f"; {loop_index_name} < ")
         self.print_expr(loop.ub)
-        self.print(f";{loop_index_name}+=")
+        self.print(f"; {loop_index_name} += ")
         self.print_expr(loop.step)
         self.print(") {", end='\n')
 
@@ -503,7 +560,7 @@ class PrintMetalium:
             store_op_use=self.retrieve_store(op.results[0].uses)
             assert isa(store_op_use.operation, memref.StoreOp)
             if not isa(store_op_use.operation.operands[0], BlockArgument):
-              self.print("=")
+              self.print(" = ")
               self.print_expr(store_op_use.operation.operands[0])
               # A bit of a hack, we add this attribute to the store itself so that when this is
               # subsequently picked up by the assignment it can be ignored
@@ -516,7 +573,7 @@ class PrintMetalium:
               # Might not be correct for multi-dimensional arrays
               total_size*=s.data
             if isa(op, memref.AllocOp):
-              self.print(f"{type_decl} * {var_name} =({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
+              self.print(f"{type_decl} * {var_name} = ({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
               self._free_end_of_fn.append(var_name)
             elif isa(op, memref.AllocaOp):
               self.print(f"{type_decl} {var_name}[{total_size}];", indented=True, end='\n')

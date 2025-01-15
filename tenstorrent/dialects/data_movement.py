@@ -1,4 +1,4 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr, i32
+from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr
 from xdsl.ir import SSAValue, Operation, Dialect
 from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def, opt_operand_def
 
@@ -13,7 +13,7 @@ class DMNocAsyncRead(IRDLOperation):
 
     src_noc_address = operand_def(uint64)
     dst_local_l1_addr = operand_def(IntegerType | MemRefType)
-    size = operand_def(i32)
+    size = operand_def(uint32)
     noc = opt_operand_def(uint8)
 
     def __init__(self,
@@ -35,7 +35,7 @@ class DMNocAsyncWrite(IRDLOperation):
 
     src_local_l1_addr = operand_def(IntegerType | MemRefType)
     dst_noc_addr = operand_def(uint64)
-    size = operand_def(i32)
+    size = operand_def(uint32)
     noc = opt_operand_def(uint8)
 
     def __init__(self,
