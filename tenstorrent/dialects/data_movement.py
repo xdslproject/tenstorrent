@@ -7,21 +7,20 @@ uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
 uint64 = IntegerType(64, signedness=Signedness.UNSIGNED)
 
-
 @irdl_op_definition
 class DMNocAsyncRead(IRDLOperation):
     name = "dm.noc_async_read"
 
     src_noc_address = operand_def(uint64)
-    dst_local_l1_addr = operand_def(uint32)
+    dst_local_l1_addr = operand_def(IntegerType | MemRefType)
     size = operand_def(uint32)
-    noc = operand_def(uint8)  # TODO: default value of noc_index?
+    noc = opt_operand_def(uint8)
 
     def __init__(self,
                  src_noc_address: SSAValue | Operation,
                  dst_local_l1_addr: SSAValue | Operation,
                  size: SSAValue | Operation,
-                 noc: SSAValue | Operation):
+                 noc: SSAValue | Operation = None):
         super().__init__(operands=[
             src_noc_address,
             dst_local_l1_addr,
@@ -34,16 +33,16 @@ class DMNocAsyncRead(IRDLOperation):
 class DMNocAsyncWrite(IRDLOperation):
     name = "dm.noc_async_write"
 
-    src_local_l1_addr = operand_def(uint32)
+    src_local_l1_addr = operand_def(IntegerType | MemRefType)
     dst_noc_addr = operand_def(uint64)
     size = operand_def(uint32)
-    noc = operand_def(uint8)
+    noc = opt_operand_def(uint8)
 
     def __init__(self,
                  src_local_l1_addr: SSAValue | Operation,
                  dst_noc_addr: SSAValue | Operation,
                  size: SSAValue | Operation,
-                 noc: SSAValue | Operation):
+                 noc: SSAValue | Operation = None):
         super().__init__(operands=[src_local_l1_addr, dst_noc_addr, size, noc])
 
 
@@ -57,9 +56,9 @@ class DMNocAsyncReadBarrier(IRDLOperation):
     """
     name = "dm.noc_async_read_barrier"
 
-    noc = operand_def(uint8)
+    noc = opt_operand_def(uint8)
 
-    def __init__(self, noc: SSAValue | Operation):
+    def __init__(self, noc: SSAValue | Operation = None):
         super().__init__(operands=[noc])
 
 
@@ -67,9 +66,9 @@ class DMNocAsyncReadBarrier(IRDLOperation):
 class DMNocAsyncWriteBarrier(IRDLOperation):
     name = "dm.noc_async_write_barrier"
 
-    noc = operand_def(uint8)
+    noc = opt_operand_def(uint8)
 
-    def __init__(self, noc: SSAValue | Operation):
+    def __init__(self, noc: SSAValue | Operation = None):
         super().__init__(operands=[noc])
 
 
@@ -85,7 +84,7 @@ class DMNocAsyncWriteMulticast(IRDLOperation):
     # TODO: these arguments have default values
     linked = operand_def(i1)
     multicast_path_reserve = operand_def(i1)
-    noc = operand_def(uint8)
+    noc = opt_operand_def(uint8)
 
     def __init__(self,
                  src_local_l1_addr: SSAValue | Operation,
@@ -94,7 +93,7 @@ class DMNocAsyncWriteMulticast(IRDLOperation):
                  num_dests: SSAValue | Operation,
                  linked: SSAValue | Operation,
                  multicast_path_reserve: SSAValue | Operation,
-                 noc: SSAValue | Operation):
+                 noc: SSAValue | Operation = None):
         super().__init__(
             operands=[
                 src_local_l1_addr,
@@ -119,7 +118,7 @@ class DMNocSemaphoreSetMulticast(IRDLOperation):
     # TODO: these arguments have default values
     linked = operand_def(i1)
     multicast_path_reserve = operand_def(i1)
-    noc = operand_def(uint8)
+    noc = opt_operand_def(uint8)
 
     def __init__(self,
                  src_local_l1_addr: SSAValue | Operation,
@@ -127,7 +126,7 @@ class DMNocSemaphoreSetMulticast(IRDLOperation):
                  num_dests: SSAValue | Operation,
                  linked: SSAValue | Operation,
                  multicast_path_reserve: SSAValue | Operation,
-                 noc: SSAValue | Operation):
+                 noc: SSAValue | Operation = None):
         super().__init__(
             operands=[
                 src_local_l1_addr,

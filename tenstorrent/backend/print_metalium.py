@@ -1,4 +1,5 @@
-from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue
+from xdsl.dialects.builtin import Signedness
+from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue, BlockArgument
 from xdsl.irdl import IRDLOperation
 
 from xdsl.utils.hints import isa
@@ -23,7 +24,8 @@ OpWithBody = func.FuncOp | scf.ForOp | scf.WhileOp
 CircularBufferOperationWithResult = circular_buffer.CBPagesAvailableAtFront | circular_buffer.CBPagesReservableAtBack
 
 TRUE = builtin.IntegerAttr.from_int_and_width(1, 1)
-TenstorrentOps = []
+
+TenstorrentOps = [data_movement.DMNocAsyncRead, data_movement.DMNocAsyncWrite, data_movement.DMNocAsyncReadBarrier, data_movement.DMNocAsyncWriteBarrier]
 
 TenstorrentExpr = [data_movement.DMGetNocAddrFromBankId]
 
@@ -45,7 +47,8 @@ ARITH_OP_TO_SYM = {
 SkipOps = [
             arith.ConstantOp, memref.LoadOp, arith.AddiOp, arith.MuliOp, arith.AddfOp, arith.MulfOp, arith.IndexCastOp, scf.YieldOp,
             arith.CmpiOp, arith.AndIOp, arith.OrIOp, arith.XOrIOp, arith.SubiOp, arith.SubfOp, arith.ExtFOp, arith.DivfOp,
-            circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, func.ReturnOp, host.TTHostCore, host.TTCreateDevice,
+            circular_buffer.CBPagesReservableAtBack, circular_buffer.CBPagesAvailableAtFront, host.TTHostCore, host.TTCreateDevice,
+            host.TTCreateCBConfig, host.TTCreateCircularBuffer, circular_buffer.CBGetWritePointer,
             host.TTGetCommandQueue, host.TTCreateProgram, host.TTCreateDRAMConfig, host.TTCreateBuffer, host.TTCreateKernel, host.TTGetMemoryAddress,
             *TenstorrentExpr
         ]
@@ -63,10 +66,16 @@ MLIR_TO_CPP_TYPES = {
             builtin.i1: "bool",
             host.CoreCoord(): "CoreCoord",
             host.Device(): "IDevice*",
-            host.CommandQueue(): "CommandQueue&",
+            host.CommandQueue(): "CommandQueue &",
             host.Program(): "Program",
             host.Buffer(): "std::shared_ptr<Buffer>",
             host.Kernel(): "KernelHandle",
+            host.CircularBufferConfig(): "CircularBufferConfig",
+            host.CBHandle(): "CBHandle",
+        }
+
+TYPE_STR_TO_TT_DATA_FORMAT = {
+            "int": "Int32"
         }
 
 
@@ -104,6 +113,16 @@ class PrintMetalium:
             return
 
         if isa(operation, builtin.ModuleOp):
+            if "kernel_type" in operation.attributes:
+              if operation.attributes["kernel_type"].data == "host":
+                self.print("#include \"tt_metal/host_api.hpp\"", indented=True, end='\n')
+                self.print("#include \"tt_metal/impl/device/device.hpp\"", indented=True, end='\n')
+                self.print("#include \"tt_metal/common/bfloat16.hpp\"", indented=True, end='\n')
+                self.print("\nusing namespace tt;", indented=True, end='\n')
+                self.print("using namespace tt::tt_metal;\n", indented=True, end='\n')
+              elif operation.attributes["kernel_type"].data == "data_in":
+                self.print("#include <stdint.h>", indented=True, end='\n')
+                self.print("#include \"dataflow_api.h\"\n", indented=True, end='\n')
             for region in operation.regions:
                 for block in region.blocks:
                     self.print_op(block)
@@ -112,6 +131,8 @@ class PrintMetalium:
                 self.print_op(op)
         elif isa(operation, func.FuncOp):
             self.print_func_def(operation)
+        elif isa(operation, func.ReturnOp):
+            self.print_return(operation)
         elif isa(operation, memref.AllocOp) or isa(operation, memref.AllocaOp):
             self.print_declaration(operation)
         elif isa(operation, memref.StoreOp):
@@ -130,6 +151,8 @@ class PrintMetalium:
           self.print_ttclose_device(operation)
         elif isa(operation, host.TTSetRuntimeArgs):
           self.print_ttset_runtime_args(operation)
+        elif isa(operation, builtin.UnrealizedConversionCastOp):
+          self.print_unrealized_conversion_cast(operation)
         elif type(operation) in TenstorrentOps:
             self.print_tt_op_generic(operation)
 
@@ -140,6 +163,13 @@ class PrintMetalium:
 
         else:
             raise NotImplementedError(f"Unhandled operation: {operation.__class__.__name__}")
+
+    def print_return(self, op):
+      if len(op.arguments) > 0:
+        assert len(op.arguments)==1
+        self.print("return ", indented=True)
+        self.print_expr(op.arguments[0])
+        self.print(";", end='\n')
 
     def print_ttset_runtime_args(self, op):
         self.print("SetRuntimeArgs(", indented=True)
@@ -206,22 +236,30 @@ class PrintMetalium:
           self.print_ttcreate_program(expr)
       elif isa(expr, host.TTCreateDRAMConfig):
           self.print_ttcreate_dram_config(expr)
+      elif isa(expr, host.TTCreateCBConfig):
+          self.print_ttcreate_cb_config(expr)
       elif isa(expr, host.TTCreateBuffer):
           self.print_ttcreate_buffer(expr)
+      elif isa(expr, host.TTCreateCircularBuffer):
+          self.print_ttcreate_circular_buffer(expr)
       elif isa(expr, host.TTCreateKernel):
           self.print_ttcreate_kernel(expr)
       elif isa(expr, host.TTGetMemoryAddress):
           self.print_ttget_memory_address(expr)
+      elif isa(expr, circular_buffer.CBGetWritePointer):
+          self.print_cb_get_write_pointer(expr)
       elif isa(expr, memref.LoadOp):
-          self.print(expr.memref.name_hint)
+          self.print_load_variable(expr)
       elif isa(expr, Block):
-          self.print(f"fn_arg{ssa_val.index}")
+          self.print(f"fn_arg_{ssa_val.index}")
       elif isa(expr, memref.AllocaOp) or isa(expr, memref.AllocOp):
           self.print(expr.results[0].name_hint)
       elif isa(expr,BinaryOperation):
           self.print_binary_op(expr)
       elif isa(expr, arith.ExtFOp):
           self.print_cast_to_float(expr)
+      elif isa(expr, builtin.UnrealizedConversionCastOp):
+          self.print_unrealized_conversion_cast(expr, is_expr=True)
       elif isa(expr, arith.IndexCastOp):
           # Go directly to the operation used as an input and process this
           self.print_expr(expr.input)
@@ -230,11 +268,93 @@ class PrintMetalium:
       else:
         raise NotImplementedError(f"Unhandled expression: {expr.__class__.__name__}")
 
+    def print_unrealized_conversion_cast_expr(self, op):
+        operand = op.inputs[0]
+        in_type = operand.type
+        out_type = op.outputs[0].type
+
+        in_int = in_type.name == 'integer_type'
+        out_int = out_type.name == 'integer_type'
+
+        if in_int:
+            in_sign = in_type.signedness.data
+
+        if out_int:
+            out_sign = out_type.signedness.data
+
+        width = in_type.width.data
+
+        if in_int and not out_int:
+            # casting from i32, si32, ui32 to float
+            assert width == 32
+            self.print_cast_to_float(op)
+            return
+
+        if in_int and in_sign == Signedness.UNSIGNED:
+            # we know i32, si32 become int32_t so we need to cast
+            # uint32 -> int32
+            self.print(f"static_cast<std::int{width}_t>(")
+            self.print_expr(operand)
+            self.print(")")
+            return
+
+        if in_int:
+            # here the int is signless/signed => int32
+            # also out_int == True
+            if out_sign == Signedness.UNSIGNED:
+                self.print(f"static_cast<std::uint{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+
+            return
+
+        if not in_int:
+            if out_sign == Signedness.UNSIGNED:
+                self.print(f"static_cast<std::uint{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+            else:
+                self.print(f"static_cast<std::int{width}_t>(")
+                self.print_expr(operand)
+                self.print(")")
+
+    def print_unrealized_conversion_cast_stmt(self, op):
+        if isa(op.results[0].type, builtin.MemRefType):
+            assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
+            type_str = MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
+            var_name = op.results[0].name_hint
+
+            self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
+            self.print_expr(op.inputs[0])
+            self.print(";", end='\n')
+            self._names[op.results[0]] = var_name
+
+    def print_unrealized_conversion_cast(self, op, is_expr=False):
+        if is_expr:
+            self.print_unrealized_conversion_cast_expr(op)
+            return
+
+        self.print_unrealized_conversion_cast_stmt(op)
+
+
+    def print_cb_get_write_pointer(self, op):
+      self.print("get_write_ptr(")
+      self.print_expr(op.cb_id)
+      self.print(")")
+
+    def print_load_variable(self, op):
+      self.print(op.memref.name_hint)
+      if len(op.indices) > 0:
+        # For now we limit ourselves to one dimensional arrays
+        assert len(op.indices) == 1
+        self.print("[")
+        self.print_expr(op.indices[0])
+        self.print("]")
 
     def print_cast_to_float(self, op):
         self.print("static_cast<float>(")
         self.print_expr(op.operands[0])
-        self.print("(")
+        self.print(")")
 
     def print_tthost_core(self, op):
         self.print("{")
@@ -266,6 +386,15 @@ class PrintMetalium:
 
         self.print(")")
 
+    def print_ttcreate_circular_buffer(self, op):
+        self.print("tt_metal::CreateCircularBuffer(")
+        self.print_expr(op.program)
+        self.print(", ")
+        self.print_expr(op.core)
+        self.print(", ")
+        self.print_expr(op.config)
+        self.print(")")
+
     def print_ttcreate_buffer(self, op):
         self.print("CreateBuffer(")
         self.print_expr(op.config)
@@ -281,7 +410,19 @@ class PrintMetalium:
         self.print(", .buffer_type = BufferType::DRAM")
         self.print("}");
 
-        #.device = device, .size = single_tile_size, .page_size = single_tile_size, .buffer_type = BufferType::DRAM};
+    def print_ttcreate_cb_config(self, op):
+        self.print("CircularBufferConfig(")
+        self.print_expr(op.num_buffers)
+        self.print("*")
+        self.print_expr(op.page_size)
+        self.print(", {{")
+        self.print_expr(op.cb_index)
+        assert op.data_type.data in TYPE_STR_TO_TT_DATA_FORMAT
+        self.print(", tt::DataFormat::"+TYPE_STR_TO_TT_DATA_FORMAT[op.data_type.data]+"}}).set_page_size(")
+        self.print_expr(op.cb_index)
+        self.print(", ")
+        self.print_expr(op.page_size)
+        self.print(")")
 
     def print_ttcreate_device(self, op):
         self.print("CreateDevice(")
@@ -314,17 +455,23 @@ class PrintMetalium:
 
         self.print_expr(op.rhs)
 
-    def print_func_def(self, func: func.FuncOp):
+    def print_func_def(self, func_op: func.FuncOp):
         """
         void func_name(typea a, typeb b, ...) {
 
         }
         """
-        is_tt_kernel=self.is_tt_kernel(func)
-        self.print(f"void {func.sym_name.data}(", indented=True)
+        is_tt_kernel=self.is_tt_kernel(func_op)
+        return_type="void"
+
+        if len(func_op.function_type.outputs) > 0:
+          assert len(func_op.function_type.outputs) == 1
+          return_type = MLIR_TO_CPP_TYPES[func_op.function_type.outputs.data[0]]
+
+        self.print(f"{return_type} {func_op.sym_name.data}(", indented=True)
 
         if not is_tt_kernel:
-          for idx, input in enumerate(func.function_type.inputs):
+          for idx, input in enumerate(func_op.function_type.inputs):
             type_decl = MLIR_TO_CPP_TYPES[input]
             if idx > 0: self.print(", ")
             self.print(f"{type_decl} fn_arg_{idx}")
@@ -334,13 +481,23 @@ class PrintMetalium:
         self._indent += 1
 
         if is_tt_kernel:
-          for idx, input in enumerate(func.function_type.inputs):
+          for idx, input in enumerate(func_op.function_type.inputs):
             type_decl = MLIR_TO_CPP_TYPES[input]
             self.print(f"{type_decl} fn_arg_{idx} = get_arg_val<{type_decl}>({idx});", indented=True, end='\n')
 
-        self.print_region(func.body)
+        # Have to do some messing around here with the return operation, which must be the last operation. That is
+        # because we insert free for heap allocated memory, but that must be before the return, hence extract this,
+        # print the rest, then print the free and lastly print the return
+        ret_op=func_op.body.block.ops.last
+        assert isa(ret_op, func.ReturnOp)
+
+        self.print_region(list(func_op.body.block.ops)[:-1])
+
         for free_c in self._free_end_of_fn:
           self.print(f"free({free_c});", indented=True, end='\n');
+
+        self.print_op(ret_op)
+
         self._indent -= 1
 
         self._free_end_of_fn=[]
@@ -357,17 +514,13 @@ class PrintMetalium:
     def print_for_loop(self, loop: scf.ForOp):
         # we know the first operation in the loop should be the store into i
         store_i = loop.body.block.first_op
-        i_loop_ssa = store_i.operands[0]
-        i_register = store_i.operands[1]
+        loop_index_name=store_i.operands[1].name_hint
 
-        i = self._names[i_register]
-        self._names[i_loop_ssa] = i
-
-        self.print(f"for ({i}=", indented=True)
+        self.print(f"for ({loop_index_name} = ", indented=True)
         self.print_expr(loop.lb)
-        self.print(f";{i}<")
+        self.print(f"; {loop_index_name} < ")
         self.print_expr(loop.ub)
-        self.print(f";{i}+=")
+        self.print(f"; {loop_index_name} += ")
         self.print_expr(loop.step)
         self.print(") {", end='\n')
 
@@ -395,34 +548,52 @@ class PrintMetalium:
           # done in the assignment
           pass
         else:
-          index = isinstance(op.next_op, scf.ForOp)
-          var_name = self.create_fresh_variable(hint='i' if index else op.results[0].name_hint)
+          var_name = self.create_fresh_variable(op.results[0].name_hint)
+          self._names[op.results[0]] = var_name
           type_decl = MLIR_TO_CPP_TYPES[op.result_types[0].element_type]
 
           if len(op.result_types[0].shape) == 0:
-            self.print(type_decl + " " + var_name+";", indented=True, end='\n')
+            self.print(type_decl + " " + var_name, indented=True)
+
+            # We are grabbing the assignment RHS and doing the assign in the declaration here, this is
+            # because sometimes in CPP you require that on the declaration (e.g. a reference)
+            store_op_use=self.retrieve_store(op.results[0].uses)
+            assert isa(store_op_use.operation, memref.StoreOp)
+            if not isa(store_op_use.operation.operands[0], BlockArgument):
+              self.print(" = ")
+              self.print_expr(store_op_use.operation.operands[0])
+              # A bit of a hack, we add this attribute to the store itself so that when this is
+              # subsequently picked up by the assignment it can be ignored
+              store_op_use.operation.attributes["ignore"]=True
+
+            self.print(";", end='\n')
           else:
             total_size=1
             for s in op.result_types[0].shape:
               # Might not be correct for multi-dimensional arrays
               total_size*=s.data
             if isa(op, memref.AllocOp):
-              self.print(f"{type_decl} * {var_name} =({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
+              self.print(f"{type_decl} * {var_name} = ({type_decl}*) malloc(sizeof({type_decl})*{total_size});", indented=True, end='\n')
               self._free_end_of_fn.append(var_name)
             elif isa(op, memref.AllocaOp):
               self.print(f"{type_decl} {var_name}[{total_size}];", indented=True, end='\n')
             else:
               assert False
 
-          self._names[op.results[0]] = var_name
+    def retrieve_store(self, uses):
+      for use in uses:
+        if isa(use.operation, memref.StoreOp): return use
+      return None
 
 
     def print_assignment(self, op: memref.StoreOp):
+        if "ignore" in op.attributes:
+          if op.attributes["ignore"]: return
         ssa_value = op.operands[0]
         ssa_destination = op.operands[1]
 
         if isa(ssa_destination.type.element_type, host.DRAMBufferConfig):
-          self.print(f"InterleavedBufferConfig{ssa_destination.name_hint} ", indented=True)
+          self.print(f"InterleavedBufferConfig {ssa_destination.name_hint} ", indented=True)
 
         else:
           var_name = self._names[ssa_destination]
@@ -476,7 +647,7 @@ class PrintMetalium:
       self.print_tt_operation_generic(expression, False)
 
     def print_tt_op_generic(self, operation):
-      self.print_tt_operation_generic(expression, True)
+      self.print_tt_operation_generic(operation, True)
 
     def print_tt_operation_generic(self, operation, is_expression):
         api_name = get_api_name(operation.name)
