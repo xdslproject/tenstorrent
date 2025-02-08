@@ -20,8 +20,8 @@ def simple_binop():
 
 @tt.data_in
 def read_variable():
-    a = 5       # Assign (Const)
-    b = a + 1   # Assign (BinOp (Name Const))
+    a = 5  # Assign (Const)
+    b = a + 1  # Assign (BinOp (Name Const))
 
 
 @tt.data_in
@@ -123,7 +123,6 @@ def if_elif_else_blocks():
     else:
         a = 10
         b = 9
-
 
 
 @tt.data_in
@@ -318,7 +317,9 @@ def call_compute_funcs():
     mm_block_init(cb0, cb1, dst, transpose, out_cols, out_rows, kt_dim)
     mm_block_init_short(cb0, cb1, transpose, out_cols, out_rows, kt_dim)
     mm_block_init_short_with_dt(cb0, cb1, prev_cb1, out_cols, out_rows, kt_dim)
-    matmul_block(cb0, cb1, tile0, tile1, dst, transpose_bool, out_cols, out_rows, kt_dim)
+    matmul_block(
+        cb0, cb1, tile0, tile1, dst, transpose_bool, out_cols, out_rows, kt_dim
+    )
     exp_init(False)
     exp(True, dst)
     exp2init()

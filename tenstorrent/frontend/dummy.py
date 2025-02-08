@@ -14,7 +14,7 @@ def enforce_literals(func):
         code_context = inspect.getframeinfo(frame).code_context
         if not code_context:
             raise RuntimeError("Could not inspect caller's source code.")
-        source_code = ''.join(code_context).strip()
+        source_code = "".join(code_context).strip()
         parsed = ast.parse(source_code)
 
         # Find the function call node
@@ -25,10 +25,12 @@ def enforce_literals(func):
         # validate each argument
         for arg, var in zip(call_node.args, type_hints):
             hint = type_hints[var]
-            if hasattr(hint, '__origin__') and hint.__origin__ is Literal:
+            if hasattr(hint, "__origin__") and hint.__origin__ is Literal:
                 if not isinstance(arg, ast.Constant):
-                    raise Exception(f"Expected argument '{var}' to be a literal,"
-                                    f" but found identifier: '{arg.id}'")
+                    raise Exception(
+                        f"Expected argument '{var}' to be a literal,"
+                        f" but found identifier: '{arg.id}'"
+                    )
 
         return func(*args, **kwargs)
 
@@ -78,24 +80,24 @@ def noc_async_write_barrier(noc: int):
 
 
 def noc_async_write_multicast(
-        src_local_l1_addr: int,
-        dst_noc_addr_multicast: int,
-        size: int,
-        num_dests: int,
-        noc: int,
-        linked: bool = False,
-        multicast_path_reserve: bool = True,
+    src_local_l1_addr: int,
+    dst_noc_addr_multicast: int,
+    size: int,
+    num_dests: int,
+    noc: int,
+    linked: bool = False,
+    multicast_path_reserve: bool = True,
 ):
     pass
 
 
 def noc_semaphore_set_multicast(
-        src_local_l1_addr: int,
-        dst_noc_addr_multicast: int,
-        num_dests: int,
-        noc: int,
-        linked: bool = False,
-        multicast_path_reserve: bool = True,
+    src_local_l1_addr: int,
+    dst_noc_addr_multicast: int,
+    num_dests: int,
+    noc: int,
+    linked: bool = False,
+    multicast_path_reserve: bool = True,
 ):
     pass
 
@@ -116,10 +118,7 @@ def noc_semaphore_inc(addr: int, incr: int, noc_id: int):
 
 @enforce_literals
 def get_noc_addr_from_bank_id(
-        dram: Literal[True, False],
-        bank_id: int,
-        bank_address_offset: int,
-        noc: int
+    dram: Literal[True, False], bank_id: int, bank_address_offset: int, noc: int
 ) -> int:
     pass
 
@@ -270,19 +269,41 @@ def matmul(cb0: int, cb1: int, tile0: int, tile1: int, dst: int, transpose: int)
     pass
 
 
-def mm_block_init(cb0: int, cb1: int, dst: int, transpose: int, out_cols: int, out_rows: int, kt_dim: int):
+def mm_block_init(
+    cb0: int,
+    cb1: int,
+    dst: int,
+    transpose: int,
+    out_cols: int,
+    out_rows: int,
+    kt_dim: int,
+):
     pass
 
 
-def mm_block_init_short(cb0: int, cb1: int, transpose: int, out_cols: int, out_rows: int, kt_dim: int):
+def mm_block_init_short(
+    cb0: int, cb1: int, transpose: int, out_cols: int, out_rows: int, kt_dim: int
+):
     pass
 
 
-def mm_block_init_short_with_dt(cb0: int, cb1: int, prev_cb1: int, out_cols: int, out_rows: int, kt_dim: int):
+def mm_block_init_short_with_dt(
+    cb0: int, cb1: int, prev_cb1: int, out_cols: int, out_rows: int, kt_dim: int
+):
     pass
 
 
-def matmul_block(cb0: int, cb1: int, tile0: int, tile1: int, dst: int, transpose: bool, out_cols: int, out_rows: int, kt_dim: int):
+def matmul_block(
+    cb0: int,
+    cb1: int,
+    tile0: int,
+    tile1: int,
+    dst: int,
+    transpose: bool,
+    out_cols: int,
+    out_rows: int,
+    kt_dim: int,
+):
     pass
 
 
@@ -705,4 +726,3 @@ def untilize_block(n: int, in_cb: int, block: int, out_cb: int):
 
 def untilize_uninit(in_cb: int):
     pass
-

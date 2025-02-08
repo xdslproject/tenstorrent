@@ -4,12 +4,39 @@ from dataclasses import dataclass
 
 from xdsl.utils.hints import isa
 
-from xdsl.dialects.builtin import IntegerType, Signedness, i32, MemRefType, StringAttr, IntAttr, i1, IndexType
-from xdsl.ir import SSAValue, Operation, Dialect, ParametrizedAttribute, TypeAttribute, OpResult, Data
+from xdsl.dialects.builtin import (
+    IntegerType,
+    Signedness,
+    i32,
+    MemRefType,
+    StringAttr,
+    IntAttr,
+    i1,
+    IndexType,
+)
+from xdsl.ir import (
+    SSAValue,
+    Operation,
+    Dialect,
+    ParametrizedAttribute,
+    TypeAttribute,
+    OpResult,
+    Data,
+)
 from xdsl.ir.core import Attribute
-from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, irdl_attr_definition, prop_def, var_operand_def, AttrSizedOperandSegments
+from xdsl.irdl import (
+    IRDLOperation,
+    irdl_op_definition,
+    operand_def,
+    result_def,
+    irdl_attr_definition,
+    prop_def,
+    var_operand_def,
+    AttrSizedOperandSegments,
+)
 from enum import Enum
 from xdsl.parser import AttrParser
+
 
 class RISCVCoreFlags(Enum):
     DATAMOVEMENT_0 = "datamovement_0"
@@ -68,41 +95,51 @@ class RISCVCoreFlagsAttrBase(Data[tuple[RISCVCoreFlags, ...]]):
 class RISCVCoreFlagsAttr(RISCVCoreFlagsAttrBase):
     name = "tthost.riscv_core"
 
+
 @irdl_attr_definition
 class CoreCoord(ParametrizedAttribute, TypeAttribute):
     name = "tthost.corecoord"
+
 
 @irdl_attr_definition
 class Buffer(ParametrizedAttribute, TypeAttribute):
     name = "tthost.buffer"
 
+
 @irdl_attr_definition
 class Program(ParametrizedAttribute, TypeAttribute):
     name = "tthost.program"
+
 
 @irdl_attr_definition
 class Device(ParametrizedAttribute, TypeAttribute):
     name = "tthost.device"
 
+
 @irdl_attr_definition
 class Kernel(ParametrizedAttribute, TypeAttribute):
     name = "tthost.kernel"
+
 
 @irdl_attr_definition
 class CommandQueue(ParametrizedAttribute, TypeAttribute):
     name = "tthost.command_queue"
 
+
 @irdl_attr_definition
 class DRAMBufferConfig(ParametrizedAttribute, TypeAttribute):
     name = "tthost.dram_buffer_config"
+
 
 @irdl_attr_definition
 class CircularBufferConfig(ParametrizedAttribute, TypeAttribute):
     name = "tthost.circular_buffer_config"
 
+
 @irdl_attr_definition
 class CBHandle(ParametrizedAttribute, TypeAttribute):
     name = "tthost.cb_handle"
+
 
 @irdl_op_definition
 class TTHostCore(IRDLOperation):
@@ -112,13 +149,11 @@ class TTHostCore(IRDLOperation):
     src_noc_y = operand_def(i32)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 src_noc_x: SSAValue | Operation,
-                 src_noc_y: SSAValue | Operation):
-        super().__init__(operands=[
-            src_noc_x,
-            src_noc_y],
-          result_types=[CoreCoord()])
+    def __init__(
+        self, src_noc_x: SSAValue | Operation, src_noc_y: SSAValue | Operation
+    ):
+        super().__init__(operands=[src_noc_x, src_noc_y], result_types=[CoreCoord()])
+
 
 @irdl_op_definition
 class TTCreateDevice(IRDLOperation):
@@ -127,11 +162,9 @@ class TTCreateDevice(IRDLOperation):
     index = operand_def(i32)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 index: SSAValue | Operation):
-        super().__init__(operands=[
-            index],
-          result_types=[Device()])
+    def __init__(self, index: SSAValue | Operation):
+        super().__init__(operands=[index], result_types=[Device()])
+
 
 @irdl_op_definition
 class TTCreateProgram(IRDLOperation):
@@ -142,6 +175,7 @@ class TTCreateProgram(IRDLOperation):
     def __init__(self):
         super().__init__(result_types=[Program()])
 
+
 @irdl_op_definition
 class TTCreateBuffer(IRDLOperation):
     name = "tthost.create_buffer"
@@ -149,11 +183,9 @@ class TTCreateBuffer(IRDLOperation):
     config = operand_def(DRAMBufferConfig)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 config: SSAValue | Operation):
-        super().__init__(operands=[
-            config],
-          result_types=[Buffer()])
+    def __init__(self, config: SSAValue | Operation):
+        super().__init__(operands=[config], result_types=[Buffer()])
+
 
 @irdl_op_definition
 class TTGetCommandQueue(IRDLOperation):
@@ -162,11 +194,8 @@ class TTGetCommandQueue(IRDLOperation):
     device = operand_def(Device)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 device: SSAValue | Operation):
-        super().__init__(operands=[
-            device],
-          result_types=[CommandQueue()])
+    def __init__(self, device: SSAValue | Operation):
+        super().__init__(operands=[device], result_types=[CommandQueue()])
 
 
 @irdl_op_definition
@@ -177,13 +206,9 @@ class TTCreateDRAMConfig(IRDLOperation):
     page_size = operand_def(i32)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 size: SSAValue | Operation,
-                 page_size: SSAValue | Operation):
-        super().__init__(operands=[
-            size,
-            page_size],
-          result_types=[DRAMBufferConfig()])
+    def __init__(self, size: SSAValue | Operation, page_size: SSAValue | Operation):
+        super().__init__(operands=[size, page_size], result_types=[DRAMBufferConfig()])
+
 
 @irdl_op_definition
 class TTCreateCBConfig(IRDLOperation):
@@ -195,23 +220,22 @@ class TTCreateCBConfig(IRDLOperation):
     cb_index = operand_def(i32)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 num_buffers: SSAValue | Operation,
-                 page_size: SSAValue | Operation,
-                 cb_index: SSAValue | Operation,
-                 data_type: str | StringAttr):
-
+    def __init__(
+        self,
+        num_buffers: SSAValue | Operation,
+        page_size: SSAValue | Operation,
+        cb_index: SSAValue | Operation,
+        data_type: str | StringAttr,
+    ):
         if isa(data_type, str):
-          data_type=StringAttr(data_type)
+            data_type = StringAttr(data_type)
 
-        super().__init__(operands=[
-            num_buffers,
-            page_size,
-            cb_index],
-          properties={
-            "data_type": data_type
-          },
-          result_types=[CircularBufferConfig()])
+        super().__init__(
+            operands=[num_buffers, page_size, cb_index],
+            properties={"data_type": data_type},
+            result_types=[CircularBufferConfig()],
+        )
+
 
 @irdl_op_definition
 class TTCreateCircularBuffer(IRDLOperation):
@@ -222,15 +246,14 @@ class TTCreateCircularBuffer(IRDLOperation):
     config = operand_def(CircularBufferConfig)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 program: SSAValue | Operation,
-                 core: SSAValue | Operation,
-                 config: SSAValue | Operation):
-        super().__init__(operands=[
-            program,
-            core,
-            config],
-          result_types=[CBHandle()])
+    def __init__(
+        self,
+        program: SSAValue | Operation,
+        core: SSAValue | Operation,
+        config: SSAValue | Operation,
+    ):
+        super().__init__(operands=[program, core, config], result_types=[CBHandle()])
+
 
 @irdl_op_definition
 class TTCreateKernel(IRDLOperation):
@@ -245,27 +268,29 @@ class TTCreateKernel(IRDLOperation):
 
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 program: SSAValue | Operation,
-                 core: SSAValue | Operation,
-                 kernel_name: str | StringAttr,
-                 riscv_core: RISCVCoreFlagsAttr,
-                 noc_id: int | IntAttr):
-
+    def __init__(
+        self,
+        program: SSAValue | Operation,
+        core: SSAValue | Operation,
+        kernel_name: str | StringAttr,
+        riscv_core: RISCVCoreFlagsAttr,
+        noc_id: int | IntAttr,
+    ):
         if isa(kernel_name, str):
-          kernel_name=StringAttr(kernel_name)
+            kernel_name = StringAttr(kernel_name)
 
         if isa(noc_id, int):
-          noc_id=IntAttr(noc_id)
-        super().__init__(operands=[
-            program,
-            core],
-           properties={
-            "kernel_name": kernel_name,
-            "riscv_core": riscv_core,
-            "noc_id": noc_id,
-          },
-          result_types=[Kernel()])
+            noc_id = IntAttr(noc_id)
+        super().__init__(
+            operands=[program, core],
+            properties={
+                "kernel_name": kernel_name,
+                "riscv_core": riscv_core,
+                "noc_id": noc_id,
+            },
+            result_types=[Kernel()],
+        )
+
 
 @irdl_op_definition
 class TTEnqueueWriteBuffer(IRDLOperation):
@@ -276,17 +301,15 @@ class TTEnqueueWriteBuffer(IRDLOperation):
     data = operand_def(Attribute)
     blocking = operand_def(Attribute)
 
-    def __init__(self,
-                 command_queue: SSAValue | Operation,
-                 buffer: SSAValue | Operation,
-                 data: SSAValue | Operation,
-                 blocking: SSAValue | Operation):
-        super().__init__(operands=[
-            command_queue,
-            buffer,
-            data,
-            blocking]
-            )
+    def __init__(
+        self,
+        command_queue: SSAValue | Operation,
+        buffer: SSAValue | Operation,
+        data: SSAValue | Operation,
+        blocking: SSAValue | Operation,
+    ):
+        super().__init__(operands=[command_queue, buffer, data, blocking])
+
 
 @irdl_op_definition
 class TTEnqueueReadBuffer(IRDLOperation):
@@ -297,17 +320,15 @@ class TTEnqueueReadBuffer(IRDLOperation):
     data = operand_def(Attribute)
     blocking = operand_def(Attribute)
 
-    def __init__(self,
-                 command_queue: SSAValue | Operation,
-                 buffer: SSAValue | Operation,
-                 data: SSAValue | Operation,
-                 blocking: SSAValue | Operation):
-        super().__init__(operands=[
-            command_queue,
-            buffer,
-            data,
-            blocking]
-            )
+    def __init__(
+        self,
+        command_queue: SSAValue | Operation,
+        buffer: SSAValue | Operation,
+        data: SSAValue | Operation,
+        blocking: SSAValue | Operation,
+    ):
+        super().__init__(operands=[command_queue, buffer, data, blocking])
+
 
 @irdl_op_definition
 class TTGetMemoryAddress(IRDLOperation):
@@ -316,11 +337,9 @@ class TTGetMemoryAddress(IRDLOperation):
     buffer = operand_def(Buffer)
     res: OpResult = result_def(Attribute)
 
-    def __init__(self,
-                 buffer: SSAValue | Operation):
-        super().__init__(operands=[
-            buffer],
-          result_types=[IndexType()])
+    def __init__(self, buffer: SSAValue | Operation):
+        super().__init__(operands=[buffer], result_types=[IndexType()])
+
 
 @irdl_op_definition
 class TTEnqueueProgram(IRDLOperation):
@@ -330,15 +349,14 @@ class TTEnqueueProgram(IRDLOperation):
     program = operand_def(Program)
     blocking = operand_def(Attribute)
 
-    def __init__(self,
-                 command_queue: SSAValue | Operation,
-                 program: SSAValue | Operation,
-                 blocking: SSAValue | Operation):
-        super().__init__(operands=[
-            command_queue,
-            program,
-            blocking]
-            )
+    def __init__(
+        self,
+        command_queue: SSAValue | Operation,
+        program: SSAValue | Operation,
+        blocking: SSAValue | Operation,
+    ):
+        super().__init__(operands=[command_queue, program, blocking])
+
 
 @irdl_op_definition
 class TTFinish(IRDLOperation):
@@ -346,11 +364,9 @@ class TTFinish(IRDLOperation):
 
     command_queue = operand_def(CommandQueue)
 
-    def __init__(self,
-                 command_queue: SSAValue | Operation):
-        super().__init__(operands=[
-            command_queue]
-            )
+    def __init__(self, command_queue: SSAValue | Operation):
+        super().__init__(operands=[command_queue])
+
 
 @irdl_op_definition
 class TTCloseDevice(IRDLOperation):
@@ -358,11 +374,9 @@ class TTCloseDevice(IRDLOperation):
 
     device = operand_def(Device)
 
-    def __init__(self,
-                 device: SSAValue | Operation):
-        super().__init__(operands=[
-            device]
-            )
+    def __init__(self, device: SSAValue | Operation):
+        super().__init__(operands=[device])
+
 
 @irdl_op_definition
 class TTSetRuntimeArgs(IRDLOperation):
@@ -375,16 +389,14 @@ class TTSetRuntimeArgs(IRDLOperation):
 
     irdl_options = [AttrSizedOperandSegments()]
 
-    def __init__(self,
-                 program: SSAValue | Operation,
-                 kernel: SSAValue | Operation,
-                 core: SSAValue | Operation,
-                 *args: SSAValue | Operation,):
-        super().__init__(operands=[
-            program,
-            kernel,
-            core,
-            list(args)])
+    def __init__(
+        self,
+        program: SSAValue | Operation,
+        kernel: SSAValue | Operation,
+        core: SSAValue | Operation,
+        *args: SSAValue | Operation,
+    ):
+        super().__init__(operands=[program, kernel, core, list(args)])
 
 
 TTHost = Dialect(

@@ -1,16 +1,20 @@
 import ast
 from typing import Dict
 from xdsl.utils.hints import isa
-from xdsl.dialects.builtin import IntegerType, Float32Type, IndexType, NoneType, MemRefType
+from xdsl.dialects.builtin import (
+    IntegerType,
+    Float32Type,
+    IndexType,
+    NoneType,
+    MemRefType,
+)
 
 from .dummy import *
 from tenstorrent.dialects import *
 
 MLIRType = IntegerType | Float32Type | IndexType | MemRefType | NoneType
 
-TYPE_STR_TO_MLIR_TYPE = {
-                        "int": IntegerType(32)
-                        }
+TYPE_STR_TO_MLIR_TYPE = {"int": IntegerType(32)}
 
 
 def types_equal(a, b) -> bool:
@@ -257,8 +261,10 @@ class TypeChecker(ast.NodeVisitor):
             target = node.targets[0].id
             expected_type = self.visit(node.value)
 
-            self.types[target] = expected_type if target not in self.types else (
-                self.dominating_type(self.types[target], expected_type)
+            self.types[target] = (
+                expected_type
+                if target not in self.types
+                else (self.dominating_type(self.types[target], expected_type))
             )
 
         # if we are writing to an array, the array should have already been
@@ -275,9 +281,11 @@ class TypeChecker(ast.NodeVisitor):
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
 
-        if (isinstance(left_type, MemRefType)
-                and isinstance(right_type, IntegerType)
-                and isinstance(node.op, ast.Mult)):
+        if (
+            isinstance(left_type, MemRefType)
+            and isinstance(right_type, IntegerType)
+            and isinstance(node.op, ast.Mult)
+        ):
             return MemRefType(left_type.element_type, [node.right.value])
 
         if isinstance(node.op, ast.Div):
@@ -295,11 +303,11 @@ class TypeChecker(ast.NodeVisitor):
         if isa(node.func, ast.Attribute):
             name = node.func.attr
         else:
-          name = node.func.id
+            name = node.func.id
 
         if name == "to_array":
-          assert node.args[1].id in TYPE_STR_TO_MLIR_TYPE
-          return MemRefType(TYPE_STR_TO_MLIR_TYPE[node.args[1].id], [])
+            assert node.args[1].id in TYPE_STR_TO_MLIR_TYPE
+            return MemRefType(TYPE_STR_TO_MLIR_TYPE[node.args[1].id], [])
         elif name in self.types:
             return self.types[name]
 

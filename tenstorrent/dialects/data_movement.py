@@ -1,11 +1,19 @@
 from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr
 from xdsl.ir import SSAValue, Operation, Dialect
-from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, result_def, prop_def, opt_operand_def
+from xdsl.irdl import (
+    IRDLOperation,
+    irdl_op_definition,
+    operand_def,
+    result_def,
+    prop_def,
+    opt_operand_def,
+)
 
 
 uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
 uint64 = IntegerType(64, signedness=Signedness.UNSIGNED)
+
 
 @irdl_op_definition
 class DMNocAsyncRead(IRDLOperation):
@@ -16,17 +24,14 @@ class DMNocAsyncRead(IRDLOperation):
     size = operand_def(uint32)
     noc = opt_operand_def(uint8)
 
-    def __init__(self,
-                 src_noc_address: SSAValue | Operation,
-                 dst_local_l1_addr: SSAValue | Operation,
-                 size: SSAValue | Operation,
-                 noc: SSAValue | Operation = None):
-        super().__init__(operands=[
-            src_noc_address,
-            dst_local_l1_addr,
-            size,
-            noc
-        ])
+    def __init__(
+        self,
+        src_noc_address: SSAValue | Operation,
+        dst_local_l1_addr: SSAValue | Operation,
+        size: SSAValue | Operation,
+        noc: SSAValue | Operation = None,
+    ):
+        super().__init__(operands=[src_noc_address, dst_local_l1_addr, size, noc])
 
 
 @irdl_op_definition
@@ -38,11 +43,13 @@ class DMNocAsyncWrite(IRDLOperation):
     size = operand_def(uint32)
     noc = opt_operand_def(uint8)
 
-    def __init__(self,
-                 src_local_l1_addr: SSAValue | Operation,
-                 dst_noc_addr: SSAValue | Operation,
-                 size: SSAValue | Operation,
-                 noc: SSAValue | Operation = None):
+    def __init__(
+        self,
+        src_local_l1_addr: SSAValue | Operation,
+        dst_noc_addr: SSAValue | Operation,
+        size: SSAValue | Operation,
+        noc: SSAValue | Operation = None,
+    ):
         super().__init__(operands=[src_local_l1_addr, dst_noc_addr, size, noc])
 
 
@@ -54,6 +61,7 @@ class DMNocAsyncReadBarrier(IRDLOperation):
     this call the ``noc_async_read`` queue will be empty for the current Tensix
     core.
     """
+
     name = "dm.noc_async_read_barrier"
 
     noc = opt_operand_def(uint8)
@@ -86,14 +94,16 @@ class DMNocAsyncWriteMulticast(IRDLOperation):
     multicast_path_reserve = operand_def(i1)
     noc = opt_operand_def(uint8)
 
-    def __init__(self,
-                 src_local_l1_addr: SSAValue | Operation,
-                 dst_noc_addr_multicast: SSAValue | Operation,
-                 size: SSAValue | Operation,
-                 num_dests: SSAValue | Operation,
-                 linked: SSAValue | Operation,
-                 multicast_path_reserve: SSAValue | Operation,
-                 noc: SSAValue | Operation = None):
+    def __init__(
+        self,
+        src_local_l1_addr: SSAValue | Operation,
+        dst_noc_addr_multicast: SSAValue | Operation,
+        size: SSAValue | Operation,
+        num_dests: SSAValue | Operation,
+        linked: SSAValue | Operation,
+        multicast_path_reserve: SSAValue | Operation,
+        noc: SSAValue | Operation = None,
+    ):
         super().__init__(
             operands=[
                 src_local_l1_addr,
@@ -102,7 +112,7 @@ class DMNocAsyncWriteMulticast(IRDLOperation):
                 num_dests,
                 linked,
                 multicast_path_reserve,
-                noc
+                noc,
             ]
         )
 
@@ -120,13 +130,15 @@ class DMNocSemaphoreSetMulticast(IRDLOperation):
     multicast_path_reserve = operand_def(i1)
     noc = opt_operand_def(uint8)
 
-    def __init__(self,
-                 src_local_l1_addr: SSAValue | Operation,
-                 dst_noc_addr_multicast: SSAValue | Operation,
-                 num_dests: SSAValue | Operation,
-                 linked: SSAValue | Operation,
-                 multicast_path_reserve: SSAValue | Operation,
-                 noc: SSAValue | Operation = None):
+    def __init__(
+        self,
+        src_local_l1_addr: SSAValue | Operation,
+        dst_noc_addr_multicast: SSAValue | Operation,
+        num_dests: SSAValue | Operation,
+        linked: SSAValue | Operation,
+        multicast_path_reserve: SSAValue | Operation,
+        noc: SSAValue | Operation = None,
+    ):
         super().__init__(
             operands=[
                 src_local_l1_addr,
@@ -134,7 +146,7 @@ class DMNocSemaphoreSetMulticast(IRDLOperation):
                 num_dests,
                 linked,
                 multicast_path_reserve,
-                noc
+                noc,
             ]
         )
 
@@ -172,7 +184,12 @@ class DMNocSemaphoreInc(IRDLOperation):
     incr = operand_def(uint32)
     noc_id = operand_def(uint8)
 
-    def __init__(self, addr: SSAValue | Operation, incr: SSAValue | Operation, noc_id: SSAValue | Operation):
+    def __init__(
+        self,
+        addr: SSAValue | Operation,
+        incr: SSAValue | Operation,
+        noc_id: SSAValue | Operation,
+    ):
         super().__init__(operands=[addr, incr, noc_id])
 
 
@@ -187,16 +204,17 @@ class DMGetNocAddrFromBankId(IRDLOperation):
     noc = opt_operand_def(uint8)  # should have default = noc_index
     result = result_def(uint64)
 
-    def __init__(self,
-                 dram: IntegerAttr,
-                 bank_id: SSAValue | Operation,
-                 bank_address_offset: SSAValue | Operation,
-                 noc: SSAValue | Operation = None,
-                 ):
+    def __init__(
+        self,
+        dram: IntegerAttr,
+        bank_id: SSAValue | Operation,
+        bank_address_offset: SSAValue | Operation,
+        noc: SSAValue | Operation = None,
+    ):
         super().__init__(
             operands=[bank_id, bank_address_offset, noc],
             properties={"dram": dram},
-            result_types=[uint64]
+            result_types=[uint64],
         )
 
 
@@ -214,5 +232,5 @@ DataMovement = Dialect(
         DMNocSemaphoreInc,
         DMGetNocAddrFromBankId,
     ],
-    []
+    [],
 )

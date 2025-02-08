@@ -1,4 +1,3 @@
-
 def flatten(iterable):
     for item in iterable:
         if isinstance(item, list):

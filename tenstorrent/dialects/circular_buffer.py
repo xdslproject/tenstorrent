@@ -75,6 +75,7 @@ class CBPopFront(IRDLOperation):
     def __init__(self, cb_id: SSAValue | Operation, num_tiles: SSAValue | Operation):
         super().__init__(operands=[cb_id, num_tiles])
 
+
 @irdl_op_definition
 class CBGetWritePointer(IRDLOperation):
     name = "cb.get_write_pointer"
@@ -87,12 +88,12 @@ class CBGetWritePointer(IRDLOperation):
 
 
 CircularBufferOperation = (
-        CBReserveBack
-        | CBPushBack
-        | CBPopFront
-        | CBWaitFront
-        | CBPagesReservableAtBack
-        | CBPagesAvailableAtFront
+    CBReserveBack
+    | CBPushBack
+    | CBPopFront
+    | CBWaitFront
+    | CBPagesReservableAtBack
+    | CBPagesAvailableAtFront
 )
 
 
