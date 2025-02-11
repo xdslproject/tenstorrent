@@ -7,4 +7,5 @@ Lowers the barrier to entry for programming Tensix core-enabled devices such as 
 ### Development
 
 ```make tests```: Runs test cases
+
 ```ruff format **/*.py```: Formats code
