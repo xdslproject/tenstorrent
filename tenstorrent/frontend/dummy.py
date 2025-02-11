@@ -181,7 +181,7 @@ def add_init_nof():
     pass
 
 
-def add_init(cb0: int, cb1: int, acc_to_dest: bool):
+def add_init(cb0: int, cb1: int, acc_to_dest: bool = False):
     pass
 
 
@@ -725,4 +725,13 @@ def untilize_block(n: int, in_cb: int, block: int, out_cb: int):
 
 
 def untilize_uninit(in_cb: int):
+    pass
+
+
+def binary_op_init_common(cb0: int, cb1: int, cb_out: int = 16):
+    pass
+
+
+@enforce_literals
+def pack_tile(out_of_order_output: Literal[True, False], from_dst: int, in_cb: int, out_tile: int = 0):
     pass
