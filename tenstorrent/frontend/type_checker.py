@@ -52,6 +52,7 @@ class TypeChecker(ast.NodeVisitor):
             regs_wait.__name__: NoneType(),
             regs_commit.__name__: NoneType(),
             regs_release.__name__: NoneType(),
+            binary_op_init_common.__name__: NoneType(),
             abs_init.__name__: NoneType(),
             abs.__name__: NoneType(),
             add_init_nof.__name__: NoneType(),
@@ -186,6 +187,7 @@ class TypeChecker(ast.NodeVisitor):
             untilize_init_short.__name__: NoneType(),
             untilize_block.__name__: NoneType(),
             untilize_uninit.__name__: NoneType(),
+            pack_tile.__name__: NoneType(),
             "CreateDevice": Device(),
             "Core": CoreCoord(),
             "DRAMConfig": DRAMBufferConfig(),
@@ -209,6 +211,9 @@ class TypeChecker(ast.NodeVisitor):
         raise Exception(f"Unhandled node type {node.__class__.__name__}")
 
     def visit_Import(self, node):
+        pass
+
+    def visit_ImportFrom(self, node):
         pass
 
     def visit_Pass(self, node):

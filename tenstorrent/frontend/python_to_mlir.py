@@ -121,6 +121,8 @@ class PythonToMLIR(ast.NodeVisitor):
             noc_async_write_barrier.__name__: DMNocAsyncWriteBarrier,
             get_noc_addr_from_bank_id.__name__: DMGetNocAddrFromBankId,
             # TODO: Should separate into different classes here for compute
+            binary_op_init_common.__name__: BinaryOpInitCommon,
+            pack_tile.__name__: PackTile,
             copy.__name__: Copy,
             copy_to_dst_init_short_with_dt.__name__: CopyToDSTInitShortWithDT,
             copy_to_dst_init_short.__name__: CopyToDSTInitShort,
@@ -281,6 +283,9 @@ class PythonToMLIR(ast.NodeVisitor):
         )
 
     def visit_Import(self, node) -> List[Operation]:
+        return []
+
+    def visit_ImportFrom(self, node):
         return []
 
     def visit_Pass(self, node) -> List[Operation]:
@@ -825,6 +830,7 @@ class PythonToMLIR(ast.NodeVisitor):
             r_sqrt_init.__name__,
             r_sqrt.__name__,
             untilize_block.__name__,
+            pack_tile.__name__,
         ]
 
         # TODO: object to count props and their types?

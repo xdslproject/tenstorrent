@@ -733,5 +733,10 @@ def binary_op_init_common(cb0: int, cb1: int, cb_out: int = 16):
 
 
 @enforce_literals
-def pack_tile(out_of_order_output: Literal[True, False], from_dst: int, in_cb: int, out_tile: int = 0):
+def pack_tile(
+    out_of_order_output: Literal[True, False],
+    from_dst: int,
+    in_cb: int,
+    out_tile: int = 0,
+):
     pass
