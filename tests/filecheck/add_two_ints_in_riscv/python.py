@@ -1,9 +1,9 @@
 # RUN : python3.11 %s
+from tenstorrent.frontend import tt
 
-import tenstorrent.frontend.tt
 
 @tt.data_in
-def single_assignment(
+def add_two_ints(
     src0_dram: uint,
     src1_dram: uint,
     dst_dram: uint,
@@ -89,6 +89,7 @@ def host_code():
 
     tt.EnqueueReadBuffer(command_queue, dst_dram_buffer, host_dst, True)
     tt.CloseDevice(device)
+
 
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes  {"kernel_type" = "data_in"} {
