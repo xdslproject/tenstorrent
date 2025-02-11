@@ -124,6 +124,7 @@ class AddInit(IRDLOperation):
     cb0 = operand_def(uint32)
     cb1 = operand_def(uint32)
     acc_to_dest = operand_def(i1)
+    # TODO: default acc_to_dest == False
 
     def __init__(
         self,
@@ -1544,6 +1545,48 @@ class UntilizeUninit(IRDLOperation):
         super().__init__(operands=[in_cb])
 
 
+@irdl_op_definition
+class BinaryOpInitCommon(IRDLOperation):
+    name = "comp.binary_op_init_common"
+
+    cb0 = operand_def(uint32)
+    cb1 = operand_def(uint32)
+    cb_out = operand_def(uint32)
+    # TODO: cb_out should default to 16
+
+    def __init__(
+        self,
+        cb0: SSAValue | Operation,
+        cb1: SSAValue | Operation,
+        cb_out: SSAValue | Operation,
+    ):
+        super().__init__(operands=[cb0, cb1, cb_out])
+
+
+@irdl_op_definition
+class PackTile(IRDLOperation):
+    name = "comp.pack_tile"
+
+    out_of_order_output = prop_def(IntegerAttr)
+
+    from_dst = operand_def(uint32)
+    from_cb = operand_def(uint32)
+    out_tile_index = operand_def(uint32)
+    # TODO: out_tile_index should default to 0
+
+    def __init__(
+        self,
+        out_of_order_output: IntegerAttr,
+        from_dst: SSAValue | Operation,
+        from_cb: SSAValue | Operation,
+        out_tile_index: SSAValue | Operation,
+    ):
+        super().__init__(
+            operands=[from_dst, from_cb, out_tile_index],
+            properties={"out_of_order_output": out_of_order_output},
+        )
+
+
 Compute = Dialect(
     "comp",
     [
@@ -1557,6 +1600,7 @@ Compute = Dialect(
         RegsWait,
         RegsCommit,
         RegsRelease,
+        BinaryOpInitCommon,
         AbsInit,
         Abs,
         AddInitNof,
@@ -1681,6 +1725,7 @@ Compute = Dialect(
         UnaryGt,
         UnaryLtInit,
         UnaryLt,
+        PackTile,
         TilizeInit,
         TilizeInitShort,
         TilizeInitShortWithDT,

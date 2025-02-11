@@ -29,11 +29,15 @@ CircularBufferOperationWithResult = (
 
 TRUE = builtin.IntegerAttr.from_int_and_width(1, 1)
 
-TenstorrentOps = [
+TenstorrentStmts = [
     data_movement.DMNocAsyncRead,
     data_movement.DMNocAsyncWrite,
     data_movement.DMNocAsyncReadBarrier,
     data_movement.DMNocAsyncWriteBarrier,
+    circular_buffer.CBWaitFront,
+    circular_buffer.CBPopFront,
+    circular_buffer.CBPushBack,
+    *compute.Compute.operations,
 ]
 
 TenstorrentExpr = [data_movement.DMGetNocAddrFromBankId]
@@ -166,7 +170,20 @@ class PrintMetalium:
                     )
                 elif operation.attributes["kernel_type"].data == "data_in":
                     self.print("#include <stdint.h>", indented=True, end="\n")
-                    self.print('#include "dataflow_api.h"\n', indented=True, end="\n")
+                    self.print('#include "dataflow_api.h"', indented=True, end="\n")
+                elif operation.attributes["kernel_type"].data == "compute":
+                    self.print("#include <cstdint>", indented=True, end="\n")
+                    # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
+                    self.print(
+                        '#include "compute_kernel_api/tile_move_copy.h"',
+                        indented=True,
+                        end="\n",
+                    )
+                    self.print(
+                        '#include "compute_kernel_api/eltwise_binary.h"',
+                        indented=True,
+                        end="\n",
+                    )
             for region in operation.regions:
                 for block in region.blocks:
                     self.print_op(block)
@@ -199,13 +216,8 @@ class PrintMetalium:
             self.print_ttset_runtime_args(operation)
         elif isa(operation, builtin.UnrealizedConversionCastOp):
             self.print_unrealized_conversion_cast(operation)
-        elif type(operation) in TenstorrentOps:
-            self.print_tt_op_generic(operation)
-
-        # if isinstance(creator, CircularBufferOperationWithResult):
-        #    arg1 = self.get_rhs_value(creator.operands[0])
-        #    arg2 = self.get_rhs_value(creator.operands[1])
-        #    return f"{creator.name.replace('.', '_')}({arg1}, {arg2})"
+        elif type(operation) in TenstorrentStmts:
+            self.print_tt_stmt_generic(operation)
 
         else:
             raise NotImplementedError(
@@ -528,7 +540,7 @@ class PrintMetalium:
             assert len(func_op.function_type.outputs) == 1
             return_type = MLIR_TO_CPP_TYPES[func_op.function_type.outputs.data[0]]
 
-        self.print(f"{return_type} {func_op.sym_name.data}(", indented=True)
+        self.print(f"\n{return_type} {func_op.sym_name.data}(", indented=True)
 
         if not is_tt_kernel:
             for idx, input in enumerate(func_op.function_type.inputs):
@@ -718,12 +730,12 @@ class PrintMetalium:
     def print_tt_expr_generic(self, expression):
         self.print_tt_operation_generic(expression, False)
 
-    def print_tt_op_generic(self, operation):
+    def print_tt_stmt_generic(self, operation):
         self.print_tt_operation_generic(operation, True)
 
-    def print_tt_operation_generic(self, operation, is_expression):
+    def print_tt_operation_generic(self, operation, is_statement):
         api_name = get_api_name(operation.name)
-        self.print(api_name, indented=is_expression)
+        self.print(api_name, indented=is_statement)
         if operation.properties:
             self.print("<")
             for idx, p in enumerate(operation.properties.values()):
@@ -737,7 +749,7 @@ class PrintMetalium:
                 self.print(", ")
             self.print_expr(expr)
         self.print(")")
-        if is_expression:
+        if is_statement:
             self.print(";", end="\n")
 
     def print(self, s: str, indented: bool = False, end=""):
