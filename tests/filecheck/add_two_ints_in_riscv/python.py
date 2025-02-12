@@ -1,4 +1,4 @@
-# RUN : python3.11 %s
+# RUN: python3.11 %s | filecheck %s
 from tenstorrent.frontend import tt
 
 
@@ -92,15 +92,15 @@ def host_code():
 
 
 # CHECK:      builtin.module {
-# CHECK-NEXT:   builtin.module attributes  {"kernel_type" = "data_in"} {
+# CHECK-NEXT:   builtin.module attributes {kernel_type = "data_in"} {
 # CHECK-NEXT:     func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
-# CHECK-NEXT:       %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{"dram" = true}> : (ui32, ui32) -> ui64
+# CHECK-NEXT:       %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{dram = true}> : (ui32, ui32) -> ui64
 # CHECK-NEXT:       %src0_dram_noc_addr = memref.alloc() : memref<ui64>
 # CHECK-NEXT:       memref.store %6, %src0_dram_noc_addr[] : memref<ui64>
-# CHECK-NEXT:       %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{"dram" = true}> : (ui32, ui32) -> ui64
+# CHECK-NEXT:       %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{dram = true}> : (ui32, ui32) -> ui64
 # CHECK-NEXT:       %src1_dram_noc_addr = memref.alloc() : memref<ui64>
 # CHECK-NEXT:       memref.store %7, %src1_dram_noc_addr[] : memref<ui64>
-# CHECK-NEXT:       %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{"dram" = true}> : (ui32, ui32) -> ui64
+# CHECK-NEXT:       %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{dram = true}> : (ui32, ui32) -> ui64
 # CHECK-NEXT:       %dst_dram_noc_addr = memref.alloc() : memref<ui64>
 # CHECK-NEXT:       memref.store %8, %dst_dram_noc_addr[] : memref<ui64>
 # CHECK-NEXT:       %9 = arith.constant 0 : i32
@@ -136,7 +136,7 @@ def host_code():
 # CHECK-NEXT:       %27 = arith.constant 100 : i32
 # CHECK-NEXT:       %28 = arith.constant 1 : i32
 # CHECK-NEXT:       %x = memref.alloc() : memref<i32>
-# CHECK-NEXT:       scf.for %29 = %26 to %27 step %28 : i32 {
+# CHECK-NEXT:       scf.for %29 = %26 to %27 step %28  : i32 {
 # CHECK-NEXT:         memref.store %29, %x[] : memref<i32>
 # CHECK-NEXT:         %30 = memref.load %x[] : memref<i32>
 # CHECK-NEXT:         %31 = arith.index_cast %30 : i32 to index
@@ -158,7 +158,7 @@ def host_code():
 # CHECK-NEXT:       func.return
 # CHECK-NEXT:     }
 # CHECK-NEXT:   }
-# CHECK-NEXT:   builtin.module attributes  {"kernel_type" = "host"} {
+# CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {
 # CHECK-NEXT:       %0 = arith.constant 0 : i32
 # CHECK-NEXT:       %1 = arith.constant 0 : i32
@@ -201,7 +201,7 @@ def host_code():
 # CHECK-NEXT:       %20 = arith.constant 1 : i32
 # CHECK-NEXT:       %21 = arith.constant 400 : i32
 # CHECK-NEXT:       %22 = arith.constant 0 : i32
-# CHECK-NEXT:       %23 = "tthost.create_cb_configuration"(%20, %21, %22) <{"data_type" = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+# CHECK-NEXT:       %23 = "tthost.create_cb_configuration"(%20, %21, %22) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 # CHECK-NEXT:       %cb_0_config = memref.alloc() : memref<!tthost.circular_buffer_config>
 # CHECK-NEXT:       memref.store %23, %cb_0_config[] : memref<!tthost.circular_buffer_config>
 # CHECK-NEXT:       %24 = memref.load %program[] : memref<!tthost.program>
@@ -213,7 +213,7 @@ def host_code():
 # CHECK-NEXT:       %28 = arith.constant 1 : i32
 # CHECK-NEXT:       %29 = arith.constant 400 : i32
 # CHECK-NEXT:       %30 = arith.constant 1 : i32
-# CHECK-NEXT:       %31 = "tthost.create_cb_configuration"(%28, %29, %30) <{"data_type" = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+# CHECK-NEXT:       %31 = "tthost.create_cb_configuration"(%28, %29, %30) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 # CHECK-NEXT:       %cb_1_config = memref.alloc() : memref<!tthost.circular_buffer_config>
 # CHECK-NEXT:       memref.store %31, %cb_1_config[] : memref<!tthost.circular_buffer_config>
 # CHECK-NEXT:       %32 = memref.load %program[] : memref<!tthost.program>
@@ -225,7 +225,7 @@ def host_code():
 # CHECK-NEXT:       %36 = arith.constant 1 : i32
 # CHECK-NEXT:       %37 = arith.constant 400 : i32
 # CHECK-NEXT:       %38 = arith.constant 2 : i32
-# CHECK-NEXT:       %39 = "tthost.create_cb_configuration"(%36, %37, %38) <{"data_type" = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+# CHECK-NEXT:       %39 = "tthost.create_cb_configuration"(%36, %37, %38) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 # CHECK-NEXT:       %cb_2_config = memref.alloc() : memref<!tthost.circular_buffer_config>
 # CHECK-NEXT:       memref.store %39, %cb_2_config[] : memref<!tthost.circular_buffer_config>
 # CHECK-NEXT:       %40 = memref.load %program[] : memref<!tthost.program>
@@ -244,7 +244,7 @@ def host_code():
 # CHECK-NEXT:       %48 = arith.constant 100 : i32
 # CHECK-NEXT:       %49 = arith.constant 1 : i32
 # CHECK-NEXT:       %i = memref.alloc() : memref<i32>
-# CHECK-NEXT:       scf.for %50 = %47 to %48 step %49 : i32 {
+# CHECK-NEXT:       scf.for %50 = %47 to %48 step %49  : i32 {
 # CHECK-NEXT:         memref.store %50, %i[] : memref<i32>
 # CHECK-NEXT:         %51 = memref.load %i[] : memref<i32>
 # CHECK-NEXT:         %52 = memref.load %i[] : memref<i32>
@@ -267,7 +267,7 @@ def host_code():
 # CHECK-NEXT:       "tthost.enqueue_write_buffer"(%62, %63, %host_src1, %64) : (!tthost.command_queue, !tthost.buffer, memref<100xi32>, i1) -> ()
 # CHECK-NEXT:       %65 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %66 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %67 = "tthost.create_kernel"(%65, %66) <{"kernel_name" = "single_assignment_kernel.cpp", "riscv_core" = #tthost.riscv_core<datamovement_0>, "noc_id" = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %67 = "tthost.create_kernel"(%65, %66) <{kernel_name = "single_assignment_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %kernel = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %67, %kernel[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %68 = memref.load %program[] : memref<!tthost.program>
@@ -282,7 +282,7 @@ def host_code():
 # CHECK-NEXT:       %77 = arith.constant 0 : i32
 # CHECK-NEXT:       %78 = arith.constant 0 : i32
 # CHECK-NEXT:       %79 = arith.constant 0 : i32
-# CHECK-NEXT:       "tthost.set_runtime_args"(%68, %69, %70, %72, %74, %76, %77, %78, %79) {"operandSegmentSizes" = array<i32: 1, 1, 1, 6>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, index, index, index, i32, i32, i32) -> ()
+# CHECK-NEXT:       "tthost.set_runtime_args"(%68, %69, %70, %72, %74, %76, %77, %78, %79) {operandSegmentSizes = array<i32: 1, 1, 1, 6>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, index, index, index, i32, i32, i32) -> ()
 # CHECK-NEXT:       %80 = memref.load %command_queue[] : memref<!tthost.command_queue>
 # CHECK-NEXT:       %81 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %82 = arith.constant false
