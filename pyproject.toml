@@ -1,2 +1,20 @@
-[requires]
-python_version = "3.11.9"
+[project]
+name = "tenstorrent"
+version = "0.1.0"
+description = "xDSL Dialect and Python compiler for Tenstorrent Metalium"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "xdsl>=0.27.0",
+]
+
+[project.optional-dependencies]
+testing = [
+    "lit>=18.1.8",
+]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+tt-opt = "tenstorrent.tools.tt_opt:main"

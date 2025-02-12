@@ -3,5 +3,5 @@
 
 .PHONY: tests
 tests:
-	@command lit -v tests/filecheck
+	@command uv run lit -v tests/filecheck
 
