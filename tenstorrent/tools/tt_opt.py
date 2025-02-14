@@ -1,6 +1,9 @@
-#!/usr/bin/env python3.11
 from tenstorrent.tt_opt_main import TTOptMain
 
 
-if __name__ == "__main__":
+def main():
     TTOptMain().run()
+
+
+if __name__ == "__main__":
+    main()
