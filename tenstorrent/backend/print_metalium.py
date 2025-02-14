@@ -287,7 +287,7 @@ class PrintMetalium:
                 isa(expr.result.type, builtin.IntegerType)
                 and expr.result.type.width.data == 1
             ):
-                self.print(f"{'false' if expr.value.value.data==0 else 'true'}")
+                self.print(f"{'false' if expr.value.value.data == 0 else 'true'}")
             else:
                 self.print(str(expr.value.value.data))
         elif isa(expr, host.TTHostCore):
