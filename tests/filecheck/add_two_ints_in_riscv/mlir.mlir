@@ -1,15 +1,15 @@
-// RUN : python3.11 %s -t tt-metalium
+// RUN: python3.11 tenstorrent/tools/tt-opt %s -t tt-metalium
 
 builtin.module {
-  builtin.module attributes  {"kernel_type" = "data_in"} {
+  builtin.module attributes {kernel_type = "data_in"} {
     func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
-      %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{"dram" = true}> : (ui32, ui32) -> ui64
+      %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{dram = true}> : (ui32, ui32) -> ui64
       %src0_dram_noc_addr = memref.alloc() : memref<ui64>
       memref.store %6, %src0_dram_noc_addr[] : memref<ui64>
-      %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{"dram" = true}> : (ui32, ui32) -> ui64
+      %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{dram = true}> : (ui32, ui32) -> ui64
       %src1_dram_noc_addr = memref.alloc() : memref<ui64>
       memref.store %7, %src1_dram_noc_addr[] : memref<ui64>
-      %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{"dram" = true}> : (ui32, ui32) -> ui64
+      %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{dram = true}> : (ui32, ui32) -> ui64
       %dst_dram_noc_addr = memref.alloc() : memref<ui64>
       memref.store %8, %dst_dram_noc_addr[] : memref<ui64>
       %9 = arith.constant 0 : i32
@@ -45,7 +45,7 @@ builtin.module {
       %27 = arith.constant 100 : i32
       %28 = arith.constant 1 : i32
       %x = memref.alloc() : memref<i32>
-      scf.for %29 = %26 to %27 step %28 : i32 {
+      scf.for %29 = %26 to %27 step %28  : i32 {
         memref.store %29, %x[] : memref<i32>
         %30 = memref.load %x[] : memref<i32>
         %31 = arith.index_cast %30 : i32 to index
@@ -67,7 +67,7 @@ builtin.module {
       func.return
     }
   }
-  builtin.module attributes  {"kernel_type" = "host"} {
+  builtin.module attributes {kernel_type = "host"} {
     func.func @main() -> i32 {
       %0 = arith.constant 0 : i32
       %1 = arith.constant 0 : i32
@@ -110,7 +110,7 @@ builtin.module {
       %20 = arith.constant 1 : i32
       %21 = arith.constant 400 : i32
       %22 = arith.constant 0 : i32
-      %23 = "tthost.create_cb_configuration"(%20, %21, %22) <{"data_type" = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+      %23 = "tthost.create_cb_configuration"(%20, %21, %22) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
       %cb_0_config = memref.alloc() : memref<!tthost.circular_buffer_config>
       memref.store %23, %cb_0_config[] : memref<!tthost.circular_buffer_config>
       %24 = memref.load %program[] : memref<!tthost.program>
@@ -122,7 +122,7 @@ builtin.module {
       %28 = arith.constant 1 : i32
       %29 = arith.constant 400 : i32
       %30 = arith.constant 1 : i32
-      %31 = "tthost.create_cb_configuration"(%28, %29, %30) <{"data_type" = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+      %31 = "tthost.create_cb_configuration"(%28, %29, %30) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
       %cb_1_config = memref.alloc() : memref<!tthost.circular_buffer_config>
       memref.store %31, %cb_1_config[] : memref<!tthost.circular_buffer_config>
       %32 = memref.load %program[] : memref<!tthost.program>
@@ -134,7 +134,7 @@ builtin.module {
       %36 = arith.constant 1 : i32
       %37 = arith.constant 400 : i32
       %38 = arith.constant 2 : i32
-      %39 = "tthost.create_cb_configuration"(%36, %37, %38) <{"data_type" = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+      %39 = "tthost.create_cb_configuration"(%36, %37, %38) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
       %cb_2_config = memref.alloc() : memref<!tthost.circular_buffer_config>
       memref.store %39, %cb_2_config[] : memref<!tthost.circular_buffer_config>
       %40 = memref.load %program[] : memref<!tthost.program>
@@ -153,7 +153,7 @@ builtin.module {
       %48 = arith.constant 100 : i32
       %49 = arith.constant 1 : i32
       %i = memref.alloc() : memref<i32>
-      scf.for %50 = %47 to %48 step %49 : i32 {
+      scf.for %50 = %47 to %48 step %49  : i32 {
         memref.store %50, %i[] : memref<i32>
         %51 = memref.load %i[] : memref<i32>
         %52 = memref.load %i[] : memref<i32>
@@ -176,7 +176,7 @@ builtin.module {
       "tthost.enqueue_write_buffer"(%62, %63, %host_src1, %64) : (!tthost.command_queue, !tthost.buffer, memref<100xi32>, i1) -> ()
       %65 = memref.load %program[] : memref<!tthost.program>
       %66 = memref.load %core[] : memref<!tthost.corecoord>
-      %67 = "tthost.create_kernel"(%65, %66) <{"kernel_name" = "single_assignment_kernel.cpp", "riscv_core" = #tthost.riscv_core<datamovement_0>, "noc_id" = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %67 = "tthost.create_kernel"(%65, %66) <{kernel_name = "single_assignment_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %kernel = memref.alloc() : memref<!tthost.kernel>
       memref.store %67, %kernel[] : memref<!tthost.kernel>
       %68 = memref.load %program[] : memref<!tthost.program>
@@ -191,7 +191,7 @@ builtin.module {
       %77 = arith.constant 0 : i32
       %78 = arith.constant 0 : i32
       %79 = arith.constant 0 : i32
-      "tthost.set_runtime_args"(%68, %69, %70, %72, %74, %76, %77, %78, %79) {"operandSegmentSizes" = array<i32: 1, 1, 1, 6>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, index, index, index, i32, i32, i32) -> ()
+      "tthost.set_runtime_args"(%68, %69, %70, %72, %74, %76, %77, %78, %79) {operandSegmentSizes = array<i32: 1, 1, 1, 6>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, index, index, index, i32, i32, i32) -> ()
       %80 = memref.load %command_queue[] : memref<!tthost.command_queue>
       %81 = memref.load %program[] : memref<!tthost.program>
       %82 = arith.constant false
@@ -212,7 +212,6 @@ builtin.module {
 
 // CHECK:      #include <stdint.h>
 // CHECK-NEXT: #include "dataflow_api.h"
-// CHECK-NEXT:
 // CHECK-NEXT: void kernel_main() {
 // CHECK-NEXT:     uint32_t fn_arg_0 = get_arg_val<uint32_t>(0);
 // CHECK-NEXT:     uint32_t fn_arg_1 = get_arg_val<uint32_t>(1);
