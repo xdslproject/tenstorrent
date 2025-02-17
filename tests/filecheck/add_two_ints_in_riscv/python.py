@@ -3,7 +3,7 @@ from tenstorrent.frontend import tt
 
 
 @tt.data_in
-def add_two_ints(
+def single_assignment(
     src0_dram: uint,
     src1_dram: uint,
     dst_dram: uint,
@@ -11,28 +11,28 @@ def add_two_ints(
     src1_dram_id: uint,
     dst_dram_id: uint,
 ):
-    src0_dram_noc_addr = get_noc_addr_from_bank_id(True, src0_dram_id, src0_dram)
-    src1_dram_noc_addr = get_noc_addr_from_bank_id(True, src1_dram_id, src1_dram)
-    dst_dram_noc_addr = get_noc_addr_from_bank_id(True, dst_dram_id, dst_dram)
+    src0_dram_noc_addr = tt.get_noc_addr_from_bank_id(True, src0_dram_id, src0_dram)
+    src1_dram_noc_addr = tt.get_noc_addr_from_bank_id(True, src1_dram_id, src1_dram)
+    dst_dram_noc_addr = tt.get_noc_addr_from_bank_id(True, dst_dram_id, dst_dram)
 
     l1_write_addr_in0 = tt.cb_get_write_ptr(0)
     l1_write_addr_in1 = tt.cb_get_write_ptr(1)
     l1_write_addr_in2 = tt.cb_get_write_ptr(2)
 
-    noc_async_read(src0_dram_noc_addr, l1_write_addr_in0, 400)
-    noc_async_read(src1_dram_noc_addr, l1_write_addr_in1, 400)
+    tt.noc_async_read(src0_dram_noc_addr, l1_write_addr_in0, 400)
+    tt.noc_async_read(src1_dram_noc_addr, l1_write_addr_in1, 400)
 
     src0_data = tt.to_array(l1_write_addr_in0, int, 100)
     src1_data = tt.to_array(l1_write_addr_in1, int, 100)
     dst_data = tt.to_array(l1_write_addr_in2, int, 100)
 
-    noc_async_read_barrier()
+    tt.noc_async_read_barrier()
 
     for x in range(0, 100):
         dst_data[x] = src0_data[x] + src1_data[x]
 
-    noc_async_write(l1_write_addr_in2, dst_dram_noc_addr, 400)
-    noc_async_write_barrier()
+    tt.noc_async_write(l1_write_addr_in2, dst_dram_noc_addr, 400)
+    tt.noc_async_write_barrier()
 
 
 @tt.host
