@@ -688,7 +688,7 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Expr(self, node) -> Tuple[List[Operation], OpResult]:
         return self.visit(node.value)
 
-    def handleCreateKernel(self, node):
+    def handle_create_kernel(self, node):
         assert len(node.args) == 5
 
         program_ops, program_ssa = self.visit(node.args[0])
@@ -723,9 +723,9 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return program_ops + core_ops + [kernelCreate], kernelCreate.results[0]
 
-    def handleHostCall(self, node, operationClass, expectedNumArgs):
-        if expectedNumArgs is not None:
-            assert len(node.args) == expectedNumArgs
+    def handle_host_call(self, node, operation_class, expected_num_args):
+        if expected_num_args is not None:
+            assert len(node.args) == expected_num_args
         arg_ops = []
         arg_ssas = []
         for arg in node.args:
@@ -733,13 +733,13 @@ class PythonToMLIR(ast.NodeVisitor):
             arg_ops += ops
             arg_ssas.append(ssa)
 
-        operation = operationClass(*arg_ssas)
+        operation = operation_class(*arg_ssas)
         if len(operation.results) > 0:
             return arg_ops + [operation], operation.results[0]
         else:
             return arg_ops + [operation], None
 
-    def handleCreateCBConfig(self, node):
+    def handle_create_cb_config(self, node):
         assert len(node.args) == 4
 
         num_buffers_ops, num_buffers_ssa = self.visit(node.args[0])
@@ -756,7 +756,7 @@ class PythonToMLIR(ast.NodeVisitor):
             cbConfig
         ], cbConfig.results[0]
 
-    def handleConvertToArray(self, node):
+    def handle_convert_to_array(self, node):
         source_ops, source_ssa = self.visit(node.args[0])
         assert isa(node.args[1], ast.Name)
         str_data_type = node.args[1].id
@@ -776,41 +776,43 @@ class PythonToMLIR(ast.NodeVisitor):
         if isa(node.func, ast.Attribute):
             name = node.func.attr
             if name == "Core":
-                return self.handleHostCall(node, TTHostCore, 2)
+                return self.handle_host_call(node, TTHostCore, 2)
             if name == "DRAMConfig":
-                return self.handleHostCall(node, TTCreateDRAMConfig, 2)
+                return self.handle_host_call(node, TTCreateDRAMConfig, 2)
             if name == "CreateBuffer":
-                return self.handleHostCall(node, TTCreateBuffer, 1)
+                return self.handle_host_call(node, TTCreateBuffer, 1)
             if name == "CreateDevice":
-                return self.handleHostCall(node, TTCreateDevice, 1)
+                return self.handle_host_call(node, TTCreateDevice, 1)
             if name == "GetCommandQueue":
-                return self.handleHostCall(node, TTGetCommandQueue, 1)
+                return self.handle_host_call(node, TTGetCommandQueue, 1)
             if name == "EnqueueWriteBuffer":
-                return self.handleHostCall(node, TTEnqueueWriteBuffer, 4)
+                return self.handle_host_call(node, TTEnqueueWriteBuffer, 4)
             if name == "EnqueueReadBuffer":
-                return self.handleHostCall(node, TTEnqueueReadBuffer, 4)
+                return self.handle_host_call(node, TTEnqueueReadBuffer, 4)
             if name == "CreateProgram":
-                return self.handleHostCall(node, TTCreateProgram, 0)
+                return self.handle_host_call(node, TTCreateProgram, 0)
             if name == "Kernel":
-                return self.handleCreateKernel(node)
+                return self.handle_create_kernel(node)
             if name == "SetRuntimeArgs":
-                return self.handleHostCall(node, TTSetRuntimeArgs, None)
+                return self.handle_host_call(node, TTSetRuntimeArgs, None)
             if name == "EnqueueProgram":
-                return self.handleHostCall(node, TTEnqueueProgram, 3)
+                return self.handle_host_call(node, TTEnqueueProgram, 3)
             if name == "Finish":
-                return self.handleHostCall(node, TTFinish, 1)
+                return self.handle_host_call(node, TTFinish, 1)
             if name == "CloseDevice":
-                return self.handleHostCall(node, TTCloseDevice, 1)
+                return self.handle_host_call(node, TTCloseDevice, 1)
             if name == "GetMemoryAddress":
-                return self.handleHostCall(node, TTGetMemoryAddress, 1)
+                return self.handle_host_call(node, TTGetMemoryAddress, 1)
             if name == "CBConfig":
-                return self.handleCreateCBConfig(node)
+                return self.handle_create_cb_config(node)
             if name == "CreateCircularBuffer":
-                return self.handleHostCall(node, TTCreateCircularBuffer, 3)
+                return self.handle_host_call(node, TTCreateCircularBuffer, 3)
             if name == "cb_get_write_ptr":
-                return self.handleHostCall(node, CBGetWritePointer, 1)
+                return self.handle_host_call(node, CBGetWritePointer, 1)
+            if name == "cb_get_read_ptr":
+                return self.handle_host_call(node, CBGetReadPointer, 1)
             if name == "to_array":
-                return self.handleConvertToArray(node)
+                return self.handle_convert_to_array(node)
         else:
             name = node.func.id
             if name not in self._functions:

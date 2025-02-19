@@ -87,14 +87,15 @@ class CBGetWritePointer(IRDLOperation):
         super().__init__(operands=[cb_id], result_types=[uint32])
 
 
-CircularBufferOperation = (
-    CBReserveBack
-    | CBPushBack
-    | CBPopFront
-    | CBWaitFront
-    | CBPagesReservableAtBack
-    | CBPagesAvailableAtFront
-)
+@irdl_op_definition
+class CBGetReadPointer(IRDLOperation):
+    name = "cb.get_read_pointer"
+
+    cb_id = operand_def(i32)
+    result = result_def(uint32)
+
+    def __init__(self, cb_id: SSAValue | Operation):
+        super().__init__(operands=[cb_id], result_types=[uint32])
 
 
 CircularBuffer = Dialect(
@@ -107,6 +108,7 @@ CircularBuffer = Dialect(
         CBPushBack,
         CBPopFront,
         CBGetWritePointer,
+        CBGetReadPointer,
     ],
     [],
 )

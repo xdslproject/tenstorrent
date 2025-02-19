@@ -62,16 +62,24 @@ def cb_pop_front(cb_id: int, num_tiles: int):
     pass
 
 
+def cb_get_read_ptr(cb_id: int) -> int:
+    pass
+
+
+def cb_get_write_ptr(cb_id: int) -> int:
+    pass
+
+
 # Data movement dialect
-def noc_async_read(src_noc_addr: int, dst_local_l1_addr: int, size: int, noc: int):
+def noc_async_read(src_noc_addr: int, dst_local_l1_addr: int, size: int, noc: int = None):
     pass
 
 
-def noc_async_write(src_local_l1_addr: int, dst_noc_addr: int, size: int, noc: int):
+def noc_async_write(src_local_l1_addr: int, dst_noc_addr: int, size: int, noc: int = None):
     pass
 
 
-def noc_async_read_barrier(noc: int):
+def noc_async_read_barrier(noc: int = None):
     pass
 
 
