@@ -82,6 +82,7 @@ SkipOps = [
     host.TTCreateCBConfig,
     host.TTCreateCircularBuffer,
     circular_buffer.CBGetWritePointer,
+    circular_buffer.CBGetReadPointer,
     host.TTGetCommandQueue,
     host.TTCreateProgram,
     host.TTCreateDRAMConfig,
@@ -172,6 +173,8 @@ class PrintMetalium:
                 elif operation.attributes["kernel_type"].data == "data_in":
                     self.print("#include <stdint.h>", indented=True, end="\n")
                     self.print('#include "dataflow_api.h"', indented=True, end="\n")
+                elif operation.attributes["kernel_type"].data == "data_out":
+                    self.print('#include "dataflow_api.h"', indented=True, end='\n')
                 elif operation.attributes["kernel_type"].data == "compute":
                     self.print("#include <cstdint>", indented=True, end="\n")
                     # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
@@ -313,6 +316,8 @@ class PrintMetalium:
             self.print_ttget_memory_address(expr)
         elif isa(expr, circular_buffer.CBGetWritePointer):
             self.print_cb_get_write_pointer(expr)
+        elif isa(expr, circular_buffer.CBGetReadPointer):
+            self.print_cb_get_read_pointer(expr)
         elif isa(expr, memref.LoadOp):
             self.print_load_variable(expr)
         elif isa(expr, Block):
@@ -405,6 +410,11 @@ class PrintMetalium:
 
     def print_cb_get_write_pointer(self, op):
         self.print("get_write_ptr(")
+        self.print_expr(op.cb_id)
+        self.print(")")
+
+    def print_cb_get_read_pointer(self, op):
+        self.print("get_read_ptr(")
         self.print_expr(op.cb_id)
         self.print(")")
 
