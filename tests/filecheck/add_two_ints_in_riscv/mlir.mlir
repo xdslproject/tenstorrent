@@ -1,4 +1,4 @@
-// RUN: python3.11 tenstorrent/tools/tt-opt %s -t tt-metalium
+// RUN: python3.12 tenstorrent/tools/tt-opt %s -t tt-metalium
 
 builtin.module {
   builtin.module attributes {kernel_type = "data_in"} {
