@@ -37,6 +37,7 @@ TenstorrentStmts = [
     circular_buffer.CBWaitFront,
     circular_buffer.CBPopFront,
     circular_buffer.CBPushBack,
+    circular_buffer.CBReserveBack,
     *compute.Compute.operations,
 ]
 
