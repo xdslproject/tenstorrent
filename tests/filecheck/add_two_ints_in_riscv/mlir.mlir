@@ -1,4 +1,4 @@
-// RUN: python3.12 tenstorrent/tools/tt-opt %s -t tt-metalium
+// RUN: python3.12 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
 
 builtin.module {
   builtin.module attributes {kernel_type = "data_in"} {
@@ -212,7 +212,7 @@ builtin.module {
 
 // CHECK:      #include <stdint.h>
 // CHECK-NEXT: #include "dataflow_api.h"
-// CHECK-NEXT: void kernel_main() {
+// CHECK:      void kernel_main() {
 // CHECK-NEXT:     uint32_t fn_arg_0 = get_arg_val<uint32_t>(0);
 // CHECK-NEXT:     uint32_t fn_arg_1 = get_arg_val<uint32_t>(1);
 // CHECK-NEXT:     uint32_t fn_arg_2 = get_arg_val<uint32_t>(2);
@@ -241,11 +241,9 @@ builtin.module {
 // CHECK-NEXT: #include "tt_metal/host_api.hpp"
 // CHECK-NEXT: #include "tt_metal/impl/device/device.hpp"
 // CHECK-NEXT: #include "tt_metal/common/bfloat16.hpp"
-// CHECK-NEXT:
-// CHECK-NEXT: using namespace tt;
+// CHECK:      using namespace tt;
 // CHECK-NEXT: using namespace tt::tt_metal;
-// CHECK-NEXT:
-// CHECK-NEXT: std::int32_t main() {
+// CHECK:      std::int32_t main() {
 // CHECK-NEXT:     CoreCoord core = {0, 0};
 // CHECK-NEXT:     std::int32_t single_tile_size = 4 * 100;
 // CHECK-NEXT:     IDevice* device = CreateDevice(0);
@@ -255,11 +253,11 @@ builtin.module {
 // CHECK-NEXT:     std::shared_ptr<Buffer> src0_dram_buffer = CreateBuffer(dram_configuration);
 // CHECK-NEXT:     std::shared_ptr<Buffer> src1_dram_buffer = CreateBuffer(dram_configuration);
 // CHECK-NEXT:     std::shared_ptr<Buffer> dst_dram_buffer = CreateBuffer(dram_configuration);
-// CHECK-NEXT:     CircularBufferConfig cb_0_config = CircularBufferConfig(1*400, {{0, tt::DataFormat::Int32}}).set_page_size(0, 400);
+// CHECK-NEXT:     CircularBufferConfig cb_0_config = CircularBufferConfig(1*400, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 400);
 // CHECK-NEXT:     CBHandle cb = tt_metal::CreateCircularBuffer(program, core, cb_0_config);
-// CHECK-NEXT:     CircularBufferConfig cb_1_config = CircularBufferConfig(1*400, {{1, tt::DataFormat::Int32}}).set_page_size(1, 400);
+// CHECK-NEXT:     CircularBufferConfig cb_1_config = CircularBufferConfig(1*400, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 400);
 // CHECK-NEXT:     CBHandle cb1 = tt_metal::CreateCircularBuffer(program, core, cb_1_config);
-// CHECK-NEXT:     CircularBufferConfig cb_2_config = CircularBufferConfig(1*400, {{2, tt::DataFormat::Int32}}).set_page_size(2, 400);
+// CHECK-NEXT:     CircularBufferConfig cb_2_config = CircularBufferConfig(1*400, {{[{][{]}}2, tt::DataFormat::Int32{{[}][}]}}).set_page_size(2, 400);
 // CHECK-NEXT:     CBHandle cb2 = tt_metal::CreateCircularBuffer(program, core, cb_2_config);
 // CHECK-NEXT:     std::int32_t * host_src0 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
 // CHECK-NEXT:     std::int32_t * host_src1 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
