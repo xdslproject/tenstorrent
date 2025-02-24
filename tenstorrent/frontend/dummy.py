@@ -71,11 +71,15 @@ def cb_get_write_ptr(cb_id: int) -> int:
 
 
 # Data movement dialect
-def noc_async_read(src_noc_addr: int, dst_local_l1_addr: int, size: int, noc: int = None):
+def noc_async_read(
+    src_noc_addr: int, dst_local_l1_addr: int, size: int, noc: int = None
+):
     pass
 
 
-def noc_async_write(src_local_l1_addr: int, dst_noc_addr: int, size: int, noc: int = None):
+def noc_async_write(
+    src_local_l1_addr: int, dst_noc_addr: int, size: int, noc: int = None
+):
     pass
 
 

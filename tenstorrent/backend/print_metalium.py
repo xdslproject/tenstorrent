@@ -174,7 +174,7 @@ class PrintMetalium:
                     self.print("#include <stdint.h>", indented=True, end="\n")
                     self.print('#include "dataflow_api.h"', indented=True, end="\n")
                 elif operation.attributes["kernel_type"].data == "data_out":
-                    self.print('#include "dataflow_api.h"', indented=True, end='\n')
+                    self.print('#include "dataflow_api.h"', indented=True, end="\n")
                 elif operation.attributes["kernel_type"].data == "compute":
                     self.print("#include <cstdint>", indented=True, end="\n")
                     # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?

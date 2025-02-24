@@ -205,7 +205,7 @@ class TypeChecker(ast.NodeVisitor):
             "CBConfig": CircularBufferConfig(),
             "CreateCircularBuffer": CBHandle(),
             "cb_get_write_ptr": uint32,
-            "cb_get_read_ptr": uint32
+            "cb_get_read_ptr": uint32,
         }
 
     def generic_visit(self, node):
