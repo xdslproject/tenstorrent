@@ -3,6 +3,12 @@ from functools import wraps
 from typing import Literal, get_type_hints
 import ast
 
+# MARK: Constants
+DataMovement_0 = 0
+DataMovement_1 = 1
+
+uint = int
+
 
 def enforce_literals(func):
     @wraps(func)
@@ -87,7 +93,7 @@ def noc_async_read_barrier(noc: int = None):
     pass
 
 
-def noc_async_write_barrier(noc: int):
+def noc_async_write_barrier(noc: int = None):
     pass
 
 
@@ -751,4 +757,74 @@ def pack_tile(
     in_cb: int,
     out_tile: int = 0,
 ):
+    pass
+
+
+def to_array(ptr: int, dt: type, length: int):
+    pass
+
+
+class Core:
+    def __init__(self, x: int, y: int):
+        pass
+
+
+def CreateDevice(device_id: int):
+    pass
+
+
+def GetCommandQueue(device: int):
+    pass
+
+
+def CreateProgram():
+    pass
+
+
+def DRAMConfig(size: int, stride: int):
+    pass
+
+
+def CreateBuffer(dram_config: int):
+    pass
+
+
+# TODO: what is the first argument
+def CBConfig(something: int, bytes: int, index: int, dt: type):
+    pass
+
+
+def CreateCircularBuffer(program: int, core: Core, cb_config: int):
+    pass
+
+
+def EnqueueWriteBuffer(command_queue: int, tt_dram_buffer: int, host_buffer: list, blocking: bool):
+    pass
+
+
+def Kernel(program: int, source, core: Core, dm_core: int, noc: int):
+    pass
+
+
+def SetRuntimeArgs(program: int, kernel: int, core: Core, *args):
+    pass
+
+
+def GetMemoryAddress(tt_dram_buffer: int):
+    pass
+
+
+def EnqueueProgram(command_queue: int, program: int, blocking: bool):
+    pass
+
+
+def Finish(command_queue: int):
+    pass
+
+
+def EnqueueReadBuffer(command_queue: int, tt_dram_buffer: int, host_buffer: list, blocking: bool):
+    pass
+
+
+def CloseDevice(device: int):
     pass
