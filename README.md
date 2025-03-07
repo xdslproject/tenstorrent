@@ -4,7 +4,7 @@ An [xDSL](https://xdsl.dev) dialect and Python compiler for Tenstorrent's [Metal
 
 Lowers the barrier to entry for programming Tensix core-enabled devices such as the Tenstorrent Grayskull and Wormhole cards.
 
-Targeting release [0.54 (rc22)](https://github.com/tenstorrent/tt-metal/releases/tag/v0.54.0-rc22).
+Targeting release [0.54 (rc22)](https://github.com/tenstorrent/tt-metal/tree/v0.54.0-rc22).
 
 ## Development
 
