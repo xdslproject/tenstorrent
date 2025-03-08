@@ -23,8 +23,9 @@ tt-opt = "tenstorrent.tools.tt_opt:main"
 platforms = ["Linux", "Mac OS-X", "Unix"]
 zip-safe = false
 
-[tool.setuptools.packages]
-find = {}
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tenstorrent"]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
