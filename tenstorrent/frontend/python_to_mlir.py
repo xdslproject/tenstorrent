@@ -331,6 +331,7 @@ class PythonToMLIR(ast.NodeVisitor):
         # set the current scope
         self.operations = operations
 
+        # TODO: reconsider kernel name, fixed or user-defined?
         fn_name = node.name
         if decorator_name == "data_in":
             fn_name = "kernel_main"
@@ -688,9 +689,16 @@ class PythonToMLIR(ast.NodeVisitor):
     def visit_Expr(self, node) -> Tuple[List[Operation], OpResult]:
         return self.visit(node.value)
 
-    def handle_create_kernel(self, node):
-        assert len(node.args) == 5
+    def handle_create_kernel(self, node) -> Tuple[List[Operation], OpResult]:
+        if len(node.args) == 5:
+            return self.handle_create_dm_kernel(node)
+        if len(node.args) == 7:
+            return self.handle_create_comp_kernel(node)
 
+        assert False
+
+
+    def handle_create_dm_kernel(self, node) -> Tuple[List[Operation], OpResult]:
         program_ops, program_ssa = self.visit(node.args[0])
         core_ops, core_ssa = self.visit(node.args[2])
 
@@ -704,8 +712,8 @@ class PythonToMLIR(ast.NodeVisitor):
             rv_core_flag = RISCVCoreFlags.DATAMOVEMENT_0
         elif node.args[3].attr == "DataMovement_1":
             rv_core_flag = RISCVCoreFlags.DATAMOVEMENT_1
-        elif node.args[3].attr == "Compute":
-            rv_core_flag = RISCVCoreFlags.COMPUTE
+        else:
+            assert False
 
         assert rv_core_flag is not None
 
@@ -713,7 +721,7 @@ class PythonToMLIR(ast.NodeVisitor):
         noc_id = node.args[4].value
         assert noc_id == 0 or noc_id == 1
 
-        kernelCreate = TTCreateKernel(
+        kernel_create = TTCreateKernel(
             program_ssa,
             core_ssa,
             target_fn_name + "_kernel.cpp",
@@ -721,7 +729,33 @@ class PythonToMLIR(ast.NodeVisitor):
             noc_id,
         )
 
-        return program_ops + core_ops + [kernelCreate], kernelCreate.results[0]
+        return program_ops + core_ops + [kernel_create], kernel_create.results[0]
+
+    def handle_create_comp_kernel(self, node) -> Tuple[List[Operation], OpResult]:
+        program_ops, program_ssa = self.visit(node.args[0])
+        core_ops, core_ssa = self.visit(node.args[2])
+
+        assert isa(node.args[1], ast.Name)
+        target_fn_name = node.args[1].id
+
+        mf_flag = MathFidelityFlags(node.args[3].attr)
+        fp32_acc = node.args[4].value
+        math_apx = node.args[5].value
+
+        assert fp32_acc in [0, 1]
+        assert math_apx in [0, 1]
+
+        kernel_create = TTCreateComputeKernel(
+            program_ssa,
+            core_ssa,
+            target_fn_name + "_kernel.cpp",
+            MathFidelityFlagsAttr([mf_flag]),
+            IntegerAttr(fp32_acc, i1),
+            IntegerAttr(math_apx, i1)
+        )
+
+        return program_ops + core_ops + [kernel_create], kernel_create.results[0]
+
 
     def handle_host_call(self, node, operation_class, expected_num_args):
         if expected_num_args is not None:

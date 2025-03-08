@@ -91,9 +91,69 @@ class RISCVCoreFlagsAttrBase(Data[tuple[RISCVCoreFlags, ...]]):
             )
 
 
+class MathFidelityFlags(Enum):
+    LOFI = "LoFi"
+    HIFI2 = "HiFi2"
+    HIFI3 = "HiFi3"
+    HIFI4 = "HiFi4"
+
+    @staticmethod
+    def try_parse(parser: AttrParser) -> set[MathFidelityFlags] | None:
+        for option in MathFidelityFlags:
+            if parser.parse_optional_characters(option.value) is not None:
+                return {option}
+
+        return None
+
+
+@dataclass(frozen=True)
+class MathFidelityFlagsAttrBase(Data[tuple[MathFidelityFlags, ...]]):
+    @property
+    def flags(self) -> set[MathFidelityFlags]:
+        """
+        Returns a copy of the flags.
+        """
+        return set(self.data)
+
+    def __init__(self, flags: Sequence[MathFidelityFlags]):
+        flags_: set[MathFidelityFlags] = set(flags)
+
+        super().__init__(tuple(flags_))
+
+    @classmethod
+    def parse_parameter(cls, parser: AttrParser) -> tuple[MathFidelityFlags, ...]:
+        with parser.in_angle_brackets():
+            flags = MathFidelityFlags.try_parse(parser)
+            if flags is None:
+                return tuple()
+
+            while parser.parse_optional_punctuation(",") is not None:
+                flag = parser.expect(
+                    lambda: MathFidelityFlags.try_parse(parser),
+                    "Math Fidelity variable flag expected",
+                )
+                flags.update(flag)
+
+            return tuple(flags)
+
+    def print_parameter(self, printer: Printer):
+        with printer.in_angle_brackets():
+            flags = self.data
+            # make sure we emit flags in a consistent order
+            printer.print(
+                ",".join(flag.value for flag in MathFidelityFlags if flag in flags)
+            )
+
+
+
 @irdl_attr_definition
 class RISCVCoreFlagsAttr(RISCVCoreFlagsAttrBase):
     name = "tthost.riscv_core"
+
+
+@irdl_attr_definition
+class MathFidelityFlagsAttr(MathFidelityFlagsAttrBase):
+    name = "tthost.math_fidelity"
 
 
 @irdl_attr_definition
@@ -292,6 +352,53 @@ class TTCreateKernel(IRDLOperation):
         )
 
 
+# TODO: xDSL ops with overloaded definitions?
+@irdl_op_definition
+class TTCreateComputeKernel(IRDLOperation):
+    name = "tthost.create_compute_kernel"
+
+    program = operand_def(Program)
+    core = operand_def(CoreCoord)
+
+    kernel_name = prop_def(StringAttr)
+    riscv_core = prop_def(RISCVCoreFlagsAttr)  # implicit = Compute
+
+    # compute config
+    math_fidelity = prop_def(MathFidelityFlagsAttr)
+    fp32_dest_acc_en = prop_def(Attribute)
+    math_approx_mode = prop_def(Attribute)
+
+    # TODO: should be "list of things known at compile-time"
+    # compile_time_args = var_operand_def(Attribute) ?
+
+    res: OpResult = result_def(Attribute)
+
+    def __init__(
+        self,
+        program: SSAValue | Operation,
+        core: SSAValue | Operation,
+        kernel_name: str | StringAttr,
+        math_fidelity: MathFidelityFlagsAttr,
+        fp32_dest_acc_en: Attribute,
+        math_approx_mode: Attribute,
+    ):
+        if isa(kernel_name, str):
+            kernel_name = StringAttr(kernel_name)
+
+        super().__init__(
+            operands=[program, core],
+            properties={
+                "kernel_name": kernel_name,
+                "riscv_core": RISCVCoreFlagsAttr([RISCVCoreFlags.COMPUTE]),
+                "math_fidelity": math_fidelity,
+                "fp32_dest_acc_en": fp32_dest_acc_en,
+                "math_approx_mode": math_approx_mode,
+            },
+            result_types=[Kernel()]
+        )
+
+
+
 @irdl_op_definition
 class TTEnqueueWriteBuffer(IRDLOperation):
     name = "tthost.enqueue_write_buffer"
@@ -414,6 +521,7 @@ TTHost = Dialect(
         TTEnqueueReadBuffer,
         TTCreateProgram,
         TTCreateKernel,
+        TTCreateComputeKernel,
         TTSetRuntimeArgs,
         TTEnqueueProgram,
         TTFinish,
@@ -429,6 +537,7 @@ TTHost = Dialect(
         CircularBufferConfig,
         Program,
         RISCVCoreFlagsAttr,
+        MathFidelityFlagsAttr,
         Kernel,
     ],
 )
