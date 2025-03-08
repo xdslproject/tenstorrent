@@ -5,7 +5,7 @@ run_from_examples(__file__)
 
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "data_out"} {
-# CHECK-NEXT:     func.func @kernel_main(%0 : ui32, %1 : ui32) {
+# CHECK-NEXT:     func.func @writer_kernel(%0 : ui32, %1 : ui32) {
 # CHECK-NEXT:       %2 = "dm.get_noc_addr_from_bank_id"(%1, %0) <{dram = true}> : (ui32, ui32) -> ui64
 # CHECK-NEXT:       %dst_noc_addr = memref.alloc() : memref<ui64>
 # CHECK-NEXT:       memref.store %2, %dst_noc_addr[] : memref<ui64>

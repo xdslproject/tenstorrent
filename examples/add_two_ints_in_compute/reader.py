@@ -2,7 +2,7 @@ from tenstorrent.frontend import tt
 
 
 @tt.data_in
-def kernel_main(
+def reader_kernel(
     src0_dram: uint, src1_dram: uint, src0_dram_id: uint, src1_dram_id: uint
 ):
     src0_noc_addr = tt.get_noc_addr_from_bank_id(True, src0_dram_id, src0_dram)

@@ -2,7 +2,7 @@ from tenstorrent.frontend import tt
 
 
 @tt.data_out
-def kernel_main(dst_addr: uint, dst_dram_id: uint):
+def writer_kernel(dst_addr: uint, dst_dram_id: uint):
     dst_noc_addr = tt.get_noc_addr_from_bank_id(True, dst_dram_id, dst_addr)
 
     cb_id = 16
