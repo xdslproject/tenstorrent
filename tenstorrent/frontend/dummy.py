@@ -1,11 +1,21 @@
 import inspect
+from enum import Enum
 from functools import wraps
 from typing import Literal, get_type_hints
 import ast
 
 # MARK: Constants
-DataMovement_0 = 0
-DataMovement_1 = 1
+DataMovement_0 = None
+DataMovement_1 = None
+Compute = None
+
+
+class MathFidelity(Enum):
+    LoFi = "LoFi"
+    HiFi2 = "HiFi2"
+    HiFi3 = "HiFi3"
+    HiFi4 = "HiFi4"
+
 
 uint = int
 
@@ -802,7 +812,7 @@ def EnqueueWriteBuffer(command_queue: int, tt_dram_buffer: int, host_buffer: lis
     pass
 
 
-def Kernel(program: int, source, core: Core, dm_core: int, noc: int):
+def Kernel(program: int, source, core: Core, *config):
     pass
 
 
