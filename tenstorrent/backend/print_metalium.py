@@ -88,6 +88,7 @@ SkipOps = [
     host.TTCreateDRAMConfig,
     host.TTCreateBuffer,
     host.TTCreateKernel,
+    host.TTCreateComputeKernel,
     host.TTGetMemoryAddress,
     *TenstorrentExpr,
 ]
@@ -310,7 +311,7 @@ class PrintMetalium:
             self.print_ttcreate_buffer(expr)
         elif isa(expr, host.TTCreateCircularBuffer):
             self.print_ttcreate_circular_buffer(expr)
-        elif isa(expr, host.TTCreateKernel):
+        elif isa(expr, host.TTCreateKernel) or isa(expr, host.TTCreateComputeKernel):
             self.print_ttcreate_kernel(expr)
         elif isa(expr, host.TTGetMemoryAddress):
             self.print_ttget_memory_address(expr)
@@ -462,6 +463,16 @@ class PrintMetalium:
                 self.print("1")
 
             self.print(f", .noc=NOC::RISCV_{op.noc_id.data}_default}}")
+
+        if rv_core_flag == host.RISCVCoreFlags.COMPUTE:
+            a = "ComputeConfig {"
+            b = f".math_fidelity = MathFidelity::{op.math_fidelity.data[0].value}, "
+            c = f".fp32_dest_acc_en = {str(bool(op.fp32_dest_acc_en.value.data)).lower()}, "
+            d = f".math_approx_mode = {str(bool(op.math_approx_mode.value.data)).lower()}, "
+            e = ".compile_args = {}"
+            f = "}"
+            for s in [a, b, c, d, e, f]:
+                self.print(s)
 
         self.print(")")
 

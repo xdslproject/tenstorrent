@@ -1,3 +1,5 @@
+// RUN: python3.13 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
+
 builtin.module {
   builtin.module attributes {kernel_type = "host"} {
     func.func @main() -> i32 {
@@ -162,3 +164,51 @@ builtin.module {
     }
   }
 }
+
+// CHECK:      #include "tt_metal/host_api.hpp"
+// CHECK-NEXT: #include "tt_metal/impl/device/device.hpp"
+// CHECK-NEXT: #include "tt_metal/common/bfloat16.hpp"
+// CHECK:      using namespace tt;
+// CHECK-NEXT: using namespace tt::tt_metal;
+// CHECK:      std::int32_t main() {
+// CHECK-NEXT:     IDevice* device = CreateDevice(0);
+// CHECK-NEXT:     CommandQueue & cq = device->command_queue();
+// CHECK-NEXT:     Program program = CreateProgram();
+// CHECK-NEXT:     CoreCoord core = {0, 0};
+// CHECK-NEXT:     std::int32_t dt_size = 4;
+// CHECK-NEXT:     std::int32_t single_tile_size = dt_size * 100;
+// CHECK-NEXT:     InterleavedBufferConfig dram_config {.device=device, .size=single_tile_size, .page_size=single_tile_size, .buffer_type = BufferType::DRAM};
+// CHECK-NEXT:     std::shared_ptr<Buffer> src0_dram_buffer = CreateBuffer(dram_config);
+// CHECK-NEXT:     std::shared_ptr<Buffer> src1_dram_buffer = CreateBuffer(dram_config);
+// CHECK-NEXT:     std::shared_ptr<Buffer> dest_dram_buffer = CreateBuffer(dram_config);
+// CHECK-NEXT:     CircularBufferConfig cb0_config = CircularBufferConfig(1*400, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 400);
+// CHECK-NEXT:     CircularBufferConfig cb1_config = CircularBufferConfig(1*400, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 400);
+// CHECK-NEXT:     CircularBufferConfig cb2_config = CircularBufferConfig(1*400, {{[{][{]}}2, tt::DataFormat::Int32{{[}][}]}}).set_page_size(2, 400);
+// CHECK-NEXT:     CBHandle cb0 = tt_metal::CreateCircularBuffer(program, core, cb0_config);
+// CHECK-NEXT:     CBHandle cb1 = tt_metal::CreateCircularBuffer(program, core, cb1_config);
+// CHECK-NEXT:     CBHandle cb2 = tt_metal::CreateCircularBuffer(program, core, cb2_config);
+// CHECK-NEXT:     std::int32_t * host_src0 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
+// CHECK-NEXT:     std::int32_t * host_src1 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
+// CHECK-NEXT:     std::int32_t * host_dst = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
+// CHECK-NEXT:     std::int32_t i;
+// CHECK-NEXT:     for (i = 0; i < 100; i += 1) {
+// CHECK-NEXT:         host_src0[i] = i;
+// CHECK-NEXT:         host_src1[i] = 100 - i;
+// CHECK-NEXT:     }
+// CHECK-NEXT:     KernelHandle kernel_din = CreateKernel(program, "reader_kernel_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
+// CHECK-NEXT:     KernelHandle kernel_dout = CreateKernel(program, "writer_kernel_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
+// CHECK-NEXT:     KernelHandle kernel_comp = CreateKernel(program, "add_two_int_tiles_kernel.cpp", core, ComputeConfig {.math_fidelity = MathFidelity::HiFi4, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
+// CHECK-NEXT:     EnqueueWriteBuffer(cq, src0_dram_buffer, host_src0, false);
+// CHECK-NEXT:     EnqueueWriteBuffer(cq, src1_dram_buffer, host_src1, false);
+// CHECK-NEXT:     SetRuntimeArgs(program, kernel_din, core, {src0_dram_buffer->address(), src1_dram_buffer->address(), 0, 0});
+// CHECK-NEXT:     SetRuntimeArgs(program, kernel_comp, core, {});
+// CHECK-NEXT:     SetRuntimeArgs(program, kernel_dout, core, {dest_dram_buffer->address(), 0});
+// CHECK-NEXT:     EnqueueProgram(cq, program, false);
+// CHECK-NEXT:     Finish(cq);
+// CHECK-NEXT:     EnqueueReadBuffer(cq, dest_dram_buffer, host_dst, true);
+// CHECK-NEXT:     CloseDevice(device);
+// CHECK-NEXT:     free(host_src0);
+// CHECK-NEXT:     free(host_src1);
+// CHECK-NEXT:     free(host_dst);
+// CHECK-NEXT:     return 0;
+// CHECK-NEXT: }
