@@ -1,4 +1,4 @@
-# RUN: python3.12 %s | filecheck %s
+# RUN: python3.13 %s | filecheck %s
 from tests import run_from_examples
 
 run_from_examples(__file__)

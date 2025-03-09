@@ -1,4 +1,4 @@
-// RUN: python3.12 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
+// RUN: python3.13 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
 
 builtin.module {
   builtin.module attributes  {"kernel_type" = "compute"} {

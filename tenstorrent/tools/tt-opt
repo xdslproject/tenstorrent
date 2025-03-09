@@ -1,7 +1,4 @@
 #!/usr/bin/env python3.13
-import sys
-print(sys.path)
-
 from tenstorrent.tt_opt_main import TTOptMain
 
 
