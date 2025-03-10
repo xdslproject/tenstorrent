@@ -1,6 +1,6 @@
 from typing import Dict, List, Tuple, Optional
 
-from xdsl.dialects import builtin, func, arith, memref, scf
+from xdsl.dialects import builtin, func, arith, memref, scf, printf
 from xdsl.dialects.builtin import (
     FunctionType,
     ModuleOp,
@@ -364,7 +364,7 @@ class PythonToMLIR(ast.NodeVisitor):
             [func_op], {"kernel_type": builtin.StringAttr(decorator_name)}
         )
 
-    def visit_Assign(self, node) -> Tuple[List[Operation], OpResult]:
+    def visit_Assign(self, node) -> Tuple[List[Operation], SSAValue]:
         # visit RHS, e.g. Constant in 'a = 0'
         rhs_ops, rhs_ssa_val = self.visit(node.value)
         operations = rhs_ops
@@ -431,7 +431,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
     def get_cast(
         self, target_type: MLIRType, ssa_val: SSAValue
-    ) -> Tuple[List[Operation], OpResult]:
+    ) -> Tuple[List[Operation], SSAValue]:
         if target_type == ssa_val.type:
             return [], ssa_val
 
@@ -466,7 +466,7 @@ class PythonToMLIR(ast.NodeVisitor):
             f"Unsupported type cast {ssa_val.type} to {target_type}"
         )
 
-    def visit_Constant(self, node) -> Tuple[List[Operation], OpResult]:
+    def visit_Constant(self, node) -> Tuple[List[Operation], SSAValue]:
         data = node.value
 
         arith_op = None
@@ -564,7 +564,7 @@ class PythonToMLIR(ast.NodeVisitor):
         load = memref.LoadOp.get(from_location, [idx_ssa])
         return idx_ops + [load], load.results[0]
 
-    def visit_Name(self, node: ast.Name) -> Tuple[List[Operation], OpResult]:
+    def visit_Name(self, node: ast.Name) -> Tuple[List[Operation], SSAValue]:
         from_location = self.symbol_table[node.id]
         if isa(from_location.type, MemRefType):
             if len(from_location.type.shape) == 0:
@@ -580,7 +580,7 @@ class PythonToMLIR(ast.NodeVisitor):
             # that is specifically typed e.g. an argument to the function
             return [], from_location
 
-    def visit_If(self, node: ast.If) -> Tuple[List[Operation], Optional[OpResult]]:
+    def visit_If(self, node: ast.If) -> Tuple[List[Operation], Optional[SSAValue]]:
         allocations = self.allocate_new_variables(node)
         body_ops = self.generate_body_ops(node)
 
@@ -608,7 +608,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return allocations + condition_expr_ops + [if_statement], ssa_val
 
-    def visit_Compare(self, node) -> Tuple[List[Operation], OpResult]:
+    def visit_Compare(self, node) -> Tuple[List[Operation], SSAValue]:
         left, l_val = self.visit(node.left)
         right, r_val = self.visit(node.comparators[0])
 
@@ -618,7 +618,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return [left, right, operation], operation.results[0]
 
-    def visit_For(self, node: ast.For) -> Tuple[List[Operation], Optional[OpResult]]:
+    def visit_For(self, node: ast.For) -> Tuple[List[Operation], Optional[SSAValue]]:
         from_expr, from_ssa = self.visit(node.iter.args[0])
         to_expr, to_ssa = self.visit(node.iter.args[1])
 
@@ -651,7 +651,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return var_allocations + [from_expr, to_expr, step, alloc, for_loop], ssa_value
 
-    def visit_BoolOp(self, node: ast.BoolOp) -> Tuple[List[Operation], OpResult]:
+    def visit_BoolOp(self, node: ast.BoolOp) -> Tuple[List[Operation], SSAValue]:
         # leftmost evaluation first
         # if a and b or c => if (a and b) or c
         lhs_ops, lhs_ssa_val = self.visit(node.values[0])  # a and b
@@ -671,7 +671,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return lhs_ops + rhs_ops + [operation], operation.results[0]
 
-    def visit_UnaryOp(self, node) -> Tuple[List[Operation], OpResult]:
+    def visit_UnaryOp(self, node) -> Tuple[List[Operation], SSAValue]:
         expr_ops, expr_ssa_val = self.visit(node.operand)
         true_decl = arith.ConstantOp(IntegerAttr.from_int_and_width(1, 1))
 
@@ -686,19 +686,21 @@ class PythonToMLIR(ast.NodeVisitor):
             case _:
                 raise NotImplementedError(f"{node.op.__class__.__name__}")
 
-    def visit_Expr(self, node) -> Tuple[List[Operation], OpResult]:
+    def visit_Expr(self, node) -> Tuple[List[Operation], SSAValue]:
         return self.visit(node.value)
 
-    def handle_create_kernel(self, node) -> Tuple[List[Operation], OpResult]:
-        if len(node.args) == 5:
+    def handle_create_kernel(self, node) -> Tuple[List[Operation], SSAValue]:
+        argc = len(node.args)
+        if argc == 5:
             return self.handle_create_dm_kernel(node)
-        if len(node.args) == 7:
+        if argc == 7:
             return self.handle_create_comp_kernel(node)
 
-        assert False
+        raise TypeError(
+            f"Expected 5 or 7 arguments for call to tt.Kernel(), found {argc}"
+        )
 
-
-    def handle_create_dm_kernel(self, node) -> Tuple[List[Operation], OpResult]:
+    def handle_create_dm_kernel(self, node) -> Tuple[List[Operation], SSAValue]:
         program_ops, program_ssa = self.visit(node.args[0])
         core_ops, core_ssa = self.visit(node.args[2])
 
@@ -731,7 +733,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
         return program_ops + core_ops + [kernel_create], kernel_create.results[0]
 
-    def handle_create_comp_kernel(self, node) -> Tuple[List[Operation], OpResult]:
+    def handle_create_comp_kernel(self, node) -> Tuple[List[Operation], SSAValue]:
         program_ops, program_ssa = self.visit(node.args[0])
         core_ops, core_ssa = self.visit(node.args[2])
 
@@ -751,11 +753,10 @@ class PythonToMLIR(ast.NodeVisitor):
             target_fn_name + "_kernel.cpp",
             MathFidelityFlagsAttr([mf_flag]),
             IntegerAttr(fp32_acc, i1),
-            IntegerAttr(math_apx, i1)
+            IntegerAttr(math_apx, i1),
         )
 
         return program_ops + core_ops + [kernel_create], kernel_create.results[0]
-
 
     def handle_host_call(self, node, operation_class, expected_num_args):
         if expected_num_args is not None:
@@ -806,10 +807,21 @@ class PythonToMLIR(ast.NodeVisitor):
         )
         return source_ops + [conversion_op], conversion_op.results[0]
 
-    def visit_Call(self, node) -> Tuple[List[Operation], Optional[OpResult]]:
+    def handle_print(
+        self, node: ast.Call
+    ) -> Tuple[List[Operation], Optional[SSAValue]]:
+        # ssa value of each arg
+        # for now just handle string literals
+        assert len(node.args) == 1
+        string = node.args[0].value
+        print_op = printf.PrintFormatOp(string)
+
+        return [print_op], None
+
+    def visit_Call(self, node) -> Tuple[List[Operation], Optional[SSAValue]]:
         if isa(node.func, ast.Attribute):
             name = node.func.attr
-            if name == "Core":
+            if name == Core.__name__:
                 return self.handle_host_call(node, TTHostCore, 2)
             if name == "DRAMConfig":
                 return self.handle_host_call(node, TTCreateDRAMConfig, 2)
@@ -847,6 +859,8 @@ class PythonToMLIR(ast.NodeVisitor):
                 return self.handle_host_call(node, CBGetReadPointer, 1)
             if name == "to_array":
                 return self.handle_convert_to_array(node)
+        elif isa(node.func, ast.Name) and node.func.id == "print":
+            return self.handle_print(node)
         else:
             name = node.func.id
             if name not in self._functions:
@@ -869,9 +883,11 @@ class PythonToMLIR(ast.NodeVisitor):
             pack_tile.__name__,
         ]
 
-        # TODO: object to count props and their types?
-        #     must be a way to inspect the class vars...
-
+        # TODO: ideally want something more like:
+        #   for i, prop_def in enumerate(Class.get_irdl_def().properties)
+        #       properties.append(node.args.pop(i).value, prop_def.type)
+        #  also allows us to remove single_property_funcs being hardcoded
+        #  could construct dummy op and then throw away... thats solution for casting
         if name in single_property_funcs:
             if name == untilize_block.__name__:
                 properties.append(IntegerAttr(node.args.pop(0).value, i32))
@@ -908,6 +924,7 @@ class PythonToMLIR(ast.NodeVisitor):
         return operations + type_cast_ops, result
 
     def fix_types(self, constructor, operation, props, results) -> List[Operation]:
+        # TODO: looks like this is a class method, check?
         op_def = operation.get_irdl_definition()
         type_cast_ops = []
 

@@ -15,4 +15,3 @@ def writer_kernel(dst_addr: uint, dst_dram_id: uint):
     tt.noc_async_write(l1_read_addr, dst_noc_addr, block_size)
     tt.noc_async_read_barrier()
     tt.cb_pop_front(cb_id, 1)
-

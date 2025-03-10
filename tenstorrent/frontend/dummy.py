@@ -808,7 +808,9 @@ def CreateCircularBuffer(program: int, core: Core, cb_config: int):
     pass
 
 
-def EnqueueWriteBuffer(command_queue: int, tt_dram_buffer: int, host_buffer: list, blocking: bool):
+def EnqueueWriteBuffer(
+    command_queue: int, tt_dram_buffer: int, host_buffer: list, blocking: bool
+):
     pass
 
 
@@ -832,7 +834,9 @@ def Finish(command_queue: int):
     pass
 
 
-def EnqueueReadBuffer(command_queue: int, tt_dram_buffer: int, host_buffer: list, blocking: bool):
+def EnqueueReadBuffer(
+    command_queue: int, tt_dram_buffer: int, host_buffer: list, blocking: bool
+):
     pass
 
 

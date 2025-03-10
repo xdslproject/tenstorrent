@@ -145,7 +145,6 @@ class MathFidelityFlagsAttrBase(Data[tuple[MathFidelityFlags, ...]]):
             )
 
 
-
 @irdl_attr_definition
 class RISCVCoreFlagsAttr(RISCVCoreFlagsAttrBase):
     name = "tthost.riscv_core"
@@ -394,9 +393,8 @@ class TTCreateComputeKernel(IRDLOperation):
                 "fp32_dest_acc_en": fp32_dest_acc_en,
                 "math_approx_mode": math_approx_mode,
             },
-            result_types=[Kernel()]
+            result_types=[Kernel()],
         )
-
 
 
 @irdl_op_definition

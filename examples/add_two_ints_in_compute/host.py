@@ -38,13 +38,7 @@ def host_code():
     kernel_dout = tt.Kernel(program, writer_kernel, core, tt.DataMovement_1, 1)
 
     kernel_comp = tt.Kernel(
-        program,
-        add_two_int_tiles,
-        core,
-        tt.MathFidelity.HiFi4,
-        False,
-        False,
-        []
+        program, add_two_int_tiles, core, tt.MathFidelity.HiFi4, False, False, []
     )
 
     tt.EnqueueWriteBuffer(cq, src0_dram_buffer, host_src0, False)
@@ -57,7 +51,7 @@ def host_code():
         tt.GetMemoryAddress(src0_dram_buffer),
         tt.GetMemoryAddress(src1_dram_buffer),
         0,
-        0
+        0,
     )
 
     tt.SetRuntimeArgs(

@@ -317,6 +317,9 @@ class TypeChecker(ast.NodeVisitor):
         elif name in self.types:
             return self.types[name]
 
+        if name == "print":
+            return NoneType
+
         raise NotImplementedError(f"Unhandled call: {name}")
 
     # ********* Generic visits *********
