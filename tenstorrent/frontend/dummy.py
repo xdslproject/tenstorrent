@@ -800,7 +800,7 @@ def CreateBuffer(dram_config: int):
 
 
 # TODO: what is the first argument
-def CBConfig(something: int, bytes: int, index: int, dt: type):
+def CBConfig(num_tiles: int, bytes: int, index: int, dt: type):
     pass
 
 
