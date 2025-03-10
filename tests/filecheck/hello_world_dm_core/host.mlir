@@ -1,3 +1,5 @@
+// RUN: python3.13 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
+
 builtin.module {
   builtin.module attributes {kernel_type = "host"} {
     func.func @main() -> i32 {
@@ -50,3 +52,25 @@ builtin.module {
     }
   }
 }
+
+// CHECK:      #include "tt_metal/host_api.hpp"
+// CHECK-NEXT: #include "tt_metal/impl/device/device.hpp"
+// CHECK-NEXT: #include "tt_metal/common/bfloat16.hpp"
+// CHECK:      using namespace tt;
+// CHECK-NEXT: using namespace tt::tt_metal;
+// CHECK:      std::int32_t main() {
+// CHECK-NEXT:     CoreCoord core = {0, 0};
+// CHECK-NEXT:     IDevice* device = CreateDevice(0);
+// CHECK-NEXT:     CommandQueue & cq = device->command_queue();
+// CHECK-NEXT:     Program program = CreateProgram();
+// CHECK-NEXT:     KernelHandle dataflow = CreateKernel(program, "void_dataflow_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
+// CHECK-NEXT:     KernelHandle dataflow1 = CreateKernel(program, "void_dataflow_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
+// CHECK-NEXT:     SetRuntimeArgs(program, dataflow, core, {});
+// CHECK-NEXT:     SetRuntimeArgs(program, dataflow, core, {});
+// CHECK-NEXT:     EnqueueProgram(cq, program, false);
+// CHECK-NEXT:     printf("Hello, Core {0, 0} on Device 0, I am sending you some data. Standby awaiting communication.\n");
+// CHECK-NEXT:     Finish(cq);
+// CHECK-NEXT:     printf("Thank you, Core {0, 0} on Device 0, for the completed task.\n");
+// CHECK-NEXT:     CloseDevice(device);
+// CHECK-NEXT:     return 0;
+// CHECK-NEXT: }

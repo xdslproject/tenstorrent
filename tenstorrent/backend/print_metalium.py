@@ -10,6 +10,7 @@ import xdsl.dialects.memref as memref
 import xdsl.dialects.scf as scf
 import xdsl.dialects.func as func
 import xdsl.dialects.builtin as builtin
+import xdsl.dialects.printf as printf
 
 import tenstorrent.dialects.host as host
 import tenstorrent.dialects.circular_buffer as circular_buffer
@@ -141,6 +142,7 @@ class PrintMetalium:
         self._names = {}  # SSAVal -> Variable Name
         self._free_end_of_fn = []
 
+        self._kernel_type = []
         self._skip_next_op = False
 
     def print_op(self, operation):
@@ -153,7 +155,10 @@ class PrintMetalium:
 
         if isa(operation, builtin.ModuleOp):
             if "kernel_type" in operation.attributes:
-                if operation.attributes["kernel_type"].data == "host":
+                kernel_type = operation.attributes["kernel_type"].data
+                self._kernel_type.append(kernel_type)
+
+                if kernel_type == "host":
                     self.print(
                         '#include "tt_metal/host_api.hpp"', indented=True, end="\n"
                     )
@@ -171,12 +176,14 @@ class PrintMetalium:
                     self.print(
                         "using namespace tt::tt_metal;\n", indented=True, end="\n"
                     )
-                elif operation.attributes["kernel_type"].data == "data_in":
+                elif kernel_type == "data_in":
                     self.print("#include <stdint.h>", indented=True, end="\n")
                     self.print('#include "dataflow_api.h"', indented=True, end="\n")
-                elif operation.attributes["kernel_type"].data == "data_out":
+                    self.print('#include "debug/dprint.h"', indented=True, end="\n")
+                elif kernel_type == "data_out":
                     self.print('#include "dataflow_api.h"', indented=True, end="\n")
-                elif operation.attributes["kernel_type"].data == "compute":
+                    self.print('#include "debug/dprint.h"', indented=True, end="\n")
+                elif kernel_type == "compute":
                     self.print("#include <cstdint>", indented=True, end="\n")
                     # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
                     self.print(
@@ -189,14 +196,22 @@ class PrintMetalium:
                         indented=True,
                         end="\n",
                     )
+                    self.print('#include "debug/dprint.h"', indented=True, end="\n")
+            else:
+                self._kernel_type.append("unknown")
             for region in operation.regions:
                 for block in region.blocks:
                     self.print_op(block)
+
+            # no longer compiling that same kernel
+            self._kernel_type.pop()
         elif isa(operation, Block):
             for op in operation.ops:
                 self.print_op(op)
         elif isa(operation, func.FuncOp):
             self.print_func_def(operation)
+        elif isa(operation, printf.PrintFormatOp):
+            self.print_print(operation)
         elif isa(operation, func.ReturnOp):
             self.print_return(operation)
         elif isa(operation, memref.AllocOp) or isa(operation, memref.AllocaOp):
@@ -408,6 +423,35 @@ class PrintMetalium:
             return
 
         self.print_unrealized_conversion_cast_stmt(op)
+
+    def print_print(self, op):
+        kt = self._kernel_type[-1]
+        string = op.format_str.data
+
+        # compiling a separate function, hard to tell, could make assumptions
+        # based on other functions in the file, etc. For now crash
+        if kt == "unknown":
+            raise ValueError("Can only print in functions marked with @tt.decorator")
+        elif kt == "host":
+            self.print(f'printf("{string}\\n");', indented=True, end="\n")
+        elif kt == "data_in":
+            self.print(
+                f'DPRINT_DATA0(DPRINT << "{string}" << ENDL());',
+                indented=True,
+                end="\n",
+            )
+        elif kt == "data_out":
+            self.print(
+                f'DPRINT_DATA1(DPRINT << "{string}" << ENDL());',
+                indented=True,
+                end="\n",
+            )
+        elif kt == "compute":
+            self.print(
+                f'DPRINT_MATH(DPRINT << "{string}" << ENDL());', indented=True, end="\n"
+            )
+        else:
+            raise ValueError(f"Unknown kernel type: {kt}")
 
     def print_cb_get_write_pointer(self, op):
         self.print("get_write_ptr(")
