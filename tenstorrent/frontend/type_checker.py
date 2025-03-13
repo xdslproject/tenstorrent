@@ -14,7 +14,10 @@ from tenstorrent.dialects import *
 
 MLIRType = IntegerType | Float32Type | IndexType | MemRefType | NoneType
 
-TYPE_STR_TO_MLIR_TYPE = {"int": IntegerType(32)}
+TYPE_STR_TO_MLIR_TYPE = {
+    "int": IntegerType(32),
+    "uint16": IntegerType(16),
+}
 
 
 def types_equal(a, b) -> bool:
@@ -42,6 +45,7 @@ class TypeChecker(ast.NodeVisitor):
             noc_async_read_barrier.__name__: NoneType(),
             noc_async_write_barrier.__name__: NoneType(),
             get_noc_addr_from_bank_id.__name__: uint64,
+            get_noc_address.__name__: uint64,
             copy.__name__: NoneType(),
             copy_to_dst_init_short_with_dt.__name__: NoneType(),
             copy_to_dst_init_short.__name__: NoneType(),
@@ -206,6 +210,8 @@ class TypeChecker(ast.NodeVisitor):
             "CreateCircularBuffer": CBHandle(),
             "cb_get_write_ptr": uint32,
             "cb_get_read_ptr": uint32,
+            get_compile_time_arg_val.__name__: uint32,
+            InterleavedAddrGen.__name__: None,
         }
 
     def generic_visit(self, node):
@@ -322,14 +328,25 @@ class TypeChecker(ast.NodeVisitor):
 
         raise NotImplementedError(f"Unhandled call: {name}")
 
+
+    def visit_Compare(self, node):
+        return i1
+
     # ********* Generic visits *********
     def visit_Module(self, node):
         for child in node.body:
             self.visit(child)
 
     def visit_FunctionDef(self, node):
+        for arg in node.args.args:
+            self.types[arg.arg] = uint32
+
         for child in node.body:
             self.visit(child)
+
+    def visit_AugAssign(self, node):
+        return
+
 
     def visit_For(self, node):
         identifier = node.target.id
