@@ -1,4 +1,5 @@
 // RUN: python3.13 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
+
 builtin.module {
   builtin.module attributes {kernel_type = "host"} {
     func.func @main() -> i32 {
