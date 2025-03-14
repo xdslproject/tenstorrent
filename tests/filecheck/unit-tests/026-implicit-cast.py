@@ -1,3 +1,4 @@
+# RUN: python3.13 %s | filecheck %s
 from tenstorrent.frontend import tt
 
 
