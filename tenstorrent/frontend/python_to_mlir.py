@@ -528,27 +528,23 @@ class PythonToMLIR(ast.NodeVisitor):
                     lhs_ssa_val.type, rhs_ssa_val.type
                 )
                 if lhs_ssa_val.type != target_type:
-                    l_cast = self.get_cast(target_type, lhs_ssa_val)
-                    operations += [l_cast]
-                    lhs_ssa_val = l_cast.results[0]
+                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
+                    operations += l_cast
 
                 if rhs_ssa_val.type != target_type:
-                    r_cast = self.get_cast(target_type, rhs_ssa_val)
-                    operations += [r_cast]
-                    rhs_ssa_val = r_cast.results[0]
+                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
+                    operations += r_cast
 
             # special case: if we have a division, we also want to cast
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
                 if lhs_ssa_val.type != target_type:
-                    l_cast = self.get_cast(target_type, lhs_ssa_val)
-                    operations += [l_cast]
-                    lhs_ssa_val = l_cast.results[0]
+                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
+                    operations += l_cast
 
                 if rhs_ssa_val.type != target_type:
-                    r_cast = self.get_cast(target_type, rhs_ssa_val)
-                    operations += [r_cast]
-                    rhs_ssa_val = r_cast.results[0]
+                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
+                    operations += r_cast
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)
