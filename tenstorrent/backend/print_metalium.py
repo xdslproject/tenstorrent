@@ -1,5 +1,5 @@
 from xdsl.dialects.builtin import Signedness
-from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue, BlockArgument
+from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue, BlockArgument, Operation
 from xdsl.irdl import IRDLOperation
 
 from xdsl.utils.hints import isa
@@ -687,53 +687,54 @@ class PrintMetalium:
         if isa(op.result_types[0].element_type, host.DRAMBufferConfig):
             # Need to handle this differently as it is not allocated and this is
             # done in the assignment
-            pass
+            return
+
+        var_name = self.create_fresh_variable(op.results[0].name_hint)
+        self._names[op.results[0]] = var_name
+        mlir_type = op.result_types[0].element_type
+        type_decl = MLIR_TO_CPP_TYPES[mlir_type]
+        scalar = len(op.result_types[0].shape) == 0
+
+        if scalar:
+            self.print(type_decl + " " + var_name, indented=True)
+
+            if PrintMetalium.is_decl_init(op):
+                self.print(" = ")
+                self.print_expr(op.next_op.operands[0])
+                op.next_op.attributes["ignore"] = True
+
+            self.print(";", end="\n")
+
         else:
-            var_name = self.create_fresh_variable(op.results[0].name_hint)
-            self._names[op.results[0]] = var_name
-            type_decl = MLIR_TO_CPP_TYPES[op.result_types[0].element_type]
-
-            if len(op.result_types[0].shape) == 0:
-                self.print(type_decl + " " + var_name, indented=True)
-
-                # We are grabbing the assignment RHS and doing the assign in the declaration here, this is
-                # because sometimes in CPP you require that on the declaration (e.g. a reference)
-                store_op_use = self.retrieve_store(op.results[0].uses)
-                assert isa(store_op_use.operation, memref.StoreOp)
-                if not isa(store_op_use.operation.operands[0], BlockArgument):
-                    self.print(" = ")
-                    self.print_expr(store_op_use.operation.operands[0])
-                    # A bit of a hack, we add this attribute to the store itself so that when this is
-                    # subsequently picked up by the assignment it can be ignored
-                    store_op_use.operation.attributes["ignore"] = True
-
-                self.print(";", end="\n")
+            total_size = 1
+            for s in op.result_types[0].shape:
+                # Might not be correct for multi-dimensional arrays
+                total_size *= s.data
+            if isa(op, memref.AllocOp):
+                self.print(
+                    f"{type_decl} * {var_name} = ({type_decl}*) malloc(sizeof({type_decl})*{total_size});",
+                    indented=True,
+                    end="\n",
+                )
+                self._free_end_of_fn.append(var_name)
+            elif isa(op, memref.AllocaOp):
+                self.print(
+                    f"{type_decl} {var_name}[{total_size}];",
+                    indented=True,
+                    end="\n",
+                )
             else:
-                total_size = 1
-                for s in op.result_types[0].shape:
-                    # Might not be correct for multi-dimensional arrays
-                    total_size *= s.data
-                if isa(op, memref.AllocOp):
-                    self.print(
-                        f"{type_decl} * {var_name} = ({type_decl}*) malloc(sizeof({type_decl})*{total_size});",
-                        indented=True,
-                        end="\n",
-                    )
-                    self._free_end_of_fn.append(var_name)
-                elif isa(op, memref.AllocaOp):
-                    self.print(
-                        f"{type_decl} {var_name}[{total_size}];",
-                        indented=True,
-                        end="\n",
-                    )
-                else:
-                    assert False
+                assert False
 
-    def retrieve_store(self, uses):
-        for use in uses:
-            if isa(use.operation, memref.StoreOp):
-                return use
-        return None
+    @staticmethod
+    def is_decl_init(operation: Operation):
+        is_decl = isa(operation, memref.AllocOp | memref.AllocaOp)
+        is_init = isa(operation.next_op, memref.StoreOp)
+
+        if is_decl and is_init:
+            return operation.next_op.operands[1] == operation.results[0]
+
+        return False
 
     def print_assignment(self, op: memref.StoreOp):
         if "ignore" in op.attributes:
