@@ -42,7 +42,11 @@ TenstorrentStmts = [
     *compute.Compute.operations,
 ]
 
-TenstorrentExpr = [data_movement.DMGetNocAddrFromBankId]
+TenstorrentExpr = [
+    data_movement.DMGetNocAddrFromBankId,
+    circular_buffer.CBPagesAvailableAtFront,
+    circular_buffer.CBPagesReservableAtBack,
+]
 
 CMP_PREDICATE_TO_SYMBOL = ["==", "!=", "<", "<=", ">", ">=", "<", "<=", ">", ">="]
 
@@ -74,7 +78,7 @@ SkipOps = [
     arith.XOrIOp,
     arith.SubiOp,
     arith.SubfOp,
-    arith.ExtFOp,
+    arith.SIToFPOp,
     arith.DivfOp,
     circular_buffer.CBPagesReservableAtBack,
     circular_buffer.CBPagesAvailableAtFront,
@@ -342,7 +346,7 @@ class PrintMetalium:
             self.print(expr.results[0].name_hint)
         elif isa(expr, BinaryOperation):
             self.print_binary_op(expr)
-        elif isa(expr, arith.ExtFOp):
+        elif isa(expr, arith.SIToFPOp):
             self.print_cast_to_float(expr)
         elif isa(expr, builtin.UnrealizedConversionCastOp):
             self.print_unrealized_conversion_cast(expr, is_expr=True)

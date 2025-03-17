@@ -441,26 +441,33 @@ class PythonToMLIR(ast.NodeVisitor):
 
         if isinstance(ssa_val.type, IntegerType):
             if target_type == Float32Type():
-                conv_op = arith.ExtFOp(ssa_val, Float32Type())
+                op_sign = ssa_val.type.signedness.data
+                if op_sign == Signedness.SIGNED:
+                    conv_op = arith.SIToFPOp(ssa_val, target_type)
+                    return [conv_op], conv_op.results[0]
+                elif op_sign == Signedness.UNSIGNED:
+                    raise NotImplementedError("arith has no UIToFPOp")
+                elif op_sign == Signedness.SIGNLESS:
+                    conv_op = arith.SIToFPOp(ssa_val, target_type)
+                    return [conv_op], conv_op.results[0]
 
             elif target_type == IndexType():
                 conv_op = arith.IndexCastOp(ssa_val, IndexType())
+                return [conv_op], conv_op.results[0]
 
             elif target_type == IntegerType:
                 return [], ssa_val
 
             elif target_type.bitwidth == 32 and ssa_val.type.bitwidth == 32:
-                cast = builtin.UnrealizedConversionCastOp(
+                conv_op = builtin.UnrealizedConversionCastOp(
                     operands=[ssa_val], result_types=[target_type]
                 )
-                return [cast], cast.results[0]
+                return [conv_op], conv_op.results[0]
 
             else:
                 raise NotImplementedError(
                     f"Unsupported type cast from IntegerType: {target_type}"
                 )
-
-            return [conv_op], conv_op.results[0]
 
         raise NotImplementedError(
             f"Unsupported type cast {ssa_val.type} to {target_type}"
