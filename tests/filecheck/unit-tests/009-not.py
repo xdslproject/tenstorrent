@@ -4,12 +4,12 @@ from tenstorrent.frontend import tt
 
 @tt.host
 def nope():
-    a = not True
+    a = not False
 
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {
-# CHECK-NEXT:       %0 = arith.constant true
+# CHECK-NEXT:       %0 = arith.constant false
 # CHECK-NEXT:       %1 = arith.constant true
 # CHECK-NEXT:       %2 = arith.xori %0, %1 : i1
 # CHECK-NEXT:       %a = memref.alloc() : memref<i1>

@@ -591,7 +591,7 @@ class PrintMetalium:
             if not isa(op, arith.XOrIOp):
                 self.print(f" {ARITH_OP_TO_SYM[op.__class__]} ", end="")
 
-            self.print_expr(op.rhs)
+                self.print_expr(op.rhs)
 
     def print_func_def(self, func_op: func.FuncOp):
         """

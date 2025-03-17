@@ -3,7 +3,7 @@
 builtin.module {
   builtin.module attributes {kernel_type = "host"} {
     func.func @main() -> i32 {
-      %0 = arith.constant true
+      %0 = arith.constant false
       %1 = arith.constant true
       %2 = arith.xori %0, %1 : i1
       %a = memref.alloc() : memref<i1>
@@ -14,7 +14,7 @@ builtin.module {
   }
 }
 
-// CHECK-NEXT: std::int32_t main() {
-// CHECK-NEXT:     bool a = !true;
+// CHECK:      std::int32_t main() {
+// CHECK-NEXT:     bool a = !false;
 // CHECK-NEXT:     return 0;
 // CHECK-NEXT: }
