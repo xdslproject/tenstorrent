@@ -8,18 +8,16 @@ def implicit_cast():
     a = 7
     a = 13.4 * 3
 
-# TODO: extf is not the right operation here
-
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {
 # CHECK-NEXT:       %0 = arith.constant 7 : i32
-# CHECK-NEXT:       %1 = arith.extf %0 : i32 to f32
+# CHECK-NEXT:       %1 = arith.sitofp %0 : i32 to f32
 # CHECK-NEXT:       %a = memref.alloc() : memref<f32>
 # CHECK-NEXT:       memref.store %1, %a[] : memref<f32>
 # CHECK-NEXT:       %2 = arith.constant 1.340000e+01 : f32
 # CHECK-NEXT:       %3 = arith.constant 3 : i32
-# CHECK-NEXT:       %4 = arith.extf %3 : i32 to f32
+# CHECK-NEXT:       %4 = arith.sitofp %3 : i32 to f32
 # CHECK-NEXT:       %5 = arith.mulf %2, %4 : f32
 # CHECK-NEXT:       memref.store %5, %a[] : memref<f32>
 # CHECK-NEXT:       %6 = arith.constant 0 : i32

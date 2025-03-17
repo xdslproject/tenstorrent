@@ -17,7 +17,7 @@ builtin.module {
 }
 
 // CHECK:      std::int32_t main() {
-// CHECK-NEXT:     float a = a - 10.2;
-// CHECK-NEXT:     a = 3.7;
+// CHECK-NEXT:     float a = 3.700000047683716;
+// CHECK-NEXT:     a = a - 10.199999809265137;
 // CHECK-NEXT:     return 0;
 // CHECK-NEXT: }
