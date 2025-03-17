@@ -985,9 +985,12 @@ class PythonToMLIR(ast.NodeVisitor):
 
             return names
 
+        if isinstance(statement, ast.Expr):
+            return []
+
         # could also handle: ast.With, ast.FuncDef
         construct = statement.__class__.__name__
-        raise Exception(f"Unhandled construct to explore: {construct}")
+        raise Exception(f"Unhandled construct to explore: ast.{construct}")
 
     def allocate_new_variables(self, node: NodeWithBody) -> List[Operation]:
         """
