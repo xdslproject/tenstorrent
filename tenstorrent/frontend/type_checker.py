@@ -322,6 +322,9 @@ class TypeChecker(ast.NodeVisitor):
 
         raise NotImplementedError(f"Unhandled call: {name}")
 
+    def visit_Compare(self, node):
+        return i1
+
     # ********* Generic visits *********
     def visit_Module(self, node):
         for child in node.body:
