@@ -1,6 +1,6 @@
 
 
-LIT_OPTIONS ?= -v --order=smart
+LIT_OPTIONS ?= -v --order=lexical
 
 
 .PHONY: tests

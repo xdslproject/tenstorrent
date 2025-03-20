@@ -441,26 +441,33 @@ class PythonToMLIR(ast.NodeVisitor):
 
         if isinstance(ssa_val.type, IntegerType):
             if target_type == Float32Type():
-                conv_op = arith.ExtFOp(ssa_val, Float32Type())
+                op_sign = ssa_val.type.signedness.data
+                if op_sign == Signedness.SIGNED:
+                    conv_op = arith.SIToFPOp(ssa_val, target_type)
+                    return [conv_op], conv_op.results[0]
+                elif op_sign == Signedness.UNSIGNED:
+                    raise NotImplementedError("arith has no UIToFPOp")
+                elif op_sign == Signedness.SIGNLESS:
+                    conv_op = arith.SIToFPOp(ssa_val, target_type)
+                    return [conv_op], conv_op.results[0]
 
             elif target_type == IndexType():
                 conv_op = arith.IndexCastOp(ssa_val, IndexType())
+                return [conv_op], conv_op.results[0]
 
             elif target_type == IntegerType:
                 return [], ssa_val
 
             elif target_type.bitwidth == 32 and ssa_val.type.bitwidth == 32:
-                cast = builtin.UnrealizedConversionCastOp(
+                conv_op = builtin.UnrealizedConversionCastOp(
                     operands=[ssa_val], result_types=[target_type]
                 )
-                return [cast], cast.results[0]
+                return [conv_op], conv_op.results[0]
 
             else:
                 raise NotImplementedError(
                     f"Unsupported type cast from IntegerType: {target_type}"
                 )
-
-            return [conv_op], conv_op.results[0]
 
         raise NotImplementedError(
             f"Unsupported type cast {ssa_val.type} to {target_type}"
@@ -528,27 +535,23 @@ class PythonToMLIR(ast.NodeVisitor):
                     lhs_ssa_val.type, rhs_ssa_val.type
                 )
                 if lhs_ssa_val.type != target_type:
-                    l_cast = self.get_cast(target_type, lhs_ssa_val)
-                    operations += [l_cast]
-                    lhs_ssa_val = l_cast.results[0]
+                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
+                    operations += l_cast
 
                 if rhs_ssa_val.type != target_type:
-                    r_cast = self.get_cast(target_type, rhs_ssa_val)
-                    operations += [r_cast]
-                    rhs_ssa_val = r_cast.results[0]
+                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
+                    operations += r_cast
 
             # special case: if we have a division, we also want to cast
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
                 if lhs_ssa_val.type != target_type:
-                    l_cast = self.get_cast(target_type, lhs_ssa_val)
-                    operations += [l_cast]
-                    lhs_ssa_val = l_cast.results[0]
+                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
+                    operations += l_cast
 
                 if rhs_ssa_val.type != target_type:
-                    r_cast = self.get_cast(target_type, rhs_ssa_val)
-                    operations += [r_cast]
-                    rhs_ssa_val = r_cast.results[0]
+                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
+                    operations += r_cast
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)
@@ -989,9 +992,12 @@ class PythonToMLIR(ast.NodeVisitor):
 
             return names
 
+        if isinstance(statement, ast.Expr):
+            return []
+
         # could also handle: ast.With, ast.FuncDef
         construct = statement.__class__.__name__
-        raise Exception(f"Unhandled construct to explore: {construct}")
+        raise Exception(f"Unhandled construct to explore: ast.{construct}")
 
     def allocate_new_variables(self, node: NodeWithBody) -> List[Operation]:
         """
