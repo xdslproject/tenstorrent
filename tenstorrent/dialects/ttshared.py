@@ -32,7 +32,7 @@ class ConstExprType(
 class GetCompileTimeArgVal(IRDLOperation):
     name = "ttshared.get_compile_time_arg_val"
 
-    index = operand_def(i1)
+    index = operand_def(uint32)
     result = result_def(ConstExprType[uint32])
 
     def __init__(self, i):
