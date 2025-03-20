@@ -1,3 +1,4 @@
+import ast
 from typing import Dict, List, Tuple, Optional
 
 from xdsl.dialects import builtin, func, arith, memref, scf, printf
@@ -120,6 +121,7 @@ class PythonToMLIR(ast.NodeVisitor):
             noc_async_read_barrier.__name__: DMNocAsyncReadBarrier,
             noc_async_write_barrier.__name__: DMNocAsyncWriteBarrier,
             get_noc_addr_from_bank_id.__name__: DMGetNocAddrFromBankId,
+            get_compile_time_arg_val.__name__: GetCompileTimeArgVal,
             # TODO: Should separate into different classes here for compute
             binary_op_init_common.__name__: BinaryOpInitCommon,
             pack_tile.__name__: PackTile,
@@ -615,11 +617,23 @@ class PythonToMLIR(ast.NodeVisitor):
         left, l_val = self.visit(node.left)
         right, r_val = self.visit(node.comparators[0])
 
+        operations = left + right
+
         # TODO: handle sint, float comparisons
         op = self._uint_comparison[type(node.ops[0])]
+
+        # TODO: make symmetric
+        if l_val.type == uint32 and r_val.type == i32:
+            # TODO: generate ops to cast one to the other (uint32, i32)
+            ops, r_val = self.get_cast(uint32, r_val)
+            operations.extend(ops)
+
+        elif l_val.type != r_val.type:
+            raise NotImplementedError(f"Comparison not handled between types {l_val.type} and {r_val.type}")
+
         operation = arith.CmpiOp(l_val, r_val, op)
 
-        return [left, right, operation], operation.results[0]
+        return operations + [operation], operation.results[0]
 
     def visit_For(self, node: ast.For) -> Tuple[List[Operation], Optional[SSAValue]]:
         from_expr, from_ssa = self.visit(node.iter.args[0])
@@ -884,6 +898,7 @@ class PythonToMLIR(ast.NodeVisitor):
             r_sqrt.__name__,
             untilize_block.__name__,
             pack_tile.__name__,
+            InterleavedAddrGen.__name__
         ]
 
         # TODO: ideally want something more like:
@@ -892,10 +907,11 @@ class PythonToMLIR(ast.NodeVisitor):
         #  also allows us to remove single_property_funcs being hardcoded
         #  could construct dummy op and then throw away... thats solution for casting
         if name in single_property_funcs:
+            first_arg = node.args.pop(0)
             if name == untilize_block.__name__:
-                properties.append(IntegerAttr(node.args.pop(0).value, i32))
+                properties.append(IntegerAttr(first_arg.value, i32))
             else:
-                properties.append(IntegerAttr(node.args.pop(0).value, IntegerType(1)))
+                properties.append(IntegerAttr(first_arg.value, IntegerType(1)))
 
         # We evaluate args in Python order (programmer intention) and then swap
         # only the SSA results that are given to the operation to preserve semantics
