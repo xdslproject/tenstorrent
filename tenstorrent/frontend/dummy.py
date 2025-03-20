@@ -151,7 +151,7 @@ def get_noc_addr_from_bank_id(
     pass
 
 
-def get_noc_address(some_id: int):
+def get_noc_address(some_id: int, addr_gen=None):
     # TODO: implement this with other args
     pass
 
@@ -842,3 +842,13 @@ def EnqueueReadBuffer(
 
 def CloseDevice(device: int):
     pass
+
+
+class InterleavedAddrGen:
+    def __init__(self, dram: bool, bank_base_addr: int, page_size: int):
+        pass
+
+
+def get_compile_time_arg_val(i: int):
+    pass
+
