@@ -2,7 +2,7 @@ from typing import Generic
 
 from xdsl.dialects.builtin import i1, i32, IntegerType, Signedness, ContainerType
 from xdsl.ir import SSAValue, Operation, Dialect, AttributeCovT, ParametrizedAttribute, TypeAttribute
-from xdsl.irdl import IRDLOperation, irdl_attr_definition, operand_def, result_def, irdl_op_definition
+from xdsl.irdl import IRDLOperation, irdl_attr_definition, operand_def, result_def, irdl_op_definition, ParameterDef
 
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
 
@@ -16,7 +16,7 @@ class ConstExprType(
 ):
     name = "constexpr"
 
-    element_type = operand_def(AttributeCovT)
+    element_type: ParameterDef[AttributeCovT]
 
     def __init__(
         self,
