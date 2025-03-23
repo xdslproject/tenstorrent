@@ -226,17 +226,42 @@ class TypeChecker(ast.NodeVisitor):
     def visit_Pass(self, node):
         pass
 
-    def dominating_type(self, a, b) -> MLIRType:
+    # TODO: this method needs rethinking... overall should
+    #  let constexpr dominate, let biggest bitwidth dominate,
+    #  and further let floating point dominate
+    @staticmethod
+    def dominating_type(a, b) -> MLIRType:
+        a = TypeChecker.unwrap(a)
+        b = TypeChecker.unwrap(b)
+
         if a == b:
             return a
 
-        if a == Float32Type() or b == Float32Type():
-            return Float32Type()
+        # TODO: create a strict partial order of types
+        fp_type = Float32Type()
+        if a == fp_type or b == fp_type:
+            return fp_type
 
         if a == IntegerType(32) or b == IntegerType(32):
             return IntegerType(32)
 
         raise NotImplementedError(f"Type not in type hierarchy: {a.__class__.__name__}")
+
+    @staticmethod
+    def one_is_constexpr(*args) -> bool:
+        for arg in args:
+            if isinstance(arg, ConstExprType):
+                return True
+
+        return False
+
+    @staticmethod
+    def unwrap(a) -> MLIRType:
+        # TODO: xDSL has a method for this right..? Use it!
+        if isinstance(a, ContainerType):
+            return a.get_element_type()
+
+        return a
 
     def visit_List(self, node: ast.List):
         assert len(node.elts) == 1
@@ -276,7 +301,7 @@ class TypeChecker(ast.NodeVisitor):
             self.types[target] = (
                 expected_type
                 if target not in self.types
-                else (self.dominating_type(self.types[target], expected_type))
+                else (TypeChecker.dominating_type(self.types[target], expected_type))
             )
 
         # if we are writing to an array, the array should have already been
@@ -292,6 +317,8 @@ class TypeChecker(ast.NodeVisitor):
     def visit_BinOp(self, node: ast.BinOp) -> MLIRType:
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
+        constexpr = TypeChecker.one_is_constexpr(left_type, right_type)
+        runtime_type = None
 
         if (
             isinstance(left_type, MemRefType)
@@ -301,12 +328,14 @@ class TypeChecker(ast.NodeVisitor):
             return MemRefType(left_type.element_type, [node.right.value])
 
         if isinstance(node.op, ast.Div):
-            return Float32Type()
+            runtime_type = Float32Type()
 
-        if types_equal(left_type, right_type):
-            return left_type
+        else:
+            runtime_type = TypeChecker.dominating_type(left_type, right_type)
 
-        return self.dominating_type(left_type, right_type)
+        # NOTE: this always assumes the other operand is
+        # evaluatable at compile-time
+        return ConstExprType(runtime_type) if constexpr else runtime_type
 
     def visit_Expr(self, node) -> MLIRType:
         return self.visit(node.value)
@@ -328,8 +357,12 @@ class TypeChecker(ast.NodeVisitor):
 
         raise NotImplementedError(f"Unhandled call: {name}")
 
-    def visit_Compare(self, node):
-        return i1
+    def visit_Compare(self, node: ast.Compare):
+        t1 = self.visit(node.left)
+        t2 = self.visit(node.comparators[0])
+
+        constexpr = TypeChecker.one_is_constexpr(t1, t2)
+        return ConstExprType(i1) if constexpr else i1
 
     # ********* Generic visits *********
     def visit_Module(self, node):
