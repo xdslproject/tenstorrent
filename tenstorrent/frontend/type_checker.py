@@ -12,7 +12,7 @@ from xdsl.dialects.builtin import (
 from .dummy import *
 from tenstorrent.dialects import *
 
-MLIRType = IntegerType | Float32Type | IndexType | MemRefType | NoneType
+MLIRType = IntegerType | Float32Type | IndexType | MemRefType | NoneType | ConstExprType
 
 TYPE_STR_TO_MLIR_TYPE = {
     "int": IntegerType(32),
@@ -210,7 +210,7 @@ class TypeChecker(ast.NodeVisitor):
             "CreateCircularBuffer": CBHandle(),
             "cb_get_write_ptr": uint32,
             "cb_get_read_ptr": uint32,
-            get_compile_time_arg_val.__name__: uint32,
+            get_compile_time_arg_val.__name__: ConstExprType(uint32),
             InterleavedAddrGen.__name__: None,
         }
 

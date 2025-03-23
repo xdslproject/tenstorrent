@@ -437,6 +437,12 @@ class PythonToMLIR(ast.NodeVisitor):
         if target_type == ssa_val.type:
             return [], ssa_val
 
+        # TODO: support ConstExpr[t] acting in place of that t
+        #  will we need an unwrap op?
+        #  does MLIR support adding type props (e.g. "this type can be in place
+        #  of an i32")?
+
+
         # TODO: not strictly correct, should check elem types and lengths
         if isa(target_type, MemRefType) and isa(ssa_val.type, MemRefType):
             return [], ssa_val
