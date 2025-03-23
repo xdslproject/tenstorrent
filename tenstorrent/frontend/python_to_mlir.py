@@ -385,7 +385,9 @@ class PythonToMLIR(ast.NodeVisitor):
             assert False
 
         # if the types don't match we need to insert a cast operation
-        operations, rhs_ssa_val = self.cast_if_needed(target_type, rhs_ssa_val, operations)
+        operations, rhs_ssa_val = self.cast_if_needed(
+            target_type, rhs_ssa_val, operations
+        )
 
         if isa(dest, ast.Name):
             # create a memref
@@ -443,7 +445,9 @@ class PythonToMLIR(ast.NodeVisitor):
             )
             return operations + idx_ops + [store], self.symbol_table[var_name]
 
-    def cast_if_needed(self, target_type: MLIRType, ssa: SSAValue, ops: List[Operation]) -> Tuple[List[Operation], SSAValue]:
+    def cast_if_needed(
+        self, target_type: MLIRType, ssa: SSAValue, ops: List[Operation]
+    ) -> Tuple[List[Operation], SSAValue]:
         """
         Uses self.get_cast, but returns new values only if needed, otherwise just
         returns the old values
@@ -453,7 +457,6 @@ class PythonToMLIR(ast.NodeVisitor):
             return ops + cast_ops, cast_ssa
 
         return ops, ssa
-
 
     def get_cast(
         self, target_type: MLIRType, ssa_val: SSAValue
@@ -468,15 +471,12 @@ class PythonToMLIR(ast.NodeVisitor):
             return [], ssa_val
 
         if isinstance(target_type, ConstExprType):
-            # consider:
-            # a = tt.compile_time(1) + 2
-            # we first unwrap tt.compile_time : constexpr[int] -> int
-            # we perform the add
-            # then we need to save the result as a constexpr
-            # this is only valid if the second arg is compile-time known
+            # wrap the result of a ConstExprType expression back into a ConstExprType
             if target_type.get_element_type() != ssa_val.type:
                 raise TypeError(
-                    f"Attempting to cast from {ssa_val.type} to {target_type} which but the target type is a constexpr with a different element type"
+                    f"Attempting to cast from {ssa_val.type} to {target_type}"
+                    f" which but the target type is a constexpr"
+                    f" with a different element type"
                 )
 
             wrap = builtin.UnrealizedConversionCastOp(
@@ -497,11 +497,15 @@ class PythonToMLIR(ast.NodeVisitor):
             return [], ssa_val
 
         if isinstance(ssa_val.type, IntegerType):
+            # cast: int -> float
             if target_type == Float32Type():
                 op_sign = ssa_val.type.signedness.data
-                if op_sign == Signedness.SIGNED:
+
+                if op_sign in [Signedness.SIGNED, Signedness.SIGNLESS]:
                     conv_op = arith.SIToFPOp(ssa_val, target_type)
                     return [conv_op], conv_op.results[0]
+
+                # first cast to signed, then recurse
                 elif op_sign == Signedness.UNSIGNED:
                     to_si = builtin.UnrealizedConversionCastOp(
                         operands=[ssa_val],
@@ -511,16 +515,22 @@ class PythonToMLIR(ast.NodeVisitor):
                     )
                     ops, ssa = self.get_cast(target_type, to_si.results[0])
                     return [to_si] + ops, ssa
-                elif op_sign == Signedness.SIGNLESS:
-                    conv_op = arith.SIToFPOp(ssa_val, target_type)
-                    return [conv_op], conv_op.results[0]
 
+            # cast: int -> index
             elif target_type == IndexType():
                 conv_op = arith.IndexCastOp(ssa_val, IndexType())
                 return [conv_op], conv_op.results[0]
 
+            # from here casting between two integer types
             elif target_type == IntegerType:
                 return [], ssa_val
+
+            elif target_type.bitwidth != ssa_val.type.bitwidth:
+                # TODO: No MLIR OP for casting downwards on bitwidths afaik
+                #  if expanding: ___, if decreasing: ___
+                #  also have to decide order of casting, e.g.
+                #  i32 -> ui8 => (i32 -> ui32 -> ui8) or (i32 -> i8 -> ui8)
+                pass
 
             elif target_type.bitwidth == 32 and ssa_val.type.bitwidth == 32:
                 conv_op = builtin.UnrealizedConversionCastOp(
@@ -530,7 +540,7 @@ class PythonToMLIR(ast.NodeVisitor):
 
             else:
                 raise NotImplementedError(
-                    f"Unsupported type cast from IntegerType: {target_type}"
+                    f"Unsupported type cast from {ssa_val.type}: {target_type}"
                 )
 
         raise NotImplementedError(
@@ -599,14 +609,22 @@ class PythonToMLIR(ast.NodeVisitor):
                 rhs_ssa_val.type,
             )
 
-            operations, lhs_ssa_val = self.cast_if_needed(target_type, lhs_ssa_val, operations)
-            operations, rhs_ssa_val = self.cast_if_needed(target_type, rhs_ssa_val, operations)
+            operations, lhs_ssa_val = self.cast_if_needed(
+                target_type, lhs_ssa_val, operations
+            )
+            operations, rhs_ssa_val = self.cast_if_needed(
+                target_type, rhs_ssa_val, operations
+            )
 
             # special case: if we have a division, we also want to cast
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
-                operations, lhs_ssa_val = self.cast_if_needed(target_type, lhs_ssa_val, operations)
-                operations, rhs_ssa_val = self.cast_if_needed(target_type, rhs_ssa_val, operations)
+                operations, lhs_ssa_val = self.cast_if_needed(
+                    target_type, lhs_ssa_val, operations
+                )
+                operations, rhs_ssa_val = self.cast_if_needed(
+                    target_type, rhs_ssa_val, operations
+                )
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)
@@ -962,6 +980,12 @@ class PythonToMLIR(ast.NodeVisitor):
             first_arg = node.args.pop(0)
             if name == untilize_block.__name__:
                 properties.append(IntegerAttr(first_arg.value, i32))
+
+            # handle constexpr terms which are known at compile-time but not at
+            # our level of compile-time
+            elif isinstance(first_arg, ast.Name):
+                properties.append()
+
             else:
                 properties.append(IntegerAttr(first_arg.value, IntegerType(1)))
 
@@ -1027,7 +1051,9 @@ class PythonToMLIR(ast.NodeVisitor):
                     )
 
             if isinstance(types, EqAttrConstraint):
-                type_cast_ops, results[i] = self.cast_if_needed(types.attr, ssa_val, type_cast_ops)
+                type_cast_ops, results[i] = self.cast_if_needed(
+                    types.attr, ssa_val, type_cast_ops
+                )
 
         new_operation = constructor(*(props + results))
         return type_cast_ops + [new_operation]
