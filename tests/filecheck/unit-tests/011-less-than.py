@@ -8,6 +8,7 @@ def less_than():
     b = 3
     c = 5 < 3
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

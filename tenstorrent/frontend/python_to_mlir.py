@@ -442,7 +442,6 @@ class PythonToMLIR(ast.NodeVisitor):
         #  does MLIR support adding type props (e.g. "this type can be in place
         #  of an i32")?
 
-
         # TODO: not strictly correct, should check elem types and lengths
         if isa(target_type, MemRefType) and isa(ssa_val.type, MemRefType):
             return [], ssa_val
@@ -635,7 +634,9 @@ class PythonToMLIR(ast.NodeVisitor):
             operations.extend(ops)
 
         elif l_val.type != r_val.type:
-            raise NotImplementedError(f"Comparison not handled between types {l_val.type} and {r_val.type}")
+            raise NotImplementedError(
+                f"Comparison not handled between types {l_val.type} and {r_val.type}"
+            )
 
         operation = arith.CmpiOp(l_val, r_val, op)
 
@@ -904,7 +905,7 @@ class PythonToMLIR(ast.NodeVisitor):
             r_sqrt.__name__,
             untilize_block.__name__,
             pack_tile.__name__,
-            InterleavedAddrGen.__name__
+            InterleavedAddrGen.__name__,
         ]
 
         # TODO: ideally want something more like:

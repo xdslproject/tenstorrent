@@ -8,6 +8,7 @@ def implicit_cast():
     a = 7
     a = 13.4 * 3
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

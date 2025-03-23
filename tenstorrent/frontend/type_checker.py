@@ -328,7 +328,6 @@ class TypeChecker(ast.NodeVisitor):
 
         raise NotImplementedError(f"Unhandled call: {name}")
 
-
     def visit_Compare(self, node):
         return i1
 
@@ -346,7 +345,6 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_AugAssign(self, node):
         return
-
 
     def visit_For(self, node):
         identifier = node.target.id

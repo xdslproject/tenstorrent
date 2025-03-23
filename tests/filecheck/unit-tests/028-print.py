@@ -21,6 +21,7 @@ def print_d1():
 def print_compute():
     print("Hello, I am the compute core")
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

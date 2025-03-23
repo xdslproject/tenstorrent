@@ -6,6 +6,7 @@ from tenstorrent.frontend import tt
 def simple_binop_sub():
     a = 2 - 3
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

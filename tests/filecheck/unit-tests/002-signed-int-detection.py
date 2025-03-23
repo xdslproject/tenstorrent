@@ -6,6 +6,7 @@ from tenstorrent.frontend import tt
 def signed_int_detection():
     a = 0 - 5
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {
