@@ -384,14 +384,11 @@ class PythonToMLIR(ast.NodeVisitor):
         else:
             assert False
 
-        # TODO: this can be cleaned up as well: expect cast
         # if the types don't match we need to insert a cast operation
-        if target_type != rhs_ssa_val.type:
-            cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
-            if len(cast_ops) > 0:
-                assert cast_ssa is not None
-                rhs_ssa_val = cast_ssa
-                operations += cast_ops
+        cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
+        if cast_ssa is not None:
+            rhs_ssa_val = cast_ssa
+            operations += cast_ops
 
         if isa(dest, ast.Name):
             # create a memref
@@ -399,7 +396,7 @@ class PythonToMLIR(ast.NodeVisitor):
             seen = var_name in self.symbol_table
             last_op = rhs_ops[-1]
 
-            # not software engineering
+            # TODO: not software engineering -- fix at a later date
             if (
                 isa(last_op, builtin.UnrealizedConversionCastOp)
                 and last_op.operand_types != (uint32,)
@@ -417,9 +414,6 @@ class PythonToMLIR(ast.NodeVisitor):
             elif (
                 isa(last_op, memref.AllocaOp)
                 or isa(last_op, memref.AllocOp)
-                # TODO: Unrealized used for arrays...
-                #  which is a problem because if a: int32 = uint32 + 5
-                #  tye uint32 -> int32 cast will be Unrealized
                 or isa(last_op, builtin.UnrealizedConversionCastOp)
             ):
                 # This is a bit of a hack, we are allocating a list and this is done
@@ -451,6 +445,18 @@ class PythonToMLIR(ast.NodeVisitor):
                 rhs_ssa_val, self.symbol_table[var_name], [idx_ssa]
             )
             return operations + idx_ops + [store], self.symbol_table[var_name]
+
+    def cast_if_needed(self, target_type: MLIRType, ssa: SSAValue, ops: List[Operation]) -> Tuple[List[Operation], SSAValue]:
+        """
+        Uses self.get_cast, but returns new values only if needed, otherwise just
+        returns the old values
+        """
+        cast_ops, cast_ssa = self.get_cast(target_type, ssa)
+        if cast_ssa is not None:
+            return ops + cast_ops, cast_ssa
+
+        return ops, ssa
+
 
     def get_cast(
         self, target_type: MLIRType, ssa_val: SSAValue
@@ -590,32 +596,39 @@ class PythonToMLIR(ast.NodeVisitor):
         else:
             operations = lhs_ops + rhs_ops
 
-            # TODO: this can be havily cleaned as
-            #  get_cast returns [] if no cast needed
             # if types differ, we need to cast for the operation
-            if lhs_ssa_val.type != rhs_ssa_val.type:
-                target_type = self.type_checker.dominating_type(
-                    lhs_ssa_val.type, rhs_ssa_val.type
-                )
-                if lhs_ssa_val.type != target_type:
-                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
-                    operations += l_cast
+            target_type = self.type_checker.dominating_type(
+                lhs_ssa_val.type,
+                rhs_ssa_val.type,
+            )
 
-                if rhs_ssa_val.type != target_type:
-                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
-                    operations += r_cast
+            # TODO: abstract this pattern
+            l_cast_ops, l_ssa = self.get_cast(target_type, lhs_ssa_val)
+            if l_ssa is not None:
+                operations += l_cast_ops
+                lhs_ssa_val = l_ssa
+
+            # TODO: pattern used again here
+            r_cast_ops, r_ssa = self.get_cast(target_type, rhs_ssa_val)
+            if r_ssa is not None:
+                operations += r_cast_ops
+                rhs_ssa_val = r_ssa
 
             # special case: if we have a division, we also want to cast
             # TODO: this can be cleaned up also: assume cast!
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
-                if lhs_ssa_val.type != target_type:
-                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
-                    operations += l_cast
+                # TODO: pattern used here
+                l_cast_ops, l_ssa = self.get_cast(target_type, lhs_ssa_val)
+                if l_ssa is not None:
+                    operations += l_cast_ops
+                    lhs_ssa_val = l_ssa
 
-                if rhs_ssa_val.type != target_type:
-                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
-                    operations += r_cast
+                # TODO: pattern used here
+                r_cast_ops, r_ssa = self.get_cast(target_type, rhs_ssa_val)
+                if r_ssa is not None:
+                    operations += r_cast_ops
+                    rhs_ssa_val = r_ssa
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)

@@ -231,6 +231,9 @@ class TypeChecker(ast.NodeVisitor):
     #  and further let floating point dominate
     @staticmethod
     def dominating_type(a, b) -> MLIRType:
+        """
+        Returns the dominating type, unwrapping ConstExprType if needed
+        """
         a = TypeChecker.unwrap(a)
         b = TypeChecker.unwrap(b)
 
