@@ -379,6 +379,11 @@ class PrintMetalium:
         in_type = operand.type
         out_type = op.outputs[0].type
 
+        constexpr = "ttshared.constexpr"
+        if in_type.name == constexpr or out_type.name == constexpr:
+            self.print_expr(operand)
+            return
+
         in_int = in_type.name == "integer_type"
         out_int = out_type.name == "integer_type"
 

@@ -384,6 +384,7 @@ class PythonToMLIR(ast.NodeVisitor):
         else:
             assert False
 
+        # TODO: this can be cleaned up as well: expect cast
         # if the types don't match we need to insert a cast operation
         if target_type != rhs_ssa_val.type:
             cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
@@ -396,10 +397,31 @@ class PythonToMLIR(ast.NodeVisitor):
             # create a memref
             # seen = var_name in self.symbol_table
             seen = var_name in self.symbol_table
+            last_op = rhs_ops[-1]
+
+
+            # not software engineering
             if (
-                isa(rhs_ops[-1], memref.AllocaOp)
-                or isa(rhs_ops[-1], memref.AllocOp)
-                or isa(rhs_ops[-1], builtin.UnrealizedConversionCastOp)
+                isa(last_op, builtin.UnrealizedConversionCastOp)
+                and last_op.operand_types != (uint32,)
+                and not isinstance(last_op.result_types[0], MemRefType)
+            ):
+                # This is a normal value, so just store as usual
+                if not seen:
+                    operations += [self.allocate_memory(var_name)]
+
+                location = self.symbol_table[var_name]
+
+                # store result in that memref
+                store = memref.StoreOp.get(rhs_ssa_val, location, [])
+                operations.append(store)
+            elif (
+                isa(last_op, memref.AllocaOp)
+                or isa(last_op, memref.AllocOp)
+                # TODO: Unrealized used for arrays...
+                #  which is a problem because if a: int32 = uint32 + 5
+                #  tye uint32 -> int32 cast will be Unrealized
+                or isa(last_op, builtin.UnrealizedConversionCastOp)
             ):
                 # This is a bit of a hack, we are allocating a list and this is done
                 # in the bin op, so we pick the memref here
@@ -434,15 +456,44 @@ class PythonToMLIR(ast.NodeVisitor):
     def get_cast(
         self, target_type: MLIRType, ssa_val: SSAValue
     ) -> Tuple[List[Operation], SSAValue]:
-        if target_type == ssa_val.type:
+        """"
+        Handles conversion between two types directly.
+
+        Also unwraps constexpr types when necessary.
+        """
+        found_type = ssa_val.type
+        if target_type == found_type:
             return [], ssa_val
 
-        # TODO: support ConstExpr[t] acting in place of that t
-        #  will we need an unwrap op?
-        #  does MLIR support adding type props (e.g. "this type can be in place
-        #  of an i32")?
+        if isinstance(target_type, ConstExprType):
+            # consider:
+            # a = tt.compile_time(1) + 2
+            # we first unwrap tt.compile_time : constexpr[int] -> int
+            # we perform the add
+            # then we need to save the result as a constexpr
+            # this is only valid if the second arg is compile-time known
+            if target_type.get_element_type() != ssa_val.type:
+                raise TypeError(f"Attempting to cast from {ssa_val.type} to {target_type} which but the target type is a constexpr with a different element type")
+
+            wrap = builtin.UnrealizedConversionCastOp(
+                operands=[ssa_val],
+                result_types=[target_type]
+            )
+            return [wrap], wrap.results[0]
+
+        if isinstance(found_type, ConstExprType):
+            unwrap = builtin.UnrealizedConversionCastOp(
+                operands=[ssa_val],
+                result_types=[found_type.get_element_type()]
+            )
+            ops, ssa = self.get_cast(
+                target_type,
+                unwrap.results[0]
+            )
+            return [unwrap] + ops, ssa
 
         # TODO: not strictly correct, should check elem types and lengths
+        # TODO: there is an xDSL function for this... use it!
         if isa(target_type, MemRefType) and isa(ssa_val.type, MemRefType):
             return [], ssa_val
 
@@ -453,7 +504,14 @@ class PythonToMLIR(ast.NodeVisitor):
                     conv_op = arith.SIToFPOp(ssa_val, target_type)
                     return [conv_op], conv_op.results[0]
                 elif op_sign == Signedness.UNSIGNED:
-                    raise NotImplementedError("arith has no UIToFPOp")
+                    to_si = builtin.UnrealizedConversionCastOp(
+                        operands=[ssa_val],
+                        result_types=[
+                            IntegerType(ssa_val.type.bitwidth, Signedness.SIGNED)
+                        ]
+                    )
+                    ops, ssa = self.get_cast(target_type, to_si.results[0])
+                    return [to_si] + ops, ssa
                 elif op_sign == Signedness.SIGNLESS:
                     conv_op = arith.SIToFPOp(ssa_val, target_type)
                     return [conv_op], conv_op.results[0]
@@ -536,6 +594,8 @@ class PythonToMLIR(ast.NodeVisitor):
         else:
             operations = lhs_ops + rhs_ops
 
+            # TODO: this can be havily cleaned as
+            #  get_cast returns [] if no cast needed
             # if types differ, we need to cast for the operation
             if lhs_ssa_val.type != rhs_ssa_val.type:
                 target_type = self.type_checker.dominating_type(
@@ -550,6 +610,7 @@ class PythonToMLIR(ast.NodeVisitor):
                     operations += r_cast
 
             # special case: if we have a division, we also want to cast
+            # TODO: this can be cleaned up also: assume cast!
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
                 if lhs_ssa_val.type != target_type:
@@ -624,19 +685,19 @@ class PythonToMLIR(ast.NodeVisitor):
 
         operations = left + right
 
+        comparison_op = node.ops[0]
+        ideal_type = self.type_checker.dominating_type(
+            l_val.type,
+            r_val.type,
+        )
+
+        l_ops, l_val = self.get_cast(ideal_type, l_val)
+        r_ops, r_val = self.get_cast(ideal_type, r_val)
+        operations += l_ops
+        operations += r_ops
+
         # TODO: handle sint, float comparisons
-        op = self._uint_comparison[type(node.ops[0])]
-
-        # TODO: make symmetric
-        if l_val.type == uint32 and r_val.type == i32:
-            # TODO: generate ops to cast one to the other (uint32, i32)
-            ops, r_val = self.get_cast(uint32, r_val)
-            operations.extend(ops)
-
-        elif l_val.type != r_val.type:
-            raise NotImplementedError(
-                f"Comparison not handled between types {l_val.type} and {r_val.type}"
-            )
+        op = self._uint_comparison[type(comparison_op)]
 
         operation = arith.CmpiOp(l_val, r_val, op)
 
