@@ -3,6 +3,8 @@ from typing import IO
 from xdsl.dialects.builtin import ModuleOp
 from typing import Callable, Dict, List
 from xdsl.xdsl_opt_main import xDSLOptMain
+
+from tenstorrent.dialects.ttshared import TTShared
 from tenstorrent.dialects.data_movement import DataMovement
 from tenstorrent.dialects.circular_buffer import CircularBuffer
 from tenstorrent.dialects.compute import Compute
@@ -37,6 +39,7 @@ class TTOptMain(xDSLOptMain):
         self.ctx.load_dialect(CircularBuffer)
         self.ctx.load_dialect(TTHost)
         self.ctx.load_dialect(Compute)
+        self.ctx.load_dialect(TTShared)
 
     @staticmethod
     def get_passes_as_dict() -> Dict[str, Callable[[ModuleOp], None]]:

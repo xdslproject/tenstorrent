@@ -1,5 +1,13 @@
 from xdsl.dialects.builtin import Signedness
-from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue, BlockArgument, Operation
+from xdsl.ir import (
+    Block,
+    Region,
+    OpResult,
+    Attribute,
+    SSAValue,
+    BlockArgument,
+    Operation,
+)
 from xdsl.irdl import IRDLOperation
 
 from xdsl.utils.hints import isa
@@ -16,6 +24,7 @@ import tenstorrent.dialects.host as host
 import tenstorrent.dialects.circular_buffer as circular_buffer
 import tenstorrent.dialects.data_movement as data_movement
 import tenstorrent.dialects.compute as compute
+import tenstorrent.dialects.ttshared as ttshared
 
 
 ArithmeticOperation = (
@@ -42,10 +51,26 @@ TenstorrentStmts = [
     *compute.Compute.operations,
 ]
 
+
+# expressions return a value
 TenstorrentExpr = [
+    ttshared.GetCompileTimeArgVal,
     data_movement.DMGetNocAddrFromBankId,
     circular_buffer.CBPagesAvailableAtFront,
     circular_buffer.CBPagesReservableAtBack,
+    circular_buffer.CBGetWritePointer,
+    circular_buffer.CBGetReadPointer,
+    host.TTHostCore,
+    host.TTCreateDevice,
+    host.TTCreateCBConfig,
+    host.TTCreateCircularBuffer,
+    host.TTGetCommandQueue,
+    host.TTCreateProgram,
+    host.TTCreateDRAMConfig,
+    host.TTCreateBuffer,
+    host.TTCreateKernel,
+    host.TTCreateComputeKernel,
+    host.TTGetMemoryAddress,
 ]
 
 CMP_PREDICATE_TO_SYMBOL = ["==", "!=", "<", "<=", ">", ">=", "<", "<=", ">", ">="]
@@ -63,15 +88,13 @@ ARITH_OP_TO_SYM = {
     arith.DivfOp: "/",
 }
 
-SkipOps = [
+Expressions = [
     arith.ConstantOp,
-    memref.LoadOp,
     arith.AddiOp,
     arith.MuliOp,
     arith.AddfOp,
     arith.MulfOp,
     arith.IndexCastOp,
-    scf.YieldOp,
     arith.CmpiOp,
     arith.AndIOp,
     arith.OrIOp,
@@ -80,23 +103,12 @@ SkipOps = [
     arith.SubfOp,
     arith.SIToFPOp,
     arith.DivfOp,
-    circular_buffer.CBPagesReservableAtBack,
-    circular_buffer.CBPagesAvailableAtFront,
-    host.TTHostCore,
-    host.TTCreateDevice,
-    host.TTCreateCBConfig,
-    host.TTCreateCircularBuffer,
-    circular_buffer.CBGetWritePointer,
-    circular_buffer.CBGetReadPointer,
-    host.TTGetCommandQueue,
-    host.TTCreateProgram,
-    host.TTCreateDRAMConfig,
-    host.TTCreateBuffer,
-    host.TTCreateKernel,
-    host.TTCreateComputeKernel,
-    host.TTGetMemoryAddress,
+    memref.LoadOp,
+    scf.YieldOp,
     *TenstorrentExpr,
 ]
+
+Expressions = list(map(lambda x: x.__name__, Expressions))
 
 uint32 = builtin.IntegerType(32, signedness=builtin.Signedness.UNSIGNED)
 uint64 = builtin.IntegerType(64, signedness=builtin.Signedness.UNSIGNED)
@@ -123,14 +135,16 @@ TYPE_STR_TO_TT_DATA_FORMAT = {"int": "Int32"}
 
 
 def get_api_name(op_name: str) -> str:
-    first_two_chars = op_name[:2]
-    match first_two_chars:
+    dialect_prefix = op_name.split(".")[0]
+    match dialect_prefix:
         case "cb":
             return op_name.replace(".", "_")
         case "dm":
             return op_name.replace("dm.", "")
-        case "co":
+        case "comp":
             return op_name.replace("comp.", "")
+        case "ttshared":
+            return op_name.replace("ttshared.", "")
         case default:
             raise Exception(f"Unhandled operation name: {op_name}")
 
@@ -154,7 +168,7 @@ class PrintMetalium:
             self._skip_next_op = False
             return
 
-        if type(operation) in SkipOps:
+        if type(operation).__name__ in Expressions:
             return
 
         if isa(operation, builtin.ModuleOp):
@@ -696,11 +710,18 @@ class PrintMetalium:
         var_name = self.create_fresh_variable(op.results[0].name_hint)
         self._names[op.results[0]] = var_name
         mlir_type = op.result_types[0].element_type
+
+        modifier = ""
+
+        if isinstance(mlir_type, ttshared.ConstExprType):
+            modifier = "constexpr "
+            mlir_type = mlir_type.get_element_type()
+
         type_decl = MLIR_TO_CPP_TYPES[mlir_type]
         scalar = len(op.result_types[0].shape) == 0
 
         if scalar:
-            self.print(type_decl + " " + var_name, indented=True)
+            self.print(modifier + type_decl + " " + var_name, indented=True)
 
             if PrintMetalium.is_decl_init(op):
                 self.print(" = ")

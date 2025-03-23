@@ -1,8 +1,22 @@
 from typing import Generic
 
 from xdsl.dialects.builtin import i1, i32, IntegerType, Signedness, ContainerType
-from xdsl.ir import SSAValue, Operation, Dialect, AttributeCovT, ParametrizedAttribute, TypeAttribute
-from xdsl.irdl import IRDLOperation, irdl_attr_definition, operand_def, result_def, irdl_op_definition, ParameterDef
+from xdsl.ir import (
+    SSAValue,
+    Operation,
+    Dialect,
+    AttributeCovT,
+    ParametrizedAttribute,
+    TypeAttribute,
+)
+from xdsl.irdl import (
+    IRDLOperation,
+    irdl_attr_definition,
+    operand_def,
+    result_def,
+    irdl_op_definition,
+    ParameterDef,
+)
 
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
 
@@ -14,7 +28,7 @@ class ConstExprType(
     TypeAttribute,
     ContainerType[AttributeCovT],
 ):
-    name = "constexpr"
+    name = "ttshared.constexpr"
 
     element_type: ParameterDef[AttributeCovT]
 
