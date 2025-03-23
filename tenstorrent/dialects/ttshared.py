@@ -46,6 +46,9 @@ class ConstExprType(
 class GetCompileTimeArgVal(IRDLOperation):
     name = "ttshared.get_compile_time_arg_val"
 
+    # really this input should also be ConstExpr, but may
+    # introduce a lot of overhead assuming most assignments
+    # are const-expressible, however for future features may be required
     index = operand_def(uint32)
     result = result_def(ConstExprType(uint32))
 
