@@ -385,10 +385,7 @@ class PythonToMLIR(ast.NodeVisitor):
             assert False
 
         # if the types don't match we need to insert a cast operation
-        cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
-        if cast_ssa is not None:
-            rhs_ssa_val = cast_ssa
-            operations += cast_ops
+        operations, rhs_ssa_val = self.cast_if_needed(target_type, rhs_ssa_val, operations)
 
         if isa(dest, ast.Name):
             # create a memref
@@ -602,33 +599,14 @@ class PythonToMLIR(ast.NodeVisitor):
                 rhs_ssa_val.type,
             )
 
-            # TODO: abstract this pattern
-            l_cast_ops, l_ssa = self.get_cast(target_type, lhs_ssa_val)
-            if l_ssa is not None:
-                operations += l_cast_ops
-                lhs_ssa_val = l_ssa
-
-            # TODO: pattern used again here
-            r_cast_ops, r_ssa = self.get_cast(target_type, rhs_ssa_val)
-            if r_ssa is not None:
-                operations += r_cast_ops
-                rhs_ssa_val = r_ssa
+            operations, lhs_ssa_val = self.cast_if_needed(target_type, lhs_ssa_val, operations)
+            operations, rhs_ssa_val = self.cast_if_needed(target_type, rhs_ssa_val, operations)
 
             # special case: if we have a division, we also want to cast
-            # TODO: this can be cleaned up also: assume cast!
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
-                # TODO: pattern used here
-                l_cast_ops, l_ssa = self.get_cast(target_type, lhs_ssa_val)
-                if l_ssa is not None:
-                    operations += l_cast_ops
-                    lhs_ssa_val = l_ssa
-
-                # TODO: pattern used here
-                r_cast_ops, r_ssa = self.get_cast(target_type, rhs_ssa_val)
-                if r_ssa is not None:
-                    operations += r_cast_ops
-                    rhs_ssa_val = r_ssa
+                operations, lhs_ssa_val = self.cast_if_needed(target_type, lhs_ssa_val, operations)
+                operations, rhs_ssa_val = self.cast_if_needed(target_type, rhs_ssa_val, operations)
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)
@@ -700,14 +678,11 @@ class PythonToMLIR(ast.NodeVisitor):
             r_val.type,
         )
 
-        l_ops, l_val = self.get_cast(ideal_type, l_val)
-        r_ops, r_val = self.get_cast(ideal_type, r_val)
-        operations += l_ops
-        operations += r_ops
+        operations, l_val = self.cast_if_needed(ideal_type, l_val, operations)
+        operations, r_val = self.cast_if_needed(ideal_type, r_val, operations)
 
         # TODO: handle sint, float comparisons
         op = self._uint_comparison[type(comparison_op)]
-
         operation = arith.CmpiOp(l_val, r_val, op)
 
         return operations + [operation], operation.results[0]
@@ -1052,9 +1027,7 @@ class PythonToMLIR(ast.NodeVisitor):
                     )
 
             if isinstance(types, EqAttrConstraint):
-                ops, ssa = self.get_cast(types.attr, ssa_val)
-                type_cast_ops += ops
-                results[i] = ssa
+                type_cast_ops, results[i] = self.cast_if_needed(types.attr, ssa_val, type_cast_ops)
 
         new_operation = constructor(*(props + results))
         return type_cast_ops + [new_operation]
