@@ -399,7 +399,6 @@ class PythonToMLIR(ast.NodeVisitor):
             seen = var_name in self.symbol_table
             last_op = rhs_ops[-1]
 
-
             # not software engineering
             if (
                 isa(last_op, builtin.UnrealizedConversionCastOp)
@@ -456,7 +455,7 @@ class PythonToMLIR(ast.NodeVisitor):
     def get_cast(
         self, target_type: MLIRType, ssa_val: SSAValue
     ) -> Tuple[List[Operation], SSAValue]:
-        """"
+        """
         Handles conversion between two types directly.
 
         Also unwraps constexpr types when necessary.
@@ -473,23 +472,20 @@ class PythonToMLIR(ast.NodeVisitor):
             # then we need to save the result as a constexpr
             # this is only valid if the second arg is compile-time known
             if target_type.get_element_type() != ssa_val.type:
-                raise TypeError(f"Attempting to cast from {ssa_val.type} to {target_type} which but the target type is a constexpr with a different element type")
+                raise TypeError(
+                    f"Attempting to cast from {ssa_val.type} to {target_type} which but the target type is a constexpr with a different element type"
+                )
 
             wrap = builtin.UnrealizedConversionCastOp(
-                operands=[ssa_val],
-                result_types=[target_type]
+                operands=[ssa_val], result_types=[target_type]
             )
             return [wrap], wrap.results[0]
 
         if isinstance(found_type, ConstExprType):
             unwrap = builtin.UnrealizedConversionCastOp(
-                operands=[ssa_val],
-                result_types=[found_type.get_element_type()]
+                operands=[ssa_val], result_types=[found_type.get_element_type()]
             )
-            ops, ssa = self.get_cast(
-                target_type,
-                unwrap.results[0]
-            )
+            ops, ssa = self.get_cast(target_type, unwrap.results[0])
             return [unwrap] + ops, ssa
 
         # TODO: not strictly correct, should check elem types and lengths
@@ -508,7 +504,7 @@ class PythonToMLIR(ast.NodeVisitor):
                         operands=[ssa_val],
                         result_types=[
                             IntegerType(ssa_val.type.bitwidth, Signedness.SIGNED)
-                        ]
+                        ],
                     )
                     ops, ssa = self.get_cast(target_type, to_si.results[0])
                     return [to_si] + ops, ssa
