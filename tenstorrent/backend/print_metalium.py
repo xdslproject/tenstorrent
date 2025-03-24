@@ -78,6 +78,7 @@ SkipOps = [
     arith.SubiOp,
     arith.SubfOp,
     arith.SIToFPOp,
+    arith.ExtUIOp,
     arith.DivfOp,
     circular_buffer.CBPagesReservableAtBack,
     circular_buffer.CBPagesAvailableAtFront,
@@ -359,6 +360,8 @@ class PrintMetalium:
             self.print_binary_op(expr)
         elif isa(expr, arith.SIToFPOp):
             self.print_cast_to_float(expr)
+        elif isa(expr, arith.ExtUIOp):
+            self.print_cast_integer(expr)
         elif isa(expr, builtin.UnrealizedConversionCastOp):
             self.print_unrealized_conversion_cast(expr, is_expr=True)
         elif isa(expr, arith.IndexCastOp):
@@ -516,6 +519,11 @@ class PrintMetalium:
         self.print_expr(op.operands[0])
         self.print(")")
 
+    def print_cast_integer(self, op):
+        self.print(f"static_cast<{MLIR_TO_CPP_TYPES[op.results[0].type]}>(")
+        self.print_expr(op.operands[0])
+        self.print(")")
+
     def print_tthost_core(self, op):
         self.print("{")
         self.print_expr(op.src_noc_x)
@@ -526,7 +534,7 @@ class PrintMetalium:
     def print_ttget_memory_address(self, op):
         self.print_expr(op.buffer)
         self.print("->address()")
-        
+
     def print_ttget_noc_addr_from_bank_id(self, op):
         if op.results[0] in self._names.keys():
           self.print(self._names[op.results[0]])
@@ -642,7 +650,7 @@ class PrintMetalium:
             self._unique_name_ctr+=1
           if tgt_name.isdigit():
             tgt_name="cb_config_"+tgt_name
-            
+
           assert op.results[0].type in MLIR_TO_CPP_TYPES
           self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=CircularBufferConfig(", indented=True)
           self.print_expr(op.num_buffers)
