@@ -387,9 +387,7 @@ class PythonToMLIR(ast.NodeVisitor):
             assert False
 
         # if the types don't match we need to insert a cast operation
-        operations, rhs_ssa_val = cast_if_needed(
-            target_type, rhs_ssa_val, operations
-        )
+        operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
 
         if isa(dest, ast.Name):
             # create a memref
@@ -510,22 +508,14 @@ class PythonToMLIR(ast.NodeVisitor):
                 rhs_ssa_val.type,
             )
 
-            operations, lhs_ssa_val = cast_if_needed(
-                target_type, lhs_ssa_val, operations
-            )
-            operations, rhs_ssa_val = cast_if_needed(
-                target_type, rhs_ssa_val, operations
-            )
+            operations, lhs_ssa_val = cast_if_needed(lhs_ssa_val, target_type, operations)
+            operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
 
             # special case: if we have a division, we also want to cast
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
-                operations, lhs_ssa_val = cast_if_needed(
-                    target_type, lhs_ssa_val, operations
-                )
-                operations, rhs_ssa_val = cast_if_needed(
-                    target_type, rhs_ssa_val, operations
-                )
+                operations, lhs_ssa_val = cast_if_needed(lhs_ssa_val, target_type, operations)
+                operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)
@@ -597,8 +587,8 @@ class PythonToMLIR(ast.NodeVisitor):
             r_val.type,
         )
 
-        operations, l_val = cast_if_needed(ideal_type, l_val, operations)
-        operations, r_val = cast_if_needed(ideal_type, r_val, operations)
+        operations, l_val = cast_if_needed(l_val, ideal_type, operations)
+        operations, r_val = cast_if_needed(r_val, ideal_type, operations)
 
         # TODO: handle sint, float comparisons
         op = self._uint_comparison[type(comparison_op)]
@@ -938,7 +928,7 @@ class PythonToMLIR(ast.NodeVisitor):
                 matched = False
                 for target_type in types.attr_constrs:
                     try:
-                        ops, ssa = get_cast(target_type.attr, ssa_val)
+                        ops, ssa = get_cast(ssa_val, target_type.attr)
                         matched = True
                         type_cast_ops += ops
                         results[i] = ssa
@@ -952,9 +942,7 @@ class PythonToMLIR(ast.NodeVisitor):
                     )
 
             if isinstance(types, EqAttrConstraint):
-                type_cast_ops, results[i] = cast_if_needed(
-                    types.attr, ssa_val, type_cast_ops
-                )
+                type_cast_ops, results[i] = cast_if_needed(ssa_val, types.attr, type_cast_ops)
 
         new_operation = constructor(*(props + results))
         return type_cast_ops + [new_operation]

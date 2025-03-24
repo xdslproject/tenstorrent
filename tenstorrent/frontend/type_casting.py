@@ -9,19 +9,19 @@ from .type_checker import MLIRType
 
 
 
-def cast_if_needed(target_type: MLIRType, ssa: SSAValue, ops) -> Tuple[List[Operation], SSAValue]:
+def cast_if_needed(ssa: SSAValue, target_type: MLIRType, ops) -> Tuple[List[Operation], SSAValue]:
     """
     Uses self.get_cast, but returns new values only if needed, otherwise just
     returns the old values
     """
-    cast_ops, cast_ssa = get_cast(target_type, ssa)
+    cast_ops, cast_ssa = get_cast(ssa, target_type)
     if cast_ssa is not None:
         return ops + cast_ops, cast_ssa
 
     return ops, ssa
 
 
-def get_cast(target_type: MLIRType, ssa: SSAValue) -> Tuple[List[Operation], SSAValue]:
+def get_cast(ssa: SSAValue, target_type: MLIRType) -> Tuple[List[Operation], SSAValue]:
     """
     Handles conversion between two types directly.
 
@@ -49,7 +49,7 @@ def get_cast(target_type: MLIRType, ssa: SSAValue) -> Tuple[List[Operation], SSA
         unwrap = builtin.UnrealizedConversionCastOp(
             operands=[ssa], result_types=[found_type.get_element_type()]
         )
-        ops, ssa = get_cast(target_type, unwrap.results[0])
+        ops, ssa = get_cast(unwrap.results[0], target_type)
         return [unwrap] + ops, ssa
 
     # TODO: not strictly correct, should check elem types and lengths
@@ -74,7 +74,7 @@ def get_cast(target_type: MLIRType, ssa: SSAValue) -> Tuple[List[Operation], SSA
                         IntegerType(ssa.type.bitwidth, Signedness.SIGNED)
                     ],
                 )
-                ops, ssa = get_cast(target_type, to_si.results[0])
+                ops, ssa = get_cast(to_si.results[0], target_type)
                 return [to_si] + ops, ssa
 
         # cast: int -> index
