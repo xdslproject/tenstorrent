@@ -743,11 +743,16 @@ class PrintMetalium:
         self.print(f"\n{return_type} {func_op.sym_name.data}(", indented=True)
 
         if not is_tt_kernel:
-            for idx, input in enumerate(func_op.function_type.inputs):
-                type_decl = MLIR_TO_CPP_TYPES[input]
+            for idx, input_type in enumerate(func_op.function_type.inputs):
+                is_ref=isa(input_type, builtin.MemRefType)
+                if is_ref:
+                  input_type=input_type.element_type
+                  if isa(input_type, builtin.MemRefType): input_type=input_type.element_type
+
+                type_decl = MLIR_TO_CPP_TYPES[input_type]
                 if idx > 0:
                     self.print(", ")
-                self.print(f"{type_decl} fn_arg_{idx}")
+                self.print(f"{type_decl}{'*' if is_ref else ''} fn_arg_{idx}")
 
         self.print(") {", end="\n")
 
