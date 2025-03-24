@@ -21,6 +21,22 @@ def cast_if_needed(ssa: SSAValue, target_type: MLIRType, ops) -> Tuple[List[Oper
     return ops, ssa
 
 
+def wrap_into_constexpr(ssa: SSAValue, target_type: ConstExprType) -> Tuple[List[Operation], SSAValue]:
+    t1 = ssa.type
+    t2 = target_type.get_element_type()
+    if t1 != t2:
+        raise TypeError(
+            f"Attempting to cast from {t1} to {target_type}"
+            f" but mismatching element types: {t1} and {t2}"
+        )
+
+    wrap = builtin.UnrealizedConversionCastOp(
+        operands=[ssa], result_types=[target_type]
+    )
+    return [wrap], wrap.results[0]
+
+
+
 def get_cast(ssa: SSAValue, target_type: MLIRType) -> Tuple[List[Operation], SSAValue]:
     """
     Handles conversion between two types directly.
@@ -32,18 +48,7 @@ def get_cast(ssa: SSAValue, target_type: MLIRType) -> Tuple[List[Operation], SSA
         return [], ssa
 
     if isinstance(target_type, ConstExprType):
-        # wrap the result of a ConstExprType expression back into a ConstExprType
-        if target_type.get_element_type() != ssa.type:
-            raise TypeError(
-                f"Attempting to cast from {ssa.type} to {target_type}"
-                f" which but the target type is a constexpr"
-                f" with a different element type"
-            )
-
-        wrap = builtin.UnrealizedConversionCastOp(
-            operands=[ssa], result_types=[target_type]
-        )
-        return [wrap], wrap.results[0]
+        return wrap_into_constexpr(ssa, target_type)
 
     if isinstance(found_type, ConstExprType):
         unwrap = builtin.UnrealizedConversionCastOp(
