@@ -36,6 +36,13 @@ def wrap_into_constexpr(ssa: SSAValue, target_type: ConstExprType) -> Tuple[List
     return [wrap], wrap.results[0]
 
 
+def unwrap_from_constexpr(ssa: SSAValue, target_type) -> Tuple[List[Operation], SSAValue]:
+    unwrap = builtin.UnrealizedConversionCastOp(
+        operands=[ssa], result_types=[ssa.type.get_element_type()]
+    )
+    ops, ssa = get_cast(unwrap.results[0], target_type)
+    return [unwrap] + ops, ssa
+
 
 def get_cast(ssa: SSAValue, target_type: MLIRType) -> Tuple[List[Operation], SSAValue]:
     """
@@ -51,11 +58,7 @@ def get_cast(ssa: SSAValue, target_type: MLIRType) -> Tuple[List[Operation], SSA
         return wrap_into_constexpr(ssa, target_type)
 
     if isinstance(found_type, ConstExprType):
-        unwrap = builtin.UnrealizedConversionCastOp(
-            operands=[ssa], result_types=[found_type.get_element_type()]
-        )
-        ops, ssa = get_cast(unwrap.results[0], target_type)
-        return [unwrap] + ops, ssa
+        return unwrap_from_constexpr(ssa, target_type)
 
     # TODO: not strictly correct, should check elem types and lengths
     # TODO: there is an xDSL function for this... use it!
