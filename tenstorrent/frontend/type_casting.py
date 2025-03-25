@@ -1,15 +1,16 @@
 from typing import List, Tuple
 
-from xdsl.dialects.builtin import Operation, SSAValue, MemRefType, IndexType, IntegerType, Signedness, Float32Type
+from xdsl.dialects.builtin import Operation, SSAValue, MemRefType, IndexType, IntegerType, Signedness, Float32Type, \
+    ContainerType
 from xdsl.dialects import builtin, arith
-from xdsl.utils.hints import isa
+from xdsl.ir.core import Attribute
+from xdsl.utils.type import have_compatible_shape, get_element_type_or_self
 
 from tenstorrent.dialects import ConstExprType
-from .type_checker import MLIRType
 
 
 
-def cast_if_needed(ssa: SSAValue, target_type: MLIRType, ops) -> Tuple[List[Operation], SSAValue]:
+def cast_if_needed(ssa: SSAValue, target_type: Attribute, ops) -> Tuple[List[Operation], SSAValue]:
     """
     Uses self.get_cast, but returns new values only if needed, otherwise just
     returns the old values
@@ -44,7 +45,38 @@ def unwrap_from_constexpr(ssa: SSAValue, target_type) -> Tuple[List[Operation], 
     return [unwrap] + ops, ssa
 
 
-def get_cast(ssa: SSAValue, target_type: MLIRType) -> Tuple[List[Operation], SSAValue]:
+def cast_between_containers(ssa: SSAValue, target_type: ContainerType) -> Tuple[List[Operation], SSAValue]:
+    if ssa.type.get_element_type() == target_type.get_element_type():
+        return [], ssa
+
+    raise TypeError(
+        "Found two container types with"
+        f" unimplemented cast between them: {ssa.type}, {target_type}"
+    )
+
+
+def cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
+    found_type = ssa.type
+    if isinstance(found_type, ContainerType) and isinstance(target_type, ContainerType):
+        return cast_between_containers(ssa, target_type)
+
+    if isinstance(target_type, ConstExprType):
+        return wrap_into_constexpr(ssa, target_type)
+
+    if isinstance(found_type, ConstExprType):
+        return unwrap_from_constexpr(ssa, target_type)
+
+    # handles MemRefTypes and things, after ConstExprs already been handled
+    if not have_compatible_shape(ssa.type, target_type):
+        raise TypeError(
+            "Incompatible shapes to cast between found type:"
+            f" {ssa.type}, and target type: {target_type}"
+        )
+
+    raise NotImplementedError(f"Unimplemented cast: {found_type} -> {target_type}")
+
+
+def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
     """
     Handles conversion between two types directly.
 
@@ -54,16 +86,8 @@ def get_cast(ssa: SSAValue, target_type: MLIRType) -> Tuple[List[Operation], SSA
     if target_type == found_type:
         return [], ssa
 
-    if isinstance(target_type, ConstExprType):
-        return wrap_into_constexpr(ssa, target_type)
-
-    if isinstance(found_type, ConstExprType):
-        return unwrap_from_constexpr(ssa, target_type)
-
-    # TODO: not strictly correct, should check elem types and lengths
-    # TODO: there is an xDSL function for this... use it!
-    if isa(target_type, MemRefType) and isa(ssa.type, MemRefType):
-        return [], ssa
+    if isinstance(found_type, ContainerType) or isinstance(target_type, ContainerType):
+        return cast_with_container(ssa, target_type)
 
     if isinstance(ssa.type, IntegerType):
         # cast: int -> float
