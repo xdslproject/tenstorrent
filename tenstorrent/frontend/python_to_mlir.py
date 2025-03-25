@@ -17,7 +17,6 @@ from xdsl.utils.hints import isa
 from tenstorrent.dialects import *
 from tenstorrent.utils import flatten, remove_duplicates, subtract
 from .dummy import *
-from .type_checker import MLIRType
 from .type_casting import get_cast, cast_if_needed
 
 from enum import Enum
@@ -88,7 +87,7 @@ class PythonToMLIR(ast.NodeVisitor):
         }
 
         self._operations: Dict[
-            MLIRType, Dict[type(ast.operator), type(IRDLOperation)]
+            Attribute, Dict[type(ast.operator), type(IRDLOperation)]
         ] = {
             IntegerType(32): {
                 ast.Add: arith.AddiOp,

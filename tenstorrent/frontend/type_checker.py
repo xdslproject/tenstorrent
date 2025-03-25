@@ -12,8 +12,6 @@ from xdsl.dialects.builtin import (
 from .dummy import *
 from tenstorrent.dialects import *
 
-MLIRType = IntegerType | Float32Type | IndexType | MemRefType | NoneType | ConstExprType
-
 TYPE_STR_TO_MLIR_TYPE = {
     "int": IntegerType(32),
     "uint16": IntegerType(16),
@@ -28,7 +26,7 @@ def types_equal(a, b) -> bool:
 
 class TypeChecker(ast.NodeVisitor):
     def __init__(self):
-        self.types: Dict[str, MLIRType] = {
+        self.types: Dict[str, Attribute] = {
             cb_push_back.__name__: NoneType(),
             cb_wait_front.__name__: NoneType(),
             cb_pop_front.__name__: NoneType(),
@@ -230,7 +228,7 @@ class TypeChecker(ast.NodeVisitor):
     #  let constexpr dominate, let biggest bitwidth dominate,
     #  and further let floating point dominate
     @staticmethod
-    def dominating_type(a, b) -> MLIRType:
+    def dominating_type(a, b) -> Attribute:
         """
         Returns the dominating type, unwrapping ConstExprType if needed
         """
@@ -259,7 +257,7 @@ class TypeChecker(ast.NodeVisitor):
         return False
 
     @staticmethod
-    def unwrap(a) -> MLIRType:
+    def unwrap(a) -> Attribute:
         # TODO: xDSL has a method for this right..? Use it!
         if isinstance(a, ContainerType):
             return a.get_element_type()
@@ -314,10 +312,10 @@ class TypeChecker(ast.NodeVisitor):
         else:
             assert False
 
-    def visit_UnaryOp(self, node) -> MLIRType:
+    def visit_UnaryOp(self, node) -> Attribute:
         return self.visit(node.operand)
 
-    def visit_BinOp(self, node: ast.BinOp) -> MLIRType:
+    def visit_BinOp(self, node: ast.BinOp) -> Attribute:
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
         constexpr = TypeChecker.one_is_constexpr(left_type, right_type)
@@ -340,10 +338,10 @@ class TypeChecker(ast.NodeVisitor):
         # evaluatable at compile-time
         return ConstExprType(runtime_type) if constexpr else runtime_type
 
-    def visit_Expr(self, node) -> MLIRType:
+    def visit_Expr(self, node) -> Attribute:
         return self.visit(node.value)
 
-    def visit_Call(self, node: ast.Call) -> MLIRType:
+    def visit_Call(self, node: ast.Call) -> Attribute:
         if isa(node.func, ast.Attribute):
             name = node.func.attr
         else:
