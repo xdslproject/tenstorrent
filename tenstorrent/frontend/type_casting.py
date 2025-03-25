@@ -77,7 +77,21 @@ def cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Ope
 
 
 def cast_from_int_to_float(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
-    pass
+    signedness = ssa.type.signedness.data
+
+    if signedness in [Signedness.SIGNED, Signedness.SIGNLESS]:
+        op = arith.SIToFPOp(ssa, target_type)
+        return [op], op.results[0]
+
+    # else unsigned, cast to signed first
+    to_si = builtin.UnrealizedConversionCastOp(
+        operands=[ssa],
+        result_types=[
+            IntegerType(ssa.type.bitwidth, Signedness.SIGNED)
+        ],
+    )
+    ops, ssa = get_cast(to_si.results[0], target_type)
+    return [to_si] + ops, ssa
 
 
 def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
@@ -94,24 +108,7 @@ def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SS
         return cast_with_container(ssa, target_type)
 
     if isinstance(ssa.type, IntegerType) and isinstance(target_type, AnyFloat):
-        # cast: int -> float
-        if target_type == Float32Type():
-            op_sign = ssa.type.signedness.data
-
-            if op_sign in [Signedness.SIGNED, Signedness.SIGNLESS]:
-                conv_op = arith.SIToFPOp(ssa, target_type)
-                return [conv_op], conv_op.results[0]
-
-            # first cast to signed, then recurse
-            elif op_sign == Signedness.UNSIGNED:
-                to_si = builtin.UnrealizedConversionCastOp(
-                    operands=[ssa],
-                    result_types=[
-                        IntegerType(ssa.type.bitwidth, Signedness.SIGNED)
-                    ],
-                )
-                ops, ssa = get_cast(to_si.results[0], target_type)
-                return [to_si] + ops, ssa
+        return cast_from_int_to_float(ssa, target_type)
 
     # cast: int -> index
     if isinstance(found_type, IntegerType) and target_type == IndexType():
