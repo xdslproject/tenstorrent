@@ -22,7 +22,7 @@ def cast_if_needed(ssa: SSAValue, target_type: Attribute, ops) -> Tuple[List[Ope
     return ops, ssa
 
 
-def wrap_into_constexpr(ssa: SSAValue, target_type: ConstExprType) -> Tuple[List[Operation], SSAValue]:
+def _wrap_into_constexpr(ssa: SSAValue, target_type: ConstExprType) -> Tuple[List[Operation], SSAValue]:
     t1 = ssa.type
     t2 = target_type.get_element_type()
     if t1 != t2:
@@ -37,7 +37,7 @@ def wrap_into_constexpr(ssa: SSAValue, target_type: ConstExprType) -> Tuple[List
     return [wrap], wrap.results[0]
 
 
-def unwrap_from_constexpr(ssa: SSAValue, target_type) -> Tuple[List[Operation], SSAValue]:
+def _unwrap_from_constexpr(ssa: SSAValue, target_type) -> Tuple[List[Operation], SSAValue]:
     unwrap = builtin.UnrealizedConversionCastOp(
         operands=[ssa], result_types=[ssa.type.get_element_type()]
     )
@@ -45,7 +45,7 @@ def unwrap_from_constexpr(ssa: SSAValue, target_type) -> Tuple[List[Operation], 
     return [unwrap] + ops, ssa
 
 
-def cast_between_containers(ssa: SSAValue, target_type: ContainerType) -> Tuple[List[Operation], SSAValue]:
+def _cast_between_containers(ssa: SSAValue, target_type: ContainerType) -> Tuple[List[Operation], SSAValue]:
     if ssa.type.get_element_type() == target_type.get_element_type():
         return [], ssa
 
@@ -55,16 +55,16 @@ def cast_between_containers(ssa: SSAValue, target_type: ContainerType) -> Tuple[
     )
 
 
-def cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
+def _cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
     found_type = ssa.type
     if isinstance(found_type, ContainerType) and isinstance(target_type, ContainerType):
-        return cast_between_containers(ssa, target_type)
+        return _cast_between_containers(ssa, target_type)
 
     if isinstance(target_type, ConstExprType):
-        return wrap_into_constexpr(ssa, target_type)
+        return _wrap_into_constexpr(ssa, target_type)
 
     if isinstance(found_type, ConstExprType):
-        return unwrap_from_constexpr(ssa, target_type)
+        return _unwrap_from_constexpr(ssa, target_type)
 
     # handles MemRefTypes and things, after ConstExprs already been handled
     if not have_compatible_shape(ssa.type, target_type):
@@ -76,7 +76,7 @@ def cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Ope
     raise NotImplementedError(f"Unimplemented cast: {found_type} -> {target_type}")
 
 
-def cast_from_int_to_float(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
+def _cast_from_int_to_float(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
     signedness = ssa.type.signedness.data
 
     if signedness in [Signedness.SIGNED, Signedness.SIGNLESS]:
@@ -105,10 +105,10 @@ def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SS
         return [], ssa
 
     if isinstance(found_type, ContainerType) or isinstance(target_type, ContainerType):
-        return cast_with_container(ssa, target_type)
+        return _cast_with_container(ssa, target_type)
 
     if isinstance(ssa.type, IntegerType) and isinstance(target_type, AnyFloat):
-        return cast_from_int_to_float(ssa, target_type)
+        return _cast_from_int_to_float(ssa, target_type)
 
     # cast: int -> index
     if isinstance(found_type, IntegerType) and target_type == IndexType():
@@ -116,6 +116,7 @@ def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SS
         return [conv_op], conv_op.results[0]
 
     # from here casting between two integer types
+    # TODO: this feels like a bug, casting to generic "IntegerType"
     if isinstance(found_type, IntegerType) and target_type == IntegerType:
         return [], ssa
 
@@ -126,7 +127,7 @@ def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SS
         #  i32 -> ui8 => (i32 -> ui32 -> ui8) or (i32 -> i8 -> ui8)
         pass
 
-    if isinstance(found_type, IntegerType) and target_type.bitwidth == 32 and ssa.type.bitwidth == 32:
+    if isinstance(found_type, IntegerType) and target_type.bitwidth == ssa.type.bitwidth:
         conv_op = builtin.UnrealizedConversionCastOp(
             operands=[ssa], result_types=[target_type]
         )
