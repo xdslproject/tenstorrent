@@ -1,10 +1,10 @@
 from typing import List, Tuple
 
 from xdsl.dialects.builtin import Operation, SSAValue, MemRefType, IndexType, IntegerType, Signedness, Float32Type, \
-    ContainerType
+    ContainerType, AnyFloat
 from xdsl.dialects import builtin, arith
 from xdsl.ir.core import Attribute
-from xdsl.utils.type import have_compatible_shape, get_element_type_or_self
+from xdsl.utils.type import have_compatible_shape
 
 from tenstorrent.dialects import ConstExprType
 
@@ -76,6 +76,10 @@ def cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Ope
     raise NotImplementedError(f"Unimplemented cast: {found_type} -> {target_type}")
 
 
+def cast_from_int_to_float(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
+    pass
+
+
 def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
     """
     Handles conversion between two types directly.
@@ -89,7 +93,7 @@ def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SS
     if isinstance(found_type, ContainerType) or isinstance(target_type, ContainerType):
         return cast_with_container(ssa, target_type)
 
-    if isinstance(ssa.type, IntegerType):
+    if isinstance(ssa.type, IntegerType) and isinstance(target_type, AnyFloat):
         # cast: int -> float
         if target_type == Float32Type():
             op_sign = ssa.type.signedness.data
@@ -109,32 +113,27 @@ def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SS
                 ops, ssa = get_cast(to_si.results[0], target_type)
                 return [to_si] + ops, ssa
 
-        # cast: int -> index
-        elif target_type == IndexType():
-            conv_op = arith.IndexCastOp(ssa, IndexType())
-            return [conv_op], conv_op.results[0]
+    # cast: int -> index
+    if isinstance(found_type, IntegerType) and target_type == IndexType():
+        conv_op = arith.IndexCastOp(ssa, IndexType())
+        return [conv_op], conv_op.results[0]
 
-        # from here casting between two integer types
-        elif target_type == IntegerType:
-            return [], ssa
+    # from here casting between two integer types
+    if isinstance(found_type, IntegerType) and target_type == IntegerType:
+        return [], ssa
 
-        elif target_type.bitwidth != ssa.type.bitwidth:
-            # TODO: No MLIR OP for casting downwards on bitwidths afaik
-            #  if expanding: ___, if decreasing: ___
-            #  also have to decide order of casting, e.g.
-            #  i32 -> ui8 => (i32 -> ui32 -> ui8) or (i32 -> i8 -> ui8)
-            pass
+    if isinstance(found_type, IntegerType) and target_type.bitwidth != ssa.type.bitwidth:
+        # TODO: No MLIR OP for casting downwards on bitwidths afaik
+        #  if expanding: ___, if decreasing: ___
+        #  also have to decide order of casting, e.g.
+        #  i32 -> ui8 => (i32 -> ui32 -> ui8) or (i32 -> i8 -> ui8)
+        pass
 
-        elif target_type.bitwidth == 32 and ssa.type.bitwidth == 32:
-            conv_op = builtin.UnrealizedConversionCastOp(
-                operands=[ssa], result_types=[target_type]
-            )
-            return [conv_op], conv_op.results[0]
-
-        else:
-            raise NotImplementedError(
-                f"Unsupported type cast from {ssa.type}: {target_type}"
-            )
+    if isinstance(found_type, IntegerType) and target_type.bitwidth == 32 and ssa.type.bitwidth == 32:
+        conv_op = builtin.UnrealizedConversionCastOp(
+            operands=[ssa], result_types=[target_type]
+        )
+        return [conv_op], conv_op.results[0]
 
     raise NotImplementedError(
         f"Unsupported type cast {ssa.type} to {target_type}"
