@@ -1,5 +1,13 @@
 from xdsl.dialects.builtin import Signedness
-from xdsl.ir import Block, Region, OpResult, Attribute, SSAValue, BlockArgument, Operation
+from xdsl.ir import (
+    Block,
+    Region,
+    OpResult,
+    Attribute,
+    SSAValue,
+    BlockArgument,
+    Operation,
+)
 from xdsl.irdl import IRDLOperation
 
 from xdsl.utils.hints import isa
@@ -136,7 +144,7 @@ class PrintMetalium:
         self._file = file
         self._names = {}  # SSAVal -> Variable Name
         self._free_end_of_fn = []
-        self._unique_name_ctr=0
+        self._unique_name_ctr = 0
 
         self._kernel_type = []
         self._skip_next_op = False
@@ -240,7 +248,9 @@ class PrintMetalium:
             self.print_ttcreate_buffer(operation)
         elif isa(operation, host.TTCreateCircularBuffer):
             self.print_ttcreate_circular_buffer(operation)
-        elif isa(operation, host.TTCreateKernel) or isa(operation, host.TTCreateComputeKernel):
+        elif isa(operation, host.TTCreateKernel) or isa(
+            operation, host.TTCreateComputeKernel
+        ):
             self.print_ttcreate_kernel(operation)
         elif isa(operation, circular_buffer.CBGetWritePointer):
             self.print_cb_get_write_pointer(operation)
@@ -473,37 +483,41 @@ class PrintMetalium:
 
     def print_cb_get_write_pointer(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="write_ptr_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True)
-          self.print("get_write_ptr(")
-          self.print_expr(op.cb_id)
-          self.print(");", end='\n')
-          self._names[op.results[0]]=tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "write_ptr_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True
+            )
+            self.print("get_write_ptr(")
+            self.print_expr(op.cb_id)
+            self.print(");", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_cb_get_read_pointer(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="read_ptr_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True)
-          self.print("get_read_ptr(")
-          self.print_expr(op.cb_id)
-          self.print(");", end='\n')
-          self._names[op.results[0]]=tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "read_ptr_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True
+            )
+            self.print("get_read_ptr(")
+            self.print_expr(op.cb_id)
+            self.print(");", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_load_variable(self, op):
         self.print(op.memref.name_hint)
@@ -537,98 +551,111 @@ class PrintMetalium:
 
     def print_ttget_noc_addr_from_bank_id(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="noc_addr_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True)
-          self.print_tt_operation_generic(op, False)
-          self.print(";", end='\n')
-          self._names[op.results[0]]=tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "noc_addr_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True
+            )
+            self.print_tt_operation_generic(op, False)
+            self.print(";", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_ttcreate_kernel(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="kernel_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateKernel(", indented=True)
-          self.print_expr(op.program)
-          self.print(f", {op.kernel_name}, ")
-          self.print_expr(op.core)
-          self.print(", ")
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "kernel_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateKernel(",
+                indented=True,
+            )
+            self.print_expr(op.program)
+            self.print(f", {op.kernel_name}, ")
+            self.print_expr(op.core)
+            self.print(", ")
 
-          rv_core_flag = list(op.riscv_core.flags)[0]
-          if (
-              rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0
-              or rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_1
-          ):
-              self.print("DataMovementConfig{.processor = DataMovementProcessor::RISCV_")
-              if rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0:
-                  self.print("0")
-              else:
-                  self.print("1")
+            rv_core_flag = list(op.riscv_core.flags)[0]
+            if (
+                rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0
+                or rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_1
+            ):
+                self.print(
+                    "DataMovementConfig{.processor = DataMovementProcessor::RISCV_"
+                )
+                if rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0:
+                    self.print("0")
+                else:
+                    self.print("1")
 
-              self.print(f", .noc=NOC::RISCV_{op.noc_id.data}_default}}")
+                self.print(f", .noc=NOC::RISCV_{op.noc_id.data}_default}}")
 
-          if rv_core_flag == host.RISCVCoreFlags.COMPUTE:
-              a = "ComputeConfig {"
-              b = f".math_fidelity = MathFidelity::{op.math_fidelity.data[0].value}, "
-              c = f".fp32_dest_acc_en = {str(bool(op.fp32_dest_acc_en.value.data)).lower()}, "
-              d = f".math_approx_mode = {str(bool(op.math_approx_mode.value.data)).lower()}, "
-              e = ".compile_args = {}"
-              f = "}"
-              for s in [a, b, c, d, e, f]:
-                  self.print(s)
+            if rv_core_flag == host.RISCVCoreFlags.COMPUTE:
+                a = "ComputeConfig {"
+                b = f".math_fidelity = MathFidelity::{op.math_fidelity.data[0].value}, "
+                c = f".fp32_dest_acc_en = {str(bool(op.fp32_dest_acc_en.value.data)).lower()}, "
+                d = f".math_approx_mode = {str(bool(op.math_approx_mode.value.data)).lower()}, "
+                e = ".compile_args = {}"
+                f = "}"
+                for s in [a, b, c, d, e, f]:
+                    self.print(s)
 
-          self.print(");", end='\n')
-          self._names[op.results[0]]=tgt_name
+            self.print(");", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_ttcreate_circular_buffer(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="cb_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = tt_metal::CreateCircularBuffer(", indented=True)
-          self.print_expr(op.program)
-          self.print(", ")
-          self.print_expr(op.core)
-          self.print(", ")
-          self.print_expr(op.config)
-          self.print(");", end='\n')
-          self._names[op.results[0]]=tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "cb_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = tt_metal::CreateCircularBuffer(",
+                indented=True,
+            )
+            self.print_expr(op.program)
+            self.print(", ")
+            self.print_expr(op.core)
+            self.print(", ")
+            self.print_expr(op.config)
+            self.print(");", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_ttcreate_buffer(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="buffer_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateBuffer(", indented=True)
-          self.print_expr(op.config)
-          self.print(");", end='\n')
-          self._names[op.results[0]]=tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "buffer_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateBuffer(",
+                indented=True,
+            )
+            self.print_expr(op.config)
+            self.print(");", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_ttcreate_dram_config(self, op):
         self.print("{")
@@ -642,71 +669,83 @@ class PrintMetalium:
 
     def print_ttcreate_cb_config(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="cb_config_"+tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "cb_config_" + tgt_name
 
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CircularBufferConfig(", indented=True)
-          self.print_expr(op.num_buffers)
-          self.print("*")
-          self.print_expr(op.page_size)
-          self.print(", {{")
-          self.print_expr(op.cb_index)
-          assert op.data_type.data in TYPE_STR_TO_TT_DATA_FORMAT
-          self.print(
-              ", tt::DataFormat::"
-              + TYPE_STR_TO_TT_DATA_FORMAT[op.data_type.data]
-              + "}}).set_page_size("
-          )
-          self.print_expr(op.cb_index)
-          self.print(", ")
-          self.print_expr(op.page_size)
-          self.print(");", end='\n')
-          self._names[op.results[0]]=tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CircularBufferConfig(",
+                indented=True,
+            )
+            self.print_expr(op.num_buffers)
+            self.print("*")
+            self.print_expr(op.page_size)
+            self.print(", {{")
+            self.print_expr(op.cb_index)
+            assert op.data_type.data in TYPE_STR_TO_TT_DATA_FORMAT
+            self.print(
+                ", tt::DataFormat::"
+                + TYPE_STR_TO_TT_DATA_FORMAT[op.data_type.data]
+                + "}}).set_page_size("
+            )
+            self.print_expr(op.cb_index)
+            self.print(", ")
+            self.print_expr(op.page_size)
+            self.print(");", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_ttcreate_device(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="device_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateDevice(", indented=True)
-          self.print_expr(op.index)
-          self.print(");", end='\n')
-          self._names[op.results[0]]=tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "device_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateDevice(",
+                indented=True,
+            )
+            self.print_expr(op.index)
+            self.print(");", end="\n")
+            self._names[op.results[0]] = tgt_name
 
     def print_ttcreate_program(self, op):
         if op.results[0] in self._names.keys():
-          self.print(self._names[op.results[0]])
+            self.print(self._names[op.results[0]])
         else:
-          tgt_name=op.results[0].name_hint
-          if tgt_name is None or tgt_name in self._names.values():
-            tgt_name=str(self._unique_name_ctr)
-            self._unique_name_ctr+=1
-          if tgt_name.isdigit():
-            tgt_name="program_"+tgt_name
-          assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateProgram();", indented=True, end='\n')
-          self._names[op.results[0]]=tgt_name
+            tgt_name = op.results[0].name_hint
+            if tgt_name is None or tgt_name in self._names.values():
+                tgt_name = str(self._unique_name_ctr)
+                self._unique_name_ctr += 1
+            if tgt_name.isdigit():
+                tgt_name = "program_" + tgt_name
+            assert op.results[0].type in MLIR_TO_CPP_TYPES
+            self.print(
+                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateProgram();",
+                indented=True,
+                end="\n",
+            )
+            self._names[op.results[0]] = tgt_name
 
     def print_ttget_command_queue(self, op):
-        assert isa(op.device.owner, memref.LoadOp) or isa(op.device.owner, host.TTCreateDevice)
+        assert isa(op.device.owner, memref.LoadOp) or isa(
+            op.device.owner, host.TTCreateDevice
+        )
         if isa(op.device.owner, memref.LoadOp):
-          self.print(f"{op.device.owner.memref.name_hint}->command_queue()")
+            self.print(f"{op.device.owner.memref.name_hint}->command_queue()")
         elif isa(op.device.owner, host.TTCreateDevice):
-          self.print_expr(op.device)
-          self.print("->command_queue()")
+            self.print_expr(op.device)
+            self.print("->command_queue()")
 
     def print_binary_op(self, op):
         if isinstance(op, arith.ComparisonOperation):
@@ -744,10 +783,11 @@ class PrintMetalium:
 
         if not is_tt_kernel:
             for idx, input_type in enumerate(func_op.function_type.inputs):
-                is_ref=isa(input_type, builtin.MemRefType)
+                is_ref = isa(input_type, builtin.MemRefType)
                 if is_ref:
-                  input_type=input_type.element_type
-                  if isa(input_type, builtin.MemRefType): input_type=input_type.element_type
+                    input_type = input_type.element_type
+                    if isa(input_type, builtin.MemRefType):
+                        input_type = input_type.element_type
 
                 type_decl = MLIR_TO_CPP_TYPES[input_type]
                 if idx > 0:
