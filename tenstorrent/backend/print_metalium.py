@@ -482,7 +482,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="write_ptr_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True)
           self.print("get_write_ptr(")
           self.print_expr(op.cb_id)
           self.print(");", end='\n')
@@ -499,7 +499,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="read_ptr_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True)
           self.print("get_read_ptr(")
           self.print_expr(op.cb_id)
           self.print(");", end='\n')
@@ -546,7 +546,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="noc_addr_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True)
           self.print_tt_operation_generic(op, False)
           self.print(";", end='\n')
           self._names[op.results[0]]=tgt_name
@@ -562,7 +562,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="kernel_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=CreateKernel(", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateKernel(", indented=True)
           self.print_expr(op.program)
           self.print(f", {op.kernel_name}, ")
           self.print_expr(op.core)
@@ -605,7 +605,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="cb_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=tt_metal::CreateCircularBuffer(", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = tt_metal::CreateCircularBuffer(", indented=True)
           self.print_expr(op.program)
           self.print(", ")
           self.print_expr(op.core)
@@ -625,7 +625,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="buffer_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=CreateBuffer(", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateBuffer(", indented=True)
           self.print_expr(op.config)
           self.print(");", end='\n')
           self._names[op.results[0]]=tgt_name
@@ -652,7 +652,7 @@ class PrintMetalium:
             tgt_name="cb_config_"+tgt_name
 
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=CircularBufferConfig(", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CircularBufferConfig(", indented=True)
           self.print_expr(op.num_buffers)
           self.print("*")
           self.print_expr(op.page_size)
@@ -681,7 +681,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="device_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=CreateDevice(", indented=True)
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateDevice(", indented=True)
           self.print_expr(op.index)
           self.print(");", end='\n')
           self._names[op.results[0]]=tgt_name
@@ -697,7 +697,7 @@ class PrintMetalium:
           if tgt_name.isdigit():
             tgt_name="program_"+tgt_name
           assert op.results[0].type in MLIR_TO_CPP_TYPES
-          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name}=CreateProgram();", indented=True, end='\n')
+          self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateProgram();", indented=True, end='\n')
           self._names[op.results[0]]=tgt_name
 
     def print_ttget_command_queue(self, op):
