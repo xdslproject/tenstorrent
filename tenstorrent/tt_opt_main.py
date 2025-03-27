@@ -8,6 +8,7 @@ from tenstorrent.dialects.circular_buffer import CircularBuffer
 from tenstorrent.dialects.compute import Compute
 from tenstorrent.dialects.host import TTHost
 from tenstorrent.backend.print_metalium import PrintMetalium
+from tenstorrent.transforms.linalg_to_tt import RewriteMatmulToTT
 
 
 class TTOptMain(xDSLOptMain):
@@ -15,6 +16,7 @@ class TTOptMain(xDSLOptMain):
 
     def register_all_passes(self):
         super().register_all_passes()
+        self.register_pass(RewriteMatmulToTT.name, lambda: RewriteMatmulToTT)
 
     def register_all_targets(self):
         super().register_all_targets()

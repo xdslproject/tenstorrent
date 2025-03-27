@@ -1,6 +1,6 @@
 from xdsl.dialects.builtin import IntegerType, Signedness, i1, IntegerAttr, i32
 from xdsl.ir import SSAValue, Operation, Dialect
-from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, prop_def
+from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, prop_def, opt_operand_def
 
 uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
 uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
@@ -460,7 +460,7 @@ class Matmul(IRDLOperation):
     tile0 = operand_def(uint32)
     tile1 = operand_def(uint32)
     dst = operand_def(uint32)
-    transpose = operand_def(uint32)
+    transpose = opt_operand_def(uint32)
 
     def __init__(
         self,
@@ -469,7 +469,7 @@ class Matmul(IRDLOperation):
         tile0: SSAValue | Operation,
         tile1: SSAValue | Operation,
         dst: SSAValue | Operation,
-        transpose: SSAValue | Operation,
+        transpose: SSAValue | Operation = None,
     ):
         super().__init__(operands=[cb0, cb1, tile0, tile1, dst, transpose])
 
