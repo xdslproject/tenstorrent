@@ -28,5 +28,5 @@ def add_two_int_tiles():
     tt.regs_release()  # and release here
 
     tt.cb_pop_front(cb0, 1)
-    tt.cb_pop_front(cb1, 2)
-    tt.cb_push_back(cb0, 1)
+    tt.cb_pop_front(cb1, 1)
+    tt.cb_push_back(cb_out, 1)

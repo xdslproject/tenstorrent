@@ -29,7 +29,7 @@ builtin.module {
       %14 = memref.load %block_size[] : memref<i32>
       %15 = builtin.unrealized_conversion_cast %14 : i32 to ui32
       "dm.noc_async_write"(%12, %13, %15) : (ui32, ui64, ui32) -> ()
-      "dm.noc_async_read_barrier"() : () -> ()
+      "dm.noc_async_write_barrier"() : () -> ()
       %16 = memref.load %cb_id[] : memref<i32>
       %17 = arith.constant 1 : i32
       "cb.pop_front"(%16, %17) : (i32, i32) -> ()
@@ -49,6 +49,6 @@ builtin.module {
 // CHECK-NEXT:     std::int32_t block_size = int_size_bytes * 100;
 // CHECK-NEXT:     cb_wait_front(cb_id, 1);
 // CHECK-NEXT:     noc_async_write(l1_read_addr, dst_noc_addr, static_cast<std::uint32_t>(block_size));
-// CHECK-NEXT:     noc_async_read_barrier();
+// CHECK-NEXT:     noc_async_write_barrier();
 // CHECK-NEXT:     cb_pop_front(cb_id, 1);
 // CHECK-NEXT: }

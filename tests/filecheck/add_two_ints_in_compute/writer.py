@@ -32,7 +32,7 @@ run_from_examples(__file__)
 # CHECK-NEXT:       %14 = memref.load %block_size[] : memref<i32>
 # CHECK-NEXT:       %15 = builtin.unrealized_conversion_cast %14 : i32 to ui32
 # CHECK-NEXT:       "dm.noc_async_write"(%12, %13, %15) : (ui32, ui64, ui32) -> ()
-# CHECK-NEXT:       "dm.noc_async_read_barrier"() : () -> ()
+# CHECK-NEXT:       "dm.noc_async_write_barrier"() : () -> ()
 # CHECK-NEXT:       %16 = memref.load %cb_id[] : memref<i32>
 # CHECK-NEXT:       %17 = arith.constant 1 : i32
 # CHECK-NEXT:       "cb.pop_front"(%16, %17) : (i32, i32) -> ()
