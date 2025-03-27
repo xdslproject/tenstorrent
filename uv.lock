@@ -45,7 +45,7 @@ testing = [
 [package.metadata]
 requires-dist = [
     { name = "lit", marker = "extra == 'testing'", specifier = ">=18.1.8" },
-    { name = "xdsl", specifier = ">=0.27.0" },
+    { name = "xdsl", specifier = ">=0.31.0" },
 ]
 provides-extras = ["testing"]
 
@@ -60,14 +60,14 @@ wheels = [
 
 [[package]]
 name = "xdsl"
-version = "0.27.0"
+version = "0.31.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "immutabledict" },
     { name = "ordered-set" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f7/16/4f5d8dad8ef9cd8116f5d58b76a9fa16006e496bc641c4df3ede21bef291/xdsl-0.27.0.tar.gz", hash = "sha256:efaa83314942d79314d1fc356496ce9b51a95ac8ce3323d16624d2dded8e93e2", size = 720499 }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/27/e60c89a6ca2946d9154e76de6e0cf7111aa932f95aed06e44cdc9cbf170c/xdsl-0.31.0.tar.gz", hash = "sha256:bc48945af31c056b4baffcd7b4587b36f32232066de01ffdb313d81bd4e03de9", size = 922666 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/b1/903b055e2eece733f322537f9c91a7e5894e3661b197b3011cd698210d1c/xdsl-0.27.0-py3-none-any.whl", hash = "sha256:5c810c90fe02be65565ea627d90828fb450d811d75db3b7220888620cbd9274f", size = 805020 },
+    { url = "https://files.pythonhosted.org/packages/29/eb/af545bf6b5992c003e5016a7f747aa698917595318fe6a4e8003222bcb33/xdsl-0.31.0-py3-none-any.whl", hash = "sha256:aa438281e5950f0b3d1b8853a6f03763fffbca00becaf860e776d0453e756722", size = 1114039 },
 ]
