@@ -4,7 +4,7 @@ from enum import Enum
 
 from xdsl.dialects.builtin import MemRefType, i32, i64, IntegerAttr, MemRefLayoutAttr, IntAttr, FixedBitwidthType
 from xdsl.ir import ParametrizedAttribute, TypeAttribute, Data, SSAValue, Operation
-from xdsl.irdl import irdl_attr_definition, ParameterDef, irdl_op_definition, IRDLOperation, operand_def
+from xdsl.irdl import irdl_attr_definition, ParameterDef, irdl_op_definition, IRDLOperation, operand_def, result_def
 from xdsl.parser import AttrParser
 from xdsl.printer import Printer
 from xdsl.utils.hints import isa
@@ -13,7 +13,10 @@ from xdsl.utils.hints import isa
 Implementations of Tenstorrent's own dialect
 """
 
-# AnyOf(MemRefType, TTKernelCB)
+
+@irdl_attr_definition
+class NOCAddr(ParametrizedAttribute, TypeAttribute):
+    name = "ttkernel.noc_addr"  # def: TTKernel_Type<"NocAddr", "noc_addr">
 
 
 class CBPortFlags(Enum):
@@ -236,3 +239,105 @@ class CBPushBackOp(IRDLOperation):
     def __init__(self, cb: SSAValue | Operation, num_pages: SSAValue | Operation):
         super().__init__(operands=[cb, num_pages])
 
+
+@irdl_op_definition
+class CBReserveBackOp(IRDLOperation):
+    name = "ttkernel.cb_reserve_back"
+
+    cb = operand_def(CBType)
+    num_pages = operand_def(i32)
+
+    def __init__(self, cb: SSAValue | Operation, num_pages: SSAValue | Operation):
+        super().__init__(operands=[cb, num_pages])
+
+
+@irdl_op_definition
+class GetNocAddrFromBankIdOp(IRDLOperation):
+    name = "ttkernel.get_noc_addr_from_bank_id"
+
+    bank_id = operand_def(i32)
+    bank_address_offset = operand_def(i32)
+
+    # TODO: implement NOCAddr
+    noc_addr = result_def(NOCAddr())
+
+    def __init__(self, bank_id: SSAValue | Operation, bank_address_offset: SSAValue | Operation):
+        super().__init__(operands=[bank_id, bank_address_offset], result_types=[NOCAddr()])
+
+
+@irdl_op_definition
+class NocAsyncReadOp(IRDLOperation):
+    name = "ttkernel.noc_async_read"
+
+    src_noc_addr = operand_def(NOCAddr)
+    dst_local_l1_addr = operand_def(i32)
+    size = operand_def(i32)
+
+    def __init__(self, src_noc_addr: SSAValue | Operation, dst_local_l1_addr: SSAValue | Operation, size: SSAValue | Operation):
+        super().__init__(operands=[src_noc_addr, dst_local_l1_addr, size])
+
+
+@irdl_op_definition
+class NocAsyncReadBarrierOp(IRDLOperation):
+    name = "ttkernel.noc_async_read_barrier"
+
+
+@irdl_op_definition
+class NocAsyncWriteOp(IRDLOperation):
+    name = "ttkernel.noc_async_write"
+
+    src_local_l1_addr = operand_def(i32)
+    dst_noc_addr = operand_def(NOCAddr)
+    size = operand_def(i32)
+
+    def __init__(self, src_local_l1_addr: SSAValue | Operation, dst_noc_addr: SSAValue | Operation, size: SSAValue | Operation):
+        super().__init__(operands=[src_local_l1_addr, dst_noc_addr, size])
+
+
+@irdl_op_definition
+class NocAsyncWriteBarrierOp(IRDLOperation):
+    name = "ttkernel.noc_async_write_barrier"
+
+
+@irdl_op_definition
+class GetTileSizeOp(IRDLOperation):
+    name = "ttkernel.get_tile_size"
+
+    cb = operand_def(CBType)
+    tile_size_bytes = result_def(i32)
+
+    def __init__(self, cb: SSAValue | Operation):
+        super().__init__(operands=[cb], result_types=[i32])
+
+
+@irdl_op_definition
+class GetReadPtrOp(IRDLOperation):
+    name = "ttkernel.get_read_ptr"
+
+    cb = operand_def(CBType)
+    read_ptr = result_def(i32)
+
+    def __init__(self, cb: SSAValue | Operation):
+        super().__init__(operands=[cb], result_types=[i32])
+
+
+@irdl_op_definition
+class GetWritePtrOp(IRDLOperation):
+    name = "ttkernel.get_write_ptr"
+
+    cb = operand_def(CBType)
+    write_ptr = result_def(i32)
+
+    def __init__(self, cb: SSAValue | Operation):
+        super().__init__(operands=[cb], result_types=[i32])
+
+
+@irdl_op_definition
+class GetArgValOp(IRDLOperation):
+    name = "ttkernel.get_arg_val"
+
+    arg_index = operand_def(i32)
+    arg_val = result_def(i32)  # technically should include semaphore type
+
+    def __init__(self, arg_index: SSAValue | Operation):
+        super().__init__(operands=[arg_index], result_types=[i32])
