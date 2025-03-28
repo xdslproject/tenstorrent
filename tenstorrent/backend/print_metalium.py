@@ -2,16 +2,10 @@ from xdsl.dialects.builtin import Signedness
 from xdsl.ir import (
     Block,
     Region,
-    OpResult,
-    Attribute,
-    SSAValue,
-    BlockArgument,
     Operation,
 )
-from xdsl.irdl import IRDLOperation
 
 from xdsl.utils.hints import isa
-from tenstorrent.utils import flatten
 
 import xdsl.dialects.arith as arith
 import xdsl.dialects.memref as memref
@@ -873,6 +867,9 @@ class PrintMetalium:
         mlir_type = op.result_types[0].element_type
         type_decl = MLIR_TO_CPP_TYPES[mlir_type]
         scalar = len(op.result_types[0].shape) == 0
+
+        if type_decl == "Program":
+            type_decl += "&"
 
         if scalar:
             self.print(type_decl + " " + var_name, indented=True)
