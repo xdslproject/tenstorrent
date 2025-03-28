@@ -60,9 +60,9 @@ run_from_examples(__file__)
 # CHECK-NEXT:      %35 = arith.constant 1 : i32
 # CHECK-NEXT:     "cb.pop_front"(%34, %35) : (i32, i32) -> ()
 # CHECK-NEXT:      %36 = memref.load %cb1[] : memref<i32>
-# CHECK-NEXT:      %37 = arith.constant 2 : i32
+# CHECK-NEXT:      %37 = arith.constant 1 : i32
 # CHECK-NEXT:      "cb.pop_front"(%36, %37) : (i32, i32) -> ()
-# CHECK-NEXT:      %38 = memref.load %cb0[] : memref<i32>
+# CHECK-NEXT:      %38 = memref.load %cb_out[] : memref<i32>
 # CHECK-NEXT:      %39 = arith.constant 1 : i32
 # CHECK-NEXT:      "cb.push_back"(%38, %39) : (i32, i32) -> ()
 # CHECK-NEXT:      func.return
