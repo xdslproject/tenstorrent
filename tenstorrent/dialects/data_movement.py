@@ -1,5 +1,5 @@
 from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr
-from xdsl.ir import SSAValue, Operation, Dialect
+from xdsl.ir import SSAValue, Operation, Dialect, Attribute
 from xdsl.irdl import (
     IRDLOperation,
     irdl_op_definition,
@@ -217,6 +217,26 @@ class DMGetNocAddrFromBankId(IRDLOperation):
         )
 
 
+@irdl_op_definition
+class DMInterleavedAddrGen(IRDLOperation):
+    name = "dm.interleaved_addr_gen"
+
+    dram = prop_def(IntegerAttr)
+    bank_base_address = operand_def(uint32)
+    page_size = operand_def(uint32)
+
+    def __init__(
+        self,
+        dram: IntegerAttr,
+        bank_base_address: SSAValue | Operation,
+        page_size: SSAValue | Operation,
+    ):
+        super().__init__(
+            operands=[bank_base_address, page_size],
+            properties={"dram": dram},
+        )
+
+
 DataMovement = Dialect(
     "dm",
     [
@@ -230,6 +250,7 @@ DataMovement = Dialect(
         DMNocSemaphoreWait,
         DMNocSemaphoreInc,
         DMGetNocAddrFromBankId,
+        DMInterleavedAddrGen,
     ],
     [],
 )

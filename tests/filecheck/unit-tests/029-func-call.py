@@ -21,6 +21,7 @@ def data_out_api():
 def compute():
     tt.add(1, 2, 3, 4, 5)
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

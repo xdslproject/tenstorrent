@@ -10,6 +10,7 @@ def if_eval():
     if a < b:
         a = 5
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

@@ -6,6 +6,7 @@ from tenstorrent.frontend import tt
 def nested_binops():
     a = 1 + 2 * 3 + 4
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

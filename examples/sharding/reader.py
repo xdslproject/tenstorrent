@@ -9,9 +9,9 @@ def kernel_main(
     shard_width_bytes: uint,  # unneeded variable
     padded_offset_bytes: uint,
     start_id: uint,
-    current_core: uint
+    current_core: uint,
 ):
-    # TODO: implement tt.get_compile_time_arg_val (device) - 
+    # TODO: implement tt.get_compile_time_arg_val (device) -
     # TODO: if RHS is a call to get_compile_time_arg_val, annotate with constexpr
     # TODO: op1. make a constexpr container type in xDSL,
     # TODO: then need to update type checker, things support type x should also
@@ -31,13 +31,11 @@ def kernel_main(
         src_noc_addr = tt.get_noc_address(stick_id, s0)
         tt.noc_async_read(src_noc_addr, l1_write_addr, stick_size)
 
-
         # print both BFloat16 values that are packed into the page
         # TODO: dereference l1_write_addr
         data = tt.to_array(l1_write_addr, uint16, 2)
         print(data[0], " ", data[1], " ", end="")
         # not sure what's happening within these lines
-
 
         stick_id += 1
         l1_write_addr += padded_offset_bytes
@@ -45,4 +43,3 @@ def kernel_main(
     print()
     tt.noc_async_read_barrier()
     tt.cb_push_back(cb_id_in0, shard_height)
-

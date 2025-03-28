@@ -6,6 +6,7 @@ from tenstorrent.frontend import tt
 def nope():
     a = not False
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

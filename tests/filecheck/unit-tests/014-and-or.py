@@ -9,6 +9,7 @@ def and_or():
     c = a and b
     d = a or b
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

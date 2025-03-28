@@ -1,4 +1,4 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, IntegerAttr, i32
+from xdsl.dialects.builtin import IntegerType, Signedness, i1, IntegerAttr, i32, BoolAttr
 from xdsl.ir import SSAValue, Operation, Dialect
 from xdsl.irdl import IRDLOperation, irdl_op_definition, operand_def, prop_def, opt_operand_def
 
@@ -592,7 +592,7 @@ class MatmulBlock(IRDLOperation):
 class ExpInit(IRDLOperation):
     name = "comp.exp_tile_init"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     def __init__(self, fast_and_approx: IntegerAttr):
         super().__init__(properties={"fast_and_approx": fast_and_approx})
@@ -602,7 +602,7 @@ class ExpInit(IRDLOperation):
 class Exp(IRDLOperation):
     name = "comp.exp_tile"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     dst = operand_def(uint32)
 
@@ -720,7 +720,7 @@ class Elu(IRDLOperation):
 class ErfInit(IRDLOperation):
     name = "comp.erf_tile_init"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     def __init__(self, fast_and_approx: IntegerAttr):
         super().__init__(properties={"fast_and_approx": fast_and_approx})
@@ -730,7 +730,7 @@ class ErfInit(IRDLOperation):
 class Erf(IRDLOperation):
     name = "comp.erf_tile"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     dst = operand_def(uint32)
 
@@ -744,7 +744,7 @@ class Erf(IRDLOperation):
 class ErfcInit(IRDLOperation):
     name = "comp.erfc_tile_init"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     def __init__(self, fast_and_approx: IntegerAttr):
         super().__init__(properties={"fast_and_approx": fast_and_approx})
@@ -754,7 +754,7 @@ class ErfcInit(IRDLOperation):
 class Erfc(IRDLOperation):
     name = "comp.erfc_tile"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     dst = operand_def(uint32)
 
@@ -783,7 +783,7 @@ class Erfinv(IRDLOperation):
 class GeluInit(IRDLOperation):
     name = "comp.gelu_tile_init"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     def __init__(self, fast_and_approx: IntegerAttr):
         super().__init__(properties={"fast_and_approx": fast_and_approx})
@@ -793,7 +793,7 @@ class GeluInit(IRDLOperation):
 class Gelu(IRDLOperation):
     name = "comp.gelu_tile"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
     dst = operand_def(uint32)
 
     def __init__(self, fast_and_approx: IntegerAttr, dst: SSAValue | Operation):
@@ -966,7 +966,7 @@ class Sqrt(IRDLOperation):
 class RSqrtInit(IRDLOperation):
     name = "comp.rsqrt_tile_init"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
 
     def __init__(self, fast_and_approx: IntegerAttr):
         super().__init__(properties={"fast_and_approx": fast_and_approx})
@@ -976,7 +976,7 @@ class RSqrtInit(IRDLOperation):
 class RSqrt(IRDLOperation):
     name = "comp.rsqrt_tile"
 
-    fast_and_approx = prop_def(i1)
+    fast_and_approx = prop_def(BoolAttr)
     dst = operand_def(uint32)
 
     def __init__(self, fast_and_approx: IntegerAttr, dst: SSAValue | Operation):
@@ -1519,7 +1519,7 @@ class UntilizeInitShort(IRDLOperation):
 class UntilizeBlock(IRDLOperation):
     name = "comp.untilize_block"
 
-    n = prop_def(i32)
+    n = prop_def(IntegerAttr)
 
     in_cb = operand_def(uint32)
     block = operand_def(uint32)

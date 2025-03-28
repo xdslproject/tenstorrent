@@ -1,3 +1,4 @@
+import ast
 from typing import Dict, List, Tuple, Optional
 
 from xdsl.dialects import builtin, func, arith, memref, scf, printf
@@ -16,7 +17,8 @@ from xdsl.utils.hints import isa
 from tenstorrent.dialects import *
 from tenstorrent.utils import flatten, remove_duplicates, subtract
 from .dummy import *
-from .type_checker import MLIRType
+from .type_casting import get_cast, cast_if_needed
+
 from enum import Enum
 
 
@@ -85,7 +87,7 @@ class PythonToMLIR(ast.NodeVisitor):
         }
 
         self._operations: Dict[
-            MLIRType, Dict[type(ast.operator), type(IRDLOperation)]
+            Attribute, Dict[type(ast.operator), type(IRDLOperation)]
         ] = {
             IntegerType(32): {
                 ast.Add: arith.AddiOp,
@@ -120,6 +122,7 @@ class PythonToMLIR(ast.NodeVisitor):
             noc_async_read_barrier.__name__: DMNocAsyncReadBarrier,
             noc_async_write_barrier.__name__: DMNocAsyncWriteBarrier,
             get_noc_addr_from_bank_id.__name__: DMGetNocAddrFromBankId,
+            get_compile_time_arg_val.__name__: GetCompileTimeArgVal,
             # TODO: Should separate into different classes here for compute
             binary_op_init_common.__name__: BinaryOpInitCommon,
             pack_tile.__name__: PackTile,
@@ -383,21 +386,33 @@ class PythonToMLIR(ast.NodeVisitor):
             assert False
 
         # if the types don't match we need to insert a cast operation
-        if target_type != rhs_ssa_val.type:
-            cast_ops, cast_ssa = self.get_cast(target_type, rhs_ssa_val)
-            if len(cast_ops) > 0:
-                assert cast_ssa is not None
-                rhs_ssa_val = cast_ssa
-                operations += cast_ops
+        operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
 
         if isa(dest, ast.Name):
             # create a memref
             # seen = var_name in self.symbol_table
             seen = var_name in self.symbol_table
+            last_op = rhs_ops[-1]
+
+            # TODO: not software engineering -- fix at a later date
             if (
-                isa(rhs_ops[-1], memref.AllocaOp)
-                or isa(rhs_ops[-1], memref.AllocOp)
-                or isa(rhs_ops[-1], builtin.UnrealizedConversionCastOp)
+                isa(last_op, builtin.UnrealizedConversionCastOp)
+                and last_op.operand_types != (uint32,)
+                and not isinstance(last_op.result_types[0], MemRefType)
+            ):
+                # This is a normal value, so just store as usual
+                if not seen:
+                    operations += [self.allocate_memory(var_name)]
+
+                location = self.symbol_table[var_name]
+
+                # store result in that memref
+                store = memref.StoreOp.get(rhs_ssa_val, location, [])
+                operations.append(store)
+            elif (
+                isa(last_op, memref.AllocaOp)
+                or isa(last_op, memref.AllocOp)
+                or isa(last_op, builtin.UnrealizedConversionCastOp)
             ):
                 # This is a bit of a hack, we are allocating a list and this is done
                 # in the bin op, so we pick the memref here
@@ -429,49 +444,6 @@ class PythonToMLIR(ast.NodeVisitor):
             )
             return operations + idx_ops + [store], self.symbol_table[var_name]
 
-    def get_cast(
-        self, target_type: MLIRType, ssa_val: SSAValue
-    ) -> Tuple[List[Operation], SSAValue]:
-        if target_type == ssa_val.type:
-            return [], ssa_val
-
-        # TODO: not strictly correct, should check elem types and lengths
-        if isa(target_type, MemRefType) and isa(ssa_val.type, MemRefType):
-            return [], ssa_val
-
-        if isinstance(ssa_val.type, IntegerType):
-            if target_type == Float32Type():
-                op_sign = ssa_val.type.signedness.data
-                if op_sign == Signedness.SIGNED:
-                    conv_op = arith.SIToFPOp(ssa_val, target_type)
-                    return [conv_op], conv_op.results[0]
-                elif op_sign == Signedness.UNSIGNED:
-                    raise NotImplementedError("arith has no UIToFPOp")
-                elif op_sign == Signedness.SIGNLESS:
-                    conv_op = arith.SIToFPOp(ssa_val, target_type)
-                    return [conv_op], conv_op.results[0]
-
-            elif target_type == IndexType():
-                conv_op = arith.IndexCastOp(ssa_val, IndexType())
-                return [conv_op], conv_op.results[0]
-
-            elif target_type == IntegerType:
-                return [], ssa_val
-
-            elif target_type.bitwidth == 32 and ssa_val.type.bitwidth == 32:
-                conv_op = builtin.UnrealizedConversionCastOp(
-                    operands=[ssa_val], result_types=[target_type]
-                )
-                return [conv_op], conv_op.results[0]
-
-            else:
-                raise NotImplementedError(
-                    f"Unsupported type cast from IntegerType: {target_type}"
-                )
-
-        raise NotImplementedError(
-            f"Unsupported type cast {ssa_val.type} to {target_type}"
-        )
 
     def visit_Constant(self, node) -> Tuple[List[Operation], SSAValue]:
         data = node.value
@@ -530,28 +502,19 @@ class PythonToMLIR(ast.NodeVisitor):
             operations = lhs_ops + rhs_ops
 
             # if types differ, we need to cast for the operation
-            if lhs_ssa_val.type != rhs_ssa_val.type:
-                target_type = self.type_checker.dominating_type(
-                    lhs_ssa_val.type, rhs_ssa_val.type
-                )
-                if lhs_ssa_val.type != target_type:
-                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
-                    operations += l_cast
+            target_type = self.type_checker.dominating_type(
+                lhs_ssa_val.type,
+                rhs_ssa_val.type,
+            )
 
-                if rhs_ssa_val.type != target_type:
-                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
-                    operations += r_cast
+            operations, lhs_ssa_val = cast_if_needed(lhs_ssa_val, target_type, operations)
+            operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
 
             # special case: if we have a division, we also want to cast
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
-                if lhs_ssa_val.type != target_type:
-                    l_cast, lhs_ssa_val = self.get_cast(target_type, lhs_ssa_val)
-                    operations += l_cast
-
-                if rhs_ssa_val.type != target_type:
-                    r_cast, rhs_ssa_val = self.get_cast(target_type, rhs_ssa_val)
-                    operations += r_cast
+                operations, lhs_ssa_val = cast_if_needed(lhs_ssa_val, target_type, operations)
+                operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)
@@ -615,11 +578,22 @@ class PythonToMLIR(ast.NodeVisitor):
         left, l_val = self.visit(node.left)
         right, r_val = self.visit(node.comparators[0])
 
+        operations = left + right
+
+        comparison_op = node.ops[0]
+        ideal_type = self.type_checker.dominating_type(
+            l_val.type,
+            r_val.type,
+        )
+
+        operations, l_val = cast_if_needed(l_val, ideal_type, operations)
+        operations, r_val = cast_if_needed(r_val, ideal_type, operations)
+
         # TODO: handle sint, float comparisons
-        op = self._uint_comparison[type(node.ops[0])]
+        op = self._uint_comparison[type(comparison_op)]
         operation = arith.CmpiOp(l_val, r_val, op)
 
-        return [left, right, operation], operation.results[0]
+        return operations + [operation], operation.results[0]
 
     def visit_For(self, node: ast.For) -> Tuple[List[Operation], Optional[SSAValue]]:
         from_expr, from_ssa = self.visit(node.iter.args[0])
@@ -884,6 +858,7 @@ class PythonToMLIR(ast.NodeVisitor):
             r_sqrt.__name__,
             untilize_block.__name__,
             pack_tile.__name__,
+            InterleavedAddrGen.__name__,
         ]
 
         # TODO: ideally want something more like:
@@ -892,10 +867,17 @@ class PythonToMLIR(ast.NodeVisitor):
         #  also allows us to remove single_property_funcs being hardcoded
         #  could construct dummy op and then throw away... thats solution for casting
         if name in single_property_funcs:
+            first_arg = node.args.pop(0)
             if name == untilize_block.__name__:
-                properties.append(IntegerAttr(node.args.pop(0).value, i32))
+                properties.append(IntegerAttr(first_arg.value, i32))
+
+            # handle constexpr terms which are known at compile-time but not at
+            # our level of compile-time
+            elif isinstance(first_arg, ast.Name):
+                pass
+
             else:
-                properties.append(IntegerAttr(node.args.pop(0).value, IntegerType(1)))
+                properties.append(IntegerAttr(first_arg.value, IntegerType(1)))
 
         # We evaluate args in Python order (programmer intention) and then swap
         # only the SSA results that are given to the operation to preserve semantics
@@ -945,7 +927,7 @@ class PythonToMLIR(ast.NodeVisitor):
                 matched = False
                 for target_type in types.attr_constrs:
                     try:
-                        ops, ssa = self.get_cast(target_type.attr, ssa_val)
+                        ops, ssa = get_cast(ssa_val, target_type.attr)
                         matched = True
                         type_cast_ops += ops
                         results[i] = ssa
@@ -959,9 +941,7 @@ class PythonToMLIR(ast.NodeVisitor):
                     )
 
             if isinstance(types, EqAttrConstraint):
-                ops, ssa = self.get_cast(types.attr, ssa_val)
-                type_cast_ops += ops
-                results[i] = ssa
+                type_cast_ops, results[i] = cast_if_needed(ssa_val, types.attr, type_cast_ops)
 
         new_operation = constructor(*(props + results))
         return type_cast_ops + [new_operation]

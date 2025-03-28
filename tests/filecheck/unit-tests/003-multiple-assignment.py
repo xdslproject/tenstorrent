@@ -7,6 +7,7 @@ def multiple_assignment():
     a = 1
     b = 4
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

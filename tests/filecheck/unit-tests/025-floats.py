@@ -7,6 +7,7 @@ def floats():
     a = 3.7
     a = a - 10.2
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {

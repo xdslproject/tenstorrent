@@ -7,6 +7,7 @@ def read_variable():
     a = 5
     b = a + 1
 
+
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
 # CHECK-NEXT:     func.func @main() -> i32 {
