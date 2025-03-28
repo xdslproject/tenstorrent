@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from xdsl.dialects.builtin import MemRefType, i32, i64, IntegerAttr, MemRefLayoutAttr, IntAttr, FixedBitwidthType
-from xdsl.ir import ParametrizedAttribute, TypeAttribute, Data, SSAValue, Operation, Dialect
+from xdsl.ir import ParametrizedAttribute, TypeAttribute, Data, SSAValue, Operation, Dialect, Attribute
 from xdsl.irdl import irdl_attr_definition, ParameterDef, irdl_op_definition, IRDLOperation, operand_def, result_def
 from xdsl.parser import AttrParser
 from xdsl.printer import Printer
@@ -21,44 +21,44 @@ class NocAddr(ParametrizedAttribute, TypeAttribute):
 
 class CBPortFlags(Enum):
     # TODO: these might not reflect the TT strings in the printed MLIR
-    TTKernel_CBPortIn0 = "in0"
-    TTKernel_CBPortIn1 = "in1"
-    TTKernel_CBPortIn2 = "in2"
-    TTKernel_CBPortIn3 = "in3"
-    TTKernel_CBPortIn4 = "in4"
-    TTKernel_CBPortIn5 = "in5"
-    TTKernel_CBPortIn6 = "in6"
-    TTKernel_CBPortIn7 = "in7"
-    TTKernel_CBPortDataFlow0 = "dataflow0"
-    TTKernel_CBPortDataFlow1 = "dataflow1"
-    TTKernel_CBPortDataFlow2 = "dataflow2"
-    TTKernel_CBPortDataFlow3 = "dataflow3"
-    TTKernel_CBPortDataFlow4 = "dataflow4"
-    TTKernel_CBPortDataFlow5 = "dataflow5"
-    TTKernel_CBPortDataFlow6 = "dataflow6"
-    TTKernel_CBPortDataFlow7 = "dataflow7"
-    TTKernel_CBPortOut0 = "out0"
-    TTKernel_CBPortOut1 = "out1"
-    TTKernel_CBPortOut2 = "out2"
-    TTKernel_CBPortOut3 = "out3"
-    TTKernel_CBPortOut4 = "out4"
-    TTKernel_CBPortOut5 = "out5"
-    TTKernel_CBPortOut6 = "out6"
-    TTKernel_CBPortOut7 = "out7"
-    TTKernel_CBPortIntermed0 = "intermediate0"
-    TTKernel_CBPortIntermed1 = "intermediate1"
-    TTKernel_CBPortIntermed2 = "intermediate2"
-    TTKernel_CBPortIntermed3 = "intermediate3"
-    TTKernel_CBPortIntermed4 = "intermediate4"
-    TTKernel_CBPortIntermed5 = "intermediate5"
-    TTKernel_CBPortIntermed6 = "intermediate6"
-    TTKernel_CBPortIntermed7 = "intermediate7"
+    TTKernel_CBPortIn0 = "cb_in0"
+    TTKernel_CBPortIn1 = "cb_in1"
+    TTKernel_CBPortIn2 = "cb_in2"
+    TTKernel_CBPortIn3 = "cb_in3"
+    TTKernel_CBPortIn4 = "cb_in4"
+    TTKernel_CBPortIn5 = "cb_in5"
+    TTKernel_CBPortIn6 = "cb_in6"
+    TTKernel_CBPortIn7 = "cb_in7"
+    TTKernel_CBPortDataFlow0 = "cb_dataflow0"
+    TTKernel_CBPortDataFlow1 = "cb_dataflow1"
+    TTKernel_CBPortDataFlow2 = "cb_dataflow2"
+    TTKernel_CBPortDataFlow3 = "cb_dataflow3"
+    TTKernel_CBPortDataFlow4 = "cb_dataflow4"
+    TTKernel_CBPortDataFlow5 = "cb_dataflow5"
+    TTKernel_CBPortDataFlow6 = "cb_dataflow6"
+    TTKernel_CBPortDataFlow7 = "cb_dataflow7"
+    TTKernel_CBPortOut0 = "cb_out0"
+    TTKernel_CBPortOut1 = "cb_out1"
+    TTKernel_CBPortOut2 = "cb_out2"
+    TTKernel_CBPortOut3 = "cb_out3"
+    TTKernel_CBPortOut4 = "cb_out4"
+    TTKernel_CBPortOut5 = "cb_out5"
+    TTKernel_CBPortOut6 = "cb_out6"
+    TTKernel_CBPortOut7 = "cb_out7"
+    TTKernel_CBPortIntermed0 = "cb_intermediate0"
+    TTKernel_CBPortIntermed1 = "cb_intermediate1"
+    TTKernel_CBPortIntermed2 = "cb_intermediate2"
+    TTKernel_CBPortIntermed3 = "cb_intermediate3"
+    TTKernel_CBPortIntermed4 = "cb_intermediate4"
+    TTKernel_CBPortIntermed5 = "cb_intermediate5"
+    TTKernel_CBPortIntermed6 = "cb_intermediate6"
+    TTKernel_CBPortIntermed7 = "cb_intermediate7"
 
     @staticmethod
-    def try_parse(parser: AttrParser) -> set["CBPortFlags"] | None:
+    def try_parse(parser: AttrParser):
         for option in CBPortFlags:
             if parser.parse_optional_characters(option.value) is not None:
-                return {option}
+                return option
 
         return None
     
@@ -78,20 +78,9 @@ class CBPortFlagsAttrBase(Data[tuple[CBPortFlags, ...]]):
         super().__init__(tuple(flags_))
 
     @classmethod
-    def parse_parameter(cls, parser: AttrParser) -> tuple[CBPortFlags, ...]:
-        with parser.in_angle_brackets():
-            flags = CBPortFlags.try_parse(parser)
-            if flags is None:
-                return tuple()
-
-            while parser.parse_optional_punctuation(",") is not None:
-                flag = parser.expect(
-                    lambda: CBPortFlags.try_parse(parser),
-                    "RISCV core variable flag expected",
-                )
-                flags.update(flag)
-
-            return tuple(flags)
+    def parse_parameter(cls, parser: AttrParser) -> CBPortFlags:
+        flag = CBPortFlags.try_parse(parser)
+        return flag
 
     def print_parameter(self, printer: Printer):
         with printer.in_angle_brackets():
@@ -111,14 +100,11 @@ class CBPortAttr(CBPortFlagsAttrBase):
 class CBType(ParametrizedAttribute, TypeAttribute):
     name = "ttkernel.cb"
 
-    # cb_port: CBPort
-    address: ParameterDef[IntAttr]
+    cb_port: ParameterDef[CBPortAttr]
+    address: ParameterDef[IntegerAttr]
     memref: ParameterDef[MemRefLayoutAttr]
     page_size: ParameterDef[IntAttr]
     num_buffers: ParameterDef[IntAttr]
-
-    # TODO: fix this
-    # assembly_format = "`<` $port`,` $address`,` $memref`,` $page_size`,` $num_buffers `>`"
 
     def __init__(self, port: CBPortAttr, address: IntAttr, memref: MemRefType):
         elem_type = memref.get_element_type()
@@ -128,8 +114,24 @@ class CBType(ParametrizedAttribute, TypeAttribute):
         #  if isa(elem_type, TileType):
         #      page_size = elem_type.size_in_bytes
 
-        page_size = IntAttr(memref.element_count() * elem_type.bitwidth / 8)
-        super().__init__(port, address, memref, page_size, IntAttr(1))
+        page_size = IntegerAttr(memref.element_count() * elem_type.bitwidth / 8)
+        super().__init__(port, address, memref, page_size, IntegerAttr(1))
+
+    @classmethod
+    def parse_parameters(cls, parser: AttrParser) -> Sequence[Attribute]:
+        parser.parse_punctuation("<", " entering CBType decl")
+        cb_port = CBPortAttr([CBPortFlagsAttrBase.parse_parameter(parser)])
+        parser.parse_punctuation(",", " between cb_port and address parameters")
+        address = parser.parse_attribute()
+        parser.parse_punctuation(",", " between address and memref parameters")
+        memref_type = parser.parse_attribute()
+        parser.parse_punctuation(",", " between memref_type and page_size parameters")
+        page_size = parser.parse_attribute()
+        parser.parse_punctuation(",", " between page_size and num_buffers parameters")
+        num_buffers = parser.parse_attribute()
+        parser.parse_punctuation(">", " at end of CBType attributes")
+
+        return [cb_port, address, memref_type, page_size, num_buffers]
 
 
 @irdl_op_definition
@@ -350,7 +352,7 @@ TTKernel = Dialect(
         TileRegsAcquireOp,
         TileRegsWaitOp,
         TileRegsCommitOp,
-        TileRegsCommitOp,
+        TileRegsReleaseOp,
         PackTileOp,
         BinaryOpInitCommonOp,
         AddTilesInitOp,
