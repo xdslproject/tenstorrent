@@ -874,7 +874,7 @@ class PythonToMLIR(ast.NodeVisitor):
             # handle constexpr terms which are known at compile-time but not at
             # our level of compile-time
             elif isinstance(first_arg, ast.Name):
-                properties.append()
+                pass
 
             else:
                 properties.append(IntegerAttr(first_arg.value, IntegerType(1)))
