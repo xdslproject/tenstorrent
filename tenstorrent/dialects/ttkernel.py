@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from xdsl.dialects.builtin import MemRefType, i32, i64, IntegerAttr, MemRefLayoutAttr, IntAttr, FixedBitwidthType
-from xdsl.ir import ParametrizedAttribute, TypeAttribute, Data, SSAValue, Operation
+from xdsl.ir import ParametrizedAttribute, TypeAttribute, Data, SSAValue, Operation, Dialect
 from xdsl.irdl import irdl_attr_definition, ParameterDef, irdl_op_definition, IRDLOperation, operand_def, result_def
 from xdsl.parser import AttrParser
 from xdsl.printer import Printer
@@ -15,7 +15,7 @@ Implementations of Tenstorrent's own dialect
 
 
 @irdl_attr_definition
-class NOCAddr(ParametrizedAttribute, TypeAttribute):
+class NocAddr(ParametrizedAttribute, TypeAttribute):
     name = "ttkernel.noc_addr"  # def: TTKernel_Type<"NocAddr", "noc_addr">
 
 
@@ -259,17 +259,17 @@ class GetNocAddrFromBankIdOp(IRDLOperation):
     bank_address_offset = operand_def(i32)
 
     # TODO: implement NOCAddr
-    noc_addr = result_def(NOCAddr())
+    noc_addr = result_def(NocAddr())
 
     def __init__(self, bank_id: SSAValue | Operation, bank_address_offset: SSAValue | Operation):
-        super().__init__(operands=[bank_id, bank_address_offset], result_types=[NOCAddr()])
+        super().__init__(operands=[bank_id, bank_address_offset], result_types=[NocAddr()])
 
 
 @irdl_op_definition
 class NocAsyncReadOp(IRDLOperation):
     name = "ttkernel.noc_async_read"
 
-    src_noc_addr = operand_def(NOCAddr)
+    src_noc_addr = operand_def(NocAddr)
     dst_local_l1_addr = operand_def(i32)
     size = operand_def(i32)
 
@@ -287,7 +287,7 @@ class NocAsyncWriteOp(IRDLOperation):
     name = "ttkernel.noc_async_write"
 
     src_local_l1_addr = operand_def(i32)
-    dst_noc_addr = operand_def(NOCAddr)
+    dst_noc_addr = operand_def(NocAddr)
     size = operand_def(i32)
 
     def __init__(self, src_local_l1_addr: SSAValue | Operation, dst_noc_addr: SSAValue | Operation, size: SSAValue | Operation):
@@ -341,3 +341,36 @@ class GetArgValOp(IRDLOperation):
 
     def __init__(self, arg_index: SSAValue | Operation):
         super().__init__(operands=[arg_index], result_types=[i32])
+
+
+TTKernel = Dialect(
+    "ttkernel",
+    [
+        TileRegsAcquireOp,
+        TileRegsWaitOp,
+        TileRegsCommitOp,
+        TileRegsCommitOp,
+        PackTileOp,
+        BinaryOpInitCommonOp,
+        AddTilesInitOp,
+        AddTilesOp,
+        CBWaitFrontOp,
+        CBPopFrontOp,
+        CBPushBackOp,
+        CBReserveBackOp,
+        GetNocAddrFromBankIdOp,
+        NocAsyncWriteOp,
+        NocAsyncReadOp,
+        NocAsyncWriteBarrierOp,
+        NocAsyncReadBarrierOp,
+        GetTileSizeOp,
+        GetReadPtrOp,
+        GetWritePtrOp,
+        GetArgValOp,
+    ],
+    [
+        CBPortAttr,
+        CBType,
+        NocAddr,
+    ],
+)
