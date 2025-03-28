@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from xdsl.dialects.builtin import MemRefType, i32, i64, IntegerAttr, MemRefLayoutAttr, IntAttr, FixedBitwidthType
+from xdsl.dialects.builtin import MemRefType, i32, i64, IntegerAttr, FixedBitwidthType
 from xdsl.ir import ParametrizedAttribute, TypeAttribute, Data, SSAValue, Operation, Dialect, Attribute
 from xdsl.irdl import irdl_attr_definition, ParameterDef, irdl_op_definition, IRDLOperation, operand_def, result_def
 from xdsl.parser import AttrParser
@@ -102,11 +102,11 @@ class CBType(ParametrizedAttribute, TypeAttribute):
 
     cb_port: ParameterDef[CBPortAttr]
     address: ParameterDef[IntegerAttr]
-    memref: ParameterDef[MemRefLayoutAttr]
-    page_size: ParameterDef[IntAttr]
-    num_buffers: ParameterDef[IntAttr]
+    memref: ParameterDef[MemRefType]
+    page_size: ParameterDef[IntegerAttr]
+    num_buffers: ParameterDef[IntegerAttr]
 
-    def __init__(self, port: CBPortAttr, address: IntAttr, memref: MemRefType):
+    def __init__(self, port: CBPortAttr, address: IntegerAttr, memref: MemRefType):
         elem_type = memref.get_element_type()
         assert isinstance(elem_type, FixedBitwidthType)
 
