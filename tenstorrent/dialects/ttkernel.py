@@ -55,7 +55,7 @@ class CBPortFlags(Enum):
     TTKernel_CBPortIntermed7 = "intermediate7"
 
     @staticmethod
-    def try_parse(parser: AttrParser) -> set[CBPortFlags] | None:
+    def try_parse(parser: AttrParser) -> set["CBPortFlags"] | None:
         for option in CBPortFlags:
             if parser.parse_optional_characters(option.value) is not None:
                 return {option}
@@ -112,12 +112,13 @@ class CBType(ParametrizedAttribute, TypeAttribute):
     name = "ttkernel.cb"
 
     # cb_port: CBPort
-    address = ParameterDef[IntAttr]
-    memref = ParameterDef[MemRefLayoutAttr]
-    page_size = ParameterDef[IntAttr]
-    num_buffers = ParameterDef[IntAttr]
+    address: ParameterDef[IntAttr]
+    memref: ParameterDef[MemRefLayoutAttr]
+    page_size: ParameterDef[IntAttr]
+    num_buffers: ParameterDef[IntAttr]
 
-    assembly_format = "`<` $port`,` $address`,` $memref`,` $page_size`,` $num_buffers `>`"
+    # TODO: fix this
+    # assembly_format = "`<` $port`,` $address`,` $memref`,` $page_size`,` $num_buffers `>`"
 
     def __init__(self, port: CBPortAttr, address: IntAttr, memref: MemRefType):
         elem_type = memref.get_element_type()
