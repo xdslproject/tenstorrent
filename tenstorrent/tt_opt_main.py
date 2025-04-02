@@ -9,8 +9,10 @@ from tenstorrent.dialects.data_movement import DataMovement
 from tenstorrent.dialects.circular_buffer import CircularBuffer
 from tenstorrent.dialects.compute import Compute
 from tenstorrent.dialects.host import TTHost
+from tenstorrent.dialects.ttkernel import TTKernel
 from tenstorrent.backend.print_metalium import PrintMetalium
 from tenstorrent.transforms.linalg_to_tt import RewriteMatmulToTT
+from tenstorrent.transforms.ttxdsl_to_ttkernel import ConvertTTxToTTKernel
 
 
 class TTOptMain(xDSLOptMain):
@@ -19,6 +21,7 @@ class TTOptMain(xDSLOptMain):
     def register_all_passes(self):
         super().register_all_passes()
         self.register_pass(RewriteMatmulToTT.name, lambda: RewriteMatmulToTT)
+        self.register_pass(ConvertTTxToTTKernel.name, lambda: ConvertTTxToTTKernel)
 
     def register_all_targets(self):
         super().register_all_targets()
@@ -42,6 +45,7 @@ class TTOptMain(xDSLOptMain):
         self.ctx.load_dialect(TTHost)
         self.ctx.load_dialect(Compute)
         self.ctx.load_dialect(TTShared)
+        self.ctx.load_dialect(TTKernel)
 
     @staticmethod
     def get_passes_as_dict() -> Dict[str, Callable[[ModuleOp], None]]:

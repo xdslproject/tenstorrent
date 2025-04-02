@@ -95,6 +95,9 @@ class CBPortFlagsAttrBase(Data[tuple[CBPortFlags, ...]]):
 class CBPortAttr(CBPortFlagsAttrBase):
     name = "ttkernel.cbport"
 
+    def print_parameter(self, printer: Printer):
+        printer.print(str(self.data[0].data))
+
 
 @irdl_attr_definition
 class CBType(ParametrizedAttribute, TypeAttribute):
@@ -114,8 +117,9 @@ class CBType(ParametrizedAttribute, TypeAttribute):
         #  if isa(elem_type, TileType):
         #      page_size = elem_type.size_in_bytes
 
-        page_size = IntegerAttr(memref.element_count() * elem_type.bitwidth / 8)
-        super().__init__(port, address, memref, page_size, IntegerAttr(1))
+        value = memref.get_shape()[-1]  * elem_type.bitwidth // 8
+        page_size = IntegerAttr(value, 32)
+        super().__init__([port, address, memref, page_size, IntegerAttr(1, 32)])
 
     @classmethod
     def parse_parameters(cls, parser: AttrParser) -> Sequence[Attribute]:
@@ -132,6 +136,12 @@ class CBType(ParametrizedAttribute, TypeAttribute):
         parser.parse_punctuation(">", " at end of CBType attributes")
 
         return [cb_port, address, memref_type, page_size, num_buffers]
+
+    def print_parameters(self, printer: Printer) -> None:
+        with printer.in_angle_brackets():
+            printer.print(
+                ", ".join(str(p) for p in self.parameters)
+            )
 
 
 @irdl_op_definition
