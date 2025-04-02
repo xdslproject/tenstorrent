@@ -78,25 +78,24 @@ class CBPortFlagsAttrBase(Data[tuple[CBPortFlags, ...]]):
         super().__init__(tuple(flags_))
 
     @classmethod
-    def parse_parameter(cls, parser: AttrParser) -> CBPortFlags:
-        flag = CBPortFlags.try_parse(parser)
-        return flag
+    def parse_parameter(cls, parser: AttrParser) -> tuple[CBPortFlags, ...]:
+        flags = CBPortFlags.try_parse(parser)
+        if flags is None:
+            return tuple()
+
+        return tuple([flags])
 
     def print_parameter(self, printer: Printer):
         with printer.in_angle_brackets():
             flags = self.data
-            # make sure we emit flags in a consistent order
-            printer.print(
-                ",".join(flag.value for flag in CBPortFlags if flag in flags)
+            printer.print_string(
+                flags[0].data[0].value
             )
 
 
 @irdl_attr_definition
 class CBPortAttr(CBPortFlagsAttrBase):
     name = "ttkernel.cbport"
-
-    def print_parameter(self, printer: Printer):
-        printer.print(str(self.data[0].data))
 
 
 @irdl_attr_definition

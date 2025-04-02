@@ -106,8 +106,10 @@ class ReplaceTTxOps(RewritePattern):
                             raise NotImplementedError("found block arg as non-CBType")
 
     def get_next_cb_port(self):
+        identifier = f"cb_{self.cb_port_type}{self.cb_port_ctr}"
+        flag = next((f for f in CBPortFlags if f.value == identifier))
         cb_port = CBPortAttr(
-            [CBPortFlagsAttrBase(f"cb_{self.cb_port_type}{self.cb_port_ctr}")]
+            [CBPortFlagsAttrBase([flag])]
         )
 
         # set up the next cb port
