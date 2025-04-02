@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -138,8 +139,11 @@ class CBType(ParametrizedAttribute, TypeAttribute):
 
     def print_parameters(self, printer: Printer) -> None:
         with printer.in_angle_brackets():
+            cb_port = str(self.parameters[0])
+            match = re.search(r'<(.*?)>', cb_port)
+            printer.print(str(match.group(1)) + ", ")
             printer.print(
-                ", ".join(str(p) for p in self.parameters)
+                ", ".join(str(p) for p in self.parameters[1:])
             )
 
 
