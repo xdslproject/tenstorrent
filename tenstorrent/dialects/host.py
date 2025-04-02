@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from xdsl.printer import Printer
 from xdsl.utils.hints import isa
 
 from xdsl.dialects.builtin import (

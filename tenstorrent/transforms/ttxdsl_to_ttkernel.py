@@ -44,6 +44,14 @@ class ReplaceTTxOps(RewritePattern):
             if isinstance(operation, FuncOp):
                 self.replace_func_op(operation, rewriter)
 
+        # top_level = op.get_toplevel_object()
+        # next_level_down = top_level.body.first_block.first_op
+        # if isinstance(next_level_down, builtin.ModuleOp):
+        #     region = next_level_down.regions[0]
+        #     next_level_down.detach_region(region)
+        #     rewriter.replace_op(next_level_down, [])
+        #     top_level.add_region(region)
+
     def replace_func_op(self, func: FuncOp, rewriter: PatternRewriter):
         # prepare to replace this FuncOp
         replaced_ops: Dict[Operation, int] = {}
