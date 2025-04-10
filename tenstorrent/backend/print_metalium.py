@@ -49,7 +49,7 @@ TenstorrentStmts = [
 # expressions return a value
 # TODO: Greyed out ones don't work as expected due to new printing technique
 TenstorrentExpr = [
-    # ttshared.GetCompileTimeArgVal,
+    ttshared.GetCompileTimeArgVal,
     # data_movement.DMGetNocAddrFromBankId,
     circular_buffer.CBPagesAvailableAtFront,
     circular_buffer.CBPagesReservableAtBack,
