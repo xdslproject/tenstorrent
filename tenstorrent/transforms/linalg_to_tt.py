@@ -374,7 +374,8 @@ class MatmulToTT(RewritePattern):
 @dataclass(frozen=True)
 class RewriteMatmulToTT(ModulePass):
     """
-    This is the entry point for the transformation pass which will then apply the rewriter
+    This transformation takes a linalg matmul operation and rewrites it using
+    the Tenstorrent xDSL dialect into host code and three Metalium kernels
     """
 
     name = "rewrite-matmul-to-tt"

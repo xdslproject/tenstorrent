@@ -161,6 +161,10 @@ class RemoveAllUnrealizedConversionCasts(RewritePattern):
 
 
 class ConvertTTxToTTKernel(ModulePass):
+    """
+    Transforms code written in the Tenstorrent xDSL dialect to the officially
+    supported ttmlir dialect written by Tenstorrent
+    """
     name = "convert-ttx-to-ttkernel"
 
     def apply(self, ctx: Context, op: builtin.ModuleOp) -> None:
