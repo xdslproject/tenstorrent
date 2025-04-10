@@ -47,23 +47,24 @@ TenstorrentStmts = [
 
 
 # expressions return a value
+# TODO: Greyed out ones don't work as expected due to new printing technique
 TenstorrentExpr = [
     ttshared.GetCompileTimeArgVal,
-    data_movement.DMGetNocAddrFromBankId,
+    # data_movement.DMGetNocAddrFromBankId,
     circular_buffer.CBPagesAvailableAtFront,
     circular_buffer.CBPagesReservableAtBack,
-    circular_buffer.CBGetWritePointer,
-    circular_buffer.CBGetReadPointer,
+    # circular_buffer.CBGetWritePointer,
+    # circular_buffer.CBGetReadPointer,
     host.TTHostCore,
-    host.TTCreateDevice,
-    host.TTCreateCBConfig,
-    host.TTCreateCircularBuffer,
+    # host.TTCreateDevice,
+    # host.TTCreateCBConfig,
+    # host.TTCreateCircularBuffer,
     host.TTGetCommandQueue,
-    host.TTCreateProgram,
+    # host.TTCreateProgram,
     host.TTCreateDRAMConfig,
-    host.TTCreateBuffer,
-    host.TTCreateKernel,
-    host.TTCreateComputeKernel,
+    # host.TTCreateBuffer,
+    # host.TTCreateKernel,
+    # host.TTCreateComputeKernel,
     host.TTGetMemoryAddress,
 ]
 

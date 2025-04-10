@@ -1,25 +1,6 @@
-// RUN: python3.13 tenstorrent/tools/tt-opt %s -p extract-driver | filecheck %s
+// RUN: python3.13 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
 
 builtin.module {
-  builtin.module {
-    func.func @_QMproblem_modPentry() {
-      %0 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-      %1 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-      %2 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-      %3 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-      func.call @host_entry(%0, %1, %3) : (memref<10x10xi32>, memref<10x10xi32>, memref<10x10xi32>) -> ()
-      "memref.copy"(%3, %2) : (memref<10x10xi32>, memref<10x10xi32>) -> ()
-      func.return
-    }
-    func.func @main() {
-      "memref.alloca_scope"() ({
-        func.call @_QMproblem_modPentry() : () -> ()
-        "memref.alloca_scope.return"() : () -> ()
-      }) : () -> ()
-      func.return
-    }
-    func.func private @host_entry(memref<10x10xi32>, memref<10x10xi32>, memref<10x10xi32>) -> ()
-  }
   builtin.module attributes {kernel_type = "host"} {
     func.func @host_entry(%0 : memref<10x10xi32>, %1 : memref<10x10xi32>, %2 : memref<10x10xi32>) {
       %3 = arith.constant 400 : i32
@@ -122,22 +103,4 @@ builtin.module {
   }
 }
 
-// CHECK:      builtin.module {
-// CHECK-NEXT:   func.func @_QMproblem_modPentry() {
-// CHECK-NEXT:     %0 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-// CHECK-NEXT:     %1 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-// CHECK-NEXT:     %2 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-// CHECK-NEXT:     %3 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<10x10xi32>
-// CHECK-NEXT:     func.call @host_entry(%0, %1, %3) : (memref<10x10xi32>, memref<10x10xi32>, memref<10x10xi32>) -> ()
-// CHECK-NEXT:     "memref.copy"(%3, %2) : (memref<10x10xi32>, memref<10x10xi32>) -> ()
-// CHECK-NEXT:     func.return
-// CHECK-NEXT:   }
-// CHECK-NEXT:   func.func @main() {
-// CHECK-NEXT:     "memref.alloca_scope"() ({
-// CHECK-NEXT:       func.call @_QMproblem_modPentry() : () -> ()
-// CHECK-NEXT:       "memref.alloca_scope.return"() : () -> ()
-// CHECK-NEXT:     }) : () -> ()
-// CHECK-NEXT:     func.return
-// CHECK-NEXT:   }
-// CHECK-NEXT:   func.func private @host_entry(memref<10x10xi32>, memref<10x10xi32>, memref<10x10xi32>) -> ()
-// CHECK-NEXT: }
+// CHECK: matmul_tiles(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0));

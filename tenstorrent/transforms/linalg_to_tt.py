@@ -140,14 +140,14 @@ class MatmulToTT(RewritePattern):
 
         # make the kernel objects
         kernel_din = host.TTCreateKernel(
-            program, core, self.data_in, RISCVCoreFlagsAttr([RISCVCoreFlags.COMPUTE]), 0
+            program, core, self.data_in, RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]), 0
         )
 
         kernel_dout = host.TTCreateKernel(
             program,
             core,
             self.data_out,
-            RISCVCoreFlagsAttr([RISCVCoreFlags.COMPUTE]),
+            RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_1]),
             1,
         )
 
