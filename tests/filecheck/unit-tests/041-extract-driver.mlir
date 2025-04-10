@@ -47,8 +47,8 @@ builtin.module {
       %23 = "tthost.create_circular_buffer"(%6, %11, %20) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
       %24 = "tthost.create_circular_buffer"(%6, %11, %21) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
       %25 = "tthost.create_circular_buffer"(%6, %11, %22) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
-      %26 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_in", riscv_core = #tthost.riscv_core<compute>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-      %27 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_out", riscv_core = #tthost.riscv_core<compute>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %26 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_in", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %27 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_out", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %28 = "tthost.create_compute_kernel"(%6, %11) <{kernel_name = "run_matmul", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<LoFi>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %29 = "tthost.get_memory_address"(%16) : (!tthost.buffer) -> index
       %30 = "tthost.get_memory_address"(%17) : (!tthost.buffer) -> index
