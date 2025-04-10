@@ -150,9 +150,10 @@ class PrintMetalium:
     Prints the Tenstorrent Metalium API (C) given a list of xDSL operations
     """
 
-    def __init__(self, file=None):
+    def __init__(self, write_files: bool = False):
         self._indent = 0
-        self._file = file
+        self._writing_files = write_files
+        self._file = None
         self._names = {}  # SSAVal -> Variable Name
         self._free_end_of_fn = []
         self._unique_name_ctr = 0
@@ -172,6 +173,9 @@ class PrintMetalium:
             if "kernel_type" in operation.attributes:
                 kernel_type = operation.attributes["kernel_type"].data
                 self._kernel_type.append(kernel_type)
+
+                if self._writing_files:
+                    self._file = open(f"{kernel_type}.cpp", 'w')
 
                 if kernel_type == "host":
                     self.print(
@@ -219,6 +223,9 @@ class PrintMetalium:
                     self.print_op(block)
 
             # no longer compiling that same kernel
+            if self._kernel_type[-1] != "unknown" and self._writing_files:
+                self._file.close()
+                self._file = None
             self._kernel_type.pop()
         elif isa(operation, Block):
             for op in operation.ops:
@@ -1026,7 +1033,7 @@ class PrintMetalium:
 
     def print(self, s: str, indented: bool = False, end=""):
         prefix = self._prefix if indented else ""
-        if self._file:
+        if self._writing_files and self._file:
             print(prefix + s, file=self._file, end=end)
         else:
             print(prefix + s, end=end)
