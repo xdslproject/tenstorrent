@@ -20,9 +20,9 @@ class MatmulToTT(RewritePattern):
     def __init__(self):
         super().__init__()
         self.host = "host_entry"
-        self.data_in = "run_data_in"
-        self.data_out = "run_data_out"
-        self.compute = "run_matmul"
+        self.data_in = "kernel_main"
+        self.data_out = "kernel_main"
+        self.compute = "compute"
 
 
     @op_type_rewrite_pattern
@@ -140,13 +140,13 @@ class MatmulToTT(RewritePattern):
 
         # make the kernel objects
         kernel_din = host.TTCreateKernel(
-            program, core, self.data_in, RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]), 0
+            program, core, "reader.cpp", RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]), 0
         )
 
         kernel_dout = host.TTCreateKernel(
             program,
             core,
-            self.data_out,
+            "writer.cpp",
             RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_1]),
             1,
         )
@@ -155,7 +155,7 @@ class MatmulToTT(RewritePattern):
         kernel_compute = host.TTCreateComputeKernel(
             program,
             core,
-            self.compute,
+            "compute.cpp",
             MathFidelityFlagsAttr([MathFidelityFlags.LOFI]),
             false_attr,
             false_attr,
