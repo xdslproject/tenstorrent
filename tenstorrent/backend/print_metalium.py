@@ -161,6 +161,21 @@ class PrintMetalium:
         self._kernel_type = []
         self._skip_next_op = False
 
+    def is_host(self):
+        return self._kernel_type[-1] == "host"
+
+    def is_compute(self):
+        return self._kernel_type[-1] == "compute"
+
+    def is_data_in(self):
+        return self._kernel_type[-1] == "data_in"
+
+    def is_data_out(self):
+        return self._kernel_type[-1] == "data_out"
+
+    def is_unknown(self):
+        return self._kernel_type[-1] == "unknown"
+
     def print_op(self, operation):
         if self._skip_next_op:
             self._skip_next_op = False
@@ -221,7 +236,7 @@ class PrintMetalium:
                     self.print_op(block)
 
             # no longer compiling that same kernel
-            if self._kernel_type[-1] != "unknown" and self._writing_files:
+            if self.is_unknown() and self._writing_files:
                 self._file.close()
                 self._file = None
             self._kernel_type.pop()
@@ -474,33 +489,32 @@ class PrintMetalium:
         self.print_unrealized_conversion_cast_stmt(op)
 
     def print_print(self, op):
-        kt = self._kernel_type[-1]
         string = op.format_str.data
 
         # compiling a separate function, hard to tell, could make assumptions
         # based on other functions in the file, etc. For now crash
-        if kt == "unknown":
+        if self.is_unknown():
             raise ValueError("Can only print in functions marked with @tt.decorator")
-        elif kt == "host":
+        elif self.is_host():
             self.print(f'printf("{string}\\n");', indented=True, end="\n")
-        elif kt == "data_in":
+        elif self.is_data_in():
             self.print(
                 f'DPRINT_DATA0(DPRINT << "{string}" << ENDL());',
                 indented=True,
                 end="\n",
             )
-        elif kt == "data_out":
+        elif self.is_data_out():
             self.print(
                 f'DPRINT_DATA1(DPRINT << "{string}" << ENDL());',
                 indented=True,
                 end="\n",
             )
-        elif kt == "compute":
+        elif self.is_compute():
             self.print(
                 f'DPRINT_MATH(DPRINT << "{string}" << ENDL());', indented=True, end="\n"
             )
         else:
-            raise ValueError(f"Unknown kernel type: {kt}")
+            raise ValueError(f"Unknown kernel type: {self._kernel_type[-1]}")
 
     def print_cb_get_write_pointer(self, op):
         if op.results[0] in self._names.keys():
@@ -800,7 +814,16 @@ class PrintMetalium:
             assert len(func_op.function_type.outputs) == 1
             return_type = MLIR_TO_CPP_TYPES[func_op.function_type.outputs.data[0]]
 
-        self.print(f"\n{return_type} {func_op.sym_name.data}(", indented=True)
+        func_name = func_op.sym_name.data
+        if self.is_data_in() or self.is_data_out():
+            func_name = "kernel_main"
+        if self.is_compute():
+            func_name = "MAIN"
+
+        self.print(f"\n{return_type} {func_name}", indented=True)
+
+        if not self.is_compute():
+            self.print('(')
 
         if not is_tt_kernel:
             for idx, input_type in enumerate(func_op.function_type.inputs):
@@ -815,8 +838,10 @@ class PrintMetalium:
                     self.print(", ")
                 self.print(f"{type_decl}{'*' if is_ref else ''} fn_arg_{idx}")
 
-        self.print(") {", end="\n")
+        if not self.is_compute():
+            self.print(")")
 
+        self.print(" {", end="\n")
         self._indent += 1
 
         if is_tt_kernel:

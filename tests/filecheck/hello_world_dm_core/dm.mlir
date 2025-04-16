@@ -23,6 +23,6 @@ builtin.module {
 // CHECK-NEXT: }
 // CHECK-NEXT: #include "dataflow_api.h"
 // CHECK-NEXT: #include "debug/dprint.h"
-// CHECK:      void void_dataflow1() {
+// CHECK:      void kernel_main() {
 // CHECK-NEXT:     DPRINT_DATA1(DPRINT << "Hello, I am running a void data movement kernel on NOC 1." << ENDL());
 // CHECK-NEXT: }

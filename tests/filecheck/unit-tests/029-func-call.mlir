@@ -50,10 +50,10 @@ builtin.module {
 // CHECK-NEXT:     noc_async_read_barrier();
 // CHECK-NEXT: }
 
-// CHECK:      void data_out_api() {
+// CHECK:      void kernel_main() {
 // CHECK-NEXT:     noc_async_write_barrier();
 // CHECK-NEXT: }
 
-// CHECK:      void compute() {
+// CHECK:      void MAIN {
 // CHECK-NEXT:     add_tiles(static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(2), static_cast<std::uint32_t>(3), static_cast<std::uint32_t>(4), static_cast<std::uint32_t>(5));
 // CHECK-NEXT: }

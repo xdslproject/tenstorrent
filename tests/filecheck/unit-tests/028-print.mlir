@@ -37,10 +37,10 @@ builtin.module {
 // CHECK-NEXT:     DPRINT_DATA0(DPRINT << "Hello, I am the data in core" << ENDL());
 // CHECK-NEXT: }
 
-// CHECK:      void print_d1() {
+// CHECK:      void kernel_main() {
 // CHECK-NEXT:     DPRINT_DATA1(DPRINT << "Hello, I am the data out core" << ENDL());
 // CHECK-NEXT: }
 
-// CHECK:      void print_compute() {
+// CHECK:      void MAIN {
 // CHECK-NEXT:     DPRINT_MATH(DPRINT << "Hello, I am the compute core" << ENDL());
 // CHECK-NEXT: }

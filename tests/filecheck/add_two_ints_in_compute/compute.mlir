@@ -70,7 +70,7 @@ builtin.module {
 // CHECK:      #include <cstdint>
 // CHECK-NEXT: #include "compute_kernel_api/tile_move_copy.h"
 // CHECK-NEXT: #include "compute_kernel_api/eltwise_binary.h" 
-// CHECK:      void add_two_ints_vectorised() {
+// CHECK:      void MAIN {
 // CHECK-NEXT:     std::int32_t cb0 = 0;
 // CHECK-NEXT:     std::int32_t cb1 = 1;
 // CHECK-NEXT:     std::int32_t cb_out = 16;

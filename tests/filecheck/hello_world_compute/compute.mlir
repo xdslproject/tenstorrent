@@ -9,6 +9,6 @@ builtin.module {
   }
 }
 
-// CHECK:      void void_compute() {
+// CHECK:      void MAIN {
 // CHECK-NEXT:     DPRINT_MATH(DPRINT << "Hello, I am running a void compute kernel" << ENDL());
 // CHECK-NEXT: }
