@@ -209,7 +209,7 @@ class MatmulToTT(RewritePattern):
                     Region(block),
                 ),
             ],
-            attributes={"kernel_type": builtin.StringAttr("host")},
+            attributes={"kernel_type": builtin.StringAttr("host"), "vis": builtin.StringAttr("external")},
         )
 
     def generate_data_in(self) -> builtin.ModuleOp:

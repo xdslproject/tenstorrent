@@ -814,11 +814,20 @@ class PrintMetalium:
             assert len(func_op.function_type.outputs) == 1
             return_type = MLIR_TO_CPP_TYPES[func_op.function_type.outputs.data[0]]
 
+        vis = func_op.parent_op().attributes.get("vis")
+        external_host = self.is_host() and vis and vis.data == "external"
+        if external_host:
+            return_type = 'extern "C" ' + return_type
+
         func_name = func_op.sym_name.data
         if self.is_data_in() or self.is_data_out():
             func_name = "kernel_main"
         if self.is_compute():
             func_name = "MAIN"
+        if external_host:
+            func_name = "host_entry"
+        if self.is_host() and not external_host:
+            func_name = "main"
 
         self.print(f"\n{return_type} {func_name}", indented=True)
 

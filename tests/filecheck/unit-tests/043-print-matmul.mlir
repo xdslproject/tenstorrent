@@ -1,7 +1,7 @@
 // RUN: python3.13 tenstorrent/tools/tt-opt %s -t tt-metalium | filecheck %s
 
 builtin.module {
-  builtin.module attributes {kernel_type = "host"} {
+  builtin.module attributes {kernel_type = "host", vis = "external"} {
     func.func @host_entry(%0 : memref<10x10xi32>, %1 : memref<10x10xi32>, %2 : memref<10x10xi32>) {
       %3 = arith.constant 400 : i32
       %4 = arith.constant 400 : i32
