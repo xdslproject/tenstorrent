@@ -700,10 +700,12 @@ class PythonToMLIR(ast.NodeVisitor):
         noc_id = node.args[4].value
         assert noc_id == 0 or noc_id == 1
 
+        kernel_name = 'reader' if rv_core_flag == RISCVCoreFlags.DATAMOVEMENT_0 else 'writer'
+
         kernel_create = TTCreateKernel(
             program_ssa,
             core_ssa,
-            target_fn_name + "_kernel.cpp",
+            f"{kernel_name}.cpp",
             RISCVCoreFlagsAttr([rv_core_flag]),
             noc_id,
         )
@@ -715,7 +717,6 @@ class PythonToMLIR(ast.NodeVisitor):
         core_ops, core_ssa = self.visit(node.args[2])
 
         assert isa(node.args[1], ast.Name)
-        target_fn_name = node.args[1].id
 
         mf_flag = MathFidelityFlags(node.args[3].attr)
         fp32_acc = node.args[4].value
@@ -727,7 +728,7 @@ class PythonToMLIR(ast.NodeVisitor):
         kernel_create = TTCreateComputeKernel(
             program_ssa,
             core_ssa,
-            target_fn_name + "_kernel.cpp",
+            "compute.cpp",
             MathFidelityFlagsAttr([mf_flag]),
             IntegerAttr(fp32_acc, i1),
             IntegerAttr(math_apx, i1),

@@ -25,12 +25,12 @@ run_from_examples(__file__)
 # CHECK-NEXT:       memref.store %7, %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %8 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %9 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %10 = "tthost.create_kernel"(%8, %9) <{kernel_name = "void_dataflow_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %10 = "tthost.create_kernel"(%8, %9) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %dataflow = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %10, %dataflow[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %11 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %12 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %13 = "tthost.create_kernel"(%11, %12) <{kernel_name = "void_dataflow_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %13 = "tthost.create_kernel"(%11, %12) <{kernel_name = "writer.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %dataflow_1 = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %13, %dataflow_1[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %14 = memref.load %program[] : memref<!tthost.program>

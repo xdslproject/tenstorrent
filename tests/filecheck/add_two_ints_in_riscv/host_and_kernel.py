@@ -179,7 +179,7 @@ run_from_examples(__file__)
 # CHECK-NEXT:       "tthost.enqueue_write_buffer"(%62, %63, %host_src1, %64) : (!tthost.command_queue, !tthost.buffer, memref<100xi32>, i1) -> ()
 # CHECK-NEXT:       %65 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %66 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %67 = "tthost.create_kernel"(%65, %66) <{kernel_name = "single_assignment_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %67 = "tthost.create_kernel"(%65, %66) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %kernel = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %67, %kernel[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %68 = memref.load %program[] : memref<!tthost.program>
