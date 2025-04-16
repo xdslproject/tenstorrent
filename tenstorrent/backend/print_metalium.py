@@ -179,15 +179,10 @@ class PrintMetalium:
 
                 if kernel_type == "host":
                     self.print(
-                        '#include "tt_metal/host_api.hpp"', indented=True, end="\n"
+                        '#include "host_api.hpp"', indented=True, end="\n"
                     )
                     self.print(
-                        '#include "tt_metal/impl/device/device.hpp"',
-                        indented=True,
-                        end="\n",
-                    )
-                    self.print(
-                        '#include "tt_metal/common/bfloat16.hpp"',
+                        '#include "device_impl.hpp"',
                         indented=True,
                         end="\n",
                     )
