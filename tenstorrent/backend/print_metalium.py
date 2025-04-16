@@ -179,15 +179,10 @@ class PrintMetalium:
 
                 if kernel_type == "host":
                     self.print(
-                        '#include "tt_metal/host_api.hpp"', indented=True, end="\n"
+                        '#include "host_api.hpp"', indented=True, end="\n"
                     )
                     self.print(
-                        '#include "tt_metal/impl/device/device.hpp"',
-                        indented=True,
-                        end="\n",
-                    )
-                    self.print(
-                        '#include "tt_metal/common/bfloat16.hpp"',
+                        '#include "device_impl.hpp"',
                         indented=True,
                         end="\n",
                     )
@@ -205,6 +200,9 @@ class PrintMetalium:
                 elif kernel_type == "compute":
                     self.print("#include <cstdint>", indented=True, end="\n")
                     # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
+                    self.print(
+                        '#include "compute_kernel_api/matmul.h'
+                    )
                     self.print(
                         '#include "compute_kernel_api/tile_move_copy.h"',
                         indented=True,

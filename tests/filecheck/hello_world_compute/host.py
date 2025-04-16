@@ -25,7 +25,7 @@ run_from_examples(__file__)
 # CHECK-NEXT:       memref.store %7, %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %8 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %9 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %10 = "tthost.create_compute_kernel"(%8, %9) <{kernel_name = "void_compute_kernel.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<HiFi4>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %10 = "tthost.create_compute_kernel"(%8, %9) <{kernel_name = "compute.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<HiFi4>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %void_compute_kernel = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %10, %void_compute_kernel[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %11 = memref.load %program[] : memref<!tthost.program>
