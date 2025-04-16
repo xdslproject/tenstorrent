@@ -206,6 +206,9 @@ class PrintMetalium:
                     self.print("#include <cstdint>", indented=True, end="\n")
                     # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
                     self.print(
+                        '#include "compute_kernel_api/matmul.h'
+                    )
+                    self.print(
                         '#include "compute_kernel_api/tile_move_copy.h"',
                         indented=True,
                         end="\n",
