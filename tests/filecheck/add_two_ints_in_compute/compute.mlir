@@ -68,6 +68,7 @@ builtin.module {
 }
 
 // CHECK:      #include <cstdint>
+// CHECK-NEXT: #include "compute_kernel_api/matmul.h
 // CHECK-NEXT: #include "compute_kernel_api/tile_move_copy.h"
 // CHECK-NEXT: #include "compute_kernel_api/eltwise_binary.h" 
 // CHECK:      void MAIN {

@@ -312,6 +312,7 @@ class MatmulToTT(RewritePattern):
         sixteen_u = builtin.UnrealizedConversionCastOp(operands=[sixteen], result_types=[uint32])
 
         init_op = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
+        mm_init = compute.MMInit(zero_u, one_u, zero_u, zero_u)
 
         # wait for a single block of tiles in each input CB
         wait0 = circular_buffer.CBWaitFront(zero, one)
@@ -350,6 +351,7 @@ class MatmulToTT(RewritePattern):
                                 one_u,
                                 sixteen_u,
                                 init_op,
+                                mm_init,
                                 wait0,
                                 wait1,
                                 acquire_regs,

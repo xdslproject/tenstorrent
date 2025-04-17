@@ -20,7 +20,7 @@ builtin.module {
     }
     func.func private @host_entry(memref<10x10xi32>, memref<10x10xi32>, memref<10x10xi32>) -> ()
   }
-  builtin.module attributes {kernel_type = "host"} {
+  builtin.module attributes {kernel_type = "host", vis = "external"} {
     func.func @host_entry(%0 : memref<10x10xi32>, %1 : memref<10x10xi32>, %2 : memref<10x10xi32>) {
       %3 = arith.constant 400 : i32
       %4 = arith.constant 400 : i32
@@ -47,9 +47,9 @@ builtin.module {
       %23 = "tthost.create_circular_buffer"(%6, %11, %20) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
       %24 = "tthost.create_circular_buffer"(%6, %11, %21) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
       %25 = "tthost.create_circular_buffer"(%6, %11, %22) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
-      %26 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_in", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-      %27 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_out", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-      %28 = "tthost.create_compute_kernel"(%6, %11) <{kernel_name = "run_matmul", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<LoFi>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %26 = "tthost.create_kernel"(%6, %11) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %27 = "tthost.create_kernel"(%6, %11) <{kernel_name = "writer.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %28 = "tthost.create_compute_kernel"(%6, %11) <{kernel_name = "compute.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<LoFi>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %29 = "tthost.get_memory_address"(%16) : (!tthost.buffer) -> index
       %30 = "tthost.get_memory_address"(%17) : (!tthost.buffer) -> index
       %31 = "tthost.get_memory_address"(%18) : (!tthost.buffer) -> index
@@ -64,7 +64,7 @@ builtin.module {
     }
   }
   builtin.module attributes {kernel_type = "data_in"} {
-    func.func @run_data_in(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
+    func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
       %6 = arith.constant 0 : i8
       %7 = builtin.unrealized_conversion_cast %6 : i8 to ui8
       %8 = arith.constant 0 : i32
@@ -85,7 +85,7 @@ builtin.module {
     }
   }
   builtin.module attributes {kernel_type = "compute"} {
-    func.func @run_data_out() {
+    func.func @kernel_main() {
       %0 = arith.constant 0 : i32
       %1 = arith.constant 1 : i32
       %2 = arith.constant 16 : i32
@@ -93,6 +93,7 @@ builtin.module {
       %4 = builtin.unrealized_conversion_cast %1 : i32 to ui32
       %5 = builtin.unrealized_conversion_cast %2 : i32 to ui32
       "comp.binary_op_init_common"(%3, %4, %5) : (ui32, ui32, ui32) -> ()
+      "comp.mm_init"(%3, %4, %3, %3) : (ui32, ui32, ui32, ui32) -> ()
       "cb.wait_front"(%0, %1) : (i32, i32) -> ()
       "cb.wait_front"(%1, %1) : (i32, i32) -> ()
       "comp.tile_regs_acquire"() : () -> ()
@@ -108,7 +109,7 @@ builtin.module {
     }
   }
   builtin.module attributes {kernel_type = "data_out"} {
-    func.func @run_data_out(%0 : ui32, %1 : ui32, %2 : ui32) {
+    func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32) {
       %3 = "dm.get_noc_addr_from_bank_id"(%0, %1) <{dram = true}> : (ui32, ui32) -> ui64
       %4 = arith.constant 1 : i32
       %5 = arith.constant 16 : i32
@@ -123,7 +124,7 @@ builtin.module {
 }
 
 // CHECK:      builtin.module {
-// CHECK-NEXT:   builtin.module attributes {kernel_type = "host"} {
+// CHECK-NEXT:   builtin.module attributes {kernel_type = "host", vis = "external"} {
 // CHECK-NEXT:     func.func @host_entry(%0 : memref<10x10xi32>, %1 : memref<10x10xi32>, %2 : memref<10x10xi32>) {
 // CHECK-NEXT:       %3 = arith.constant 400 : i32
 // CHECK-NEXT:       %4 = arith.constant 400 : i32
@@ -150,9 +151,9 @@ builtin.module {
 // CHECK-NEXT:       %23 = "tthost.create_circular_buffer"(%6, %11, %20) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %24 = "tthost.create_circular_buffer"(%6, %11, %21) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %25 = "tthost.create_circular_buffer"(%6, %11, %22) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
-// CHECK-NEXT:       %26 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_in", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-// CHECK-NEXT:       %27 = "tthost.create_kernel"(%6, %11) <{kernel_name = "run_data_out", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-// CHECK-NEXT:       %28 = "tthost.create_compute_kernel"(%6, %11) <{kernel_name = "run_matmul", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<LoFi>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+// CHECK-NEXT:       %26 = "tthost.create_kernel"(%6, %11) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+// CHECK-NEXT:       %27 = "tthost.create_kernel"(%6, %11) <{kernel_name = "writer.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+// CHECK-NEXT:       %28 = "tthost.create_compute_kernel"(%6, %11) <{kernel_name = "compute.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<LoFi>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 // CHECK-NEXT:       %29 = "tthost.get_memory_address"(%16) : (!tthost.buffer) -> index
 // CHECK-NEXT:       %30 = "tthost.get_memory_address"(%17) : (!tthost.buffer) -> index
 // CHECK-NEXT:       %31 = "tthost.get_memory_address"(%18) : (!tthost.buffer) -> index
@@ -167,7 +168,7 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }
 // CHECK-NEXT:   builtin.module attributes {kernel_type = "data_in"} {
-// CHECK-NEXT:     func.func @run_data_in(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
+// CHECK-NEXT:     func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
 // CHECK-NEXT:       %6 = arith.constant 0 : i8
 // CHECK-NEXT:       %7 = builtin.unrealized_conversion_cast %6 : i8 to ui8
 // CHECK-NEXT:       %8 = arith.constant 0 : i32
@@ -188,7 +189,7 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }
 // CHECK-NEXT:   builtin.module attributes {kernel_type = "compute"} {
-// CHECK-NEXT:     func.func @run_data_out() {
+// CHECK-NEXT:     func.func @kernel_main() {
 // CHECK-NEXT:       %0 = arith.constant 0 : i32
 // CHECK-NEXT:       %1 = arith.constant 1 : i32
 // CHECK-NEXT:       %2 = arith.constant 16 : i32
@@ -196,6 +197,7 @@ builtin.module {
 // CHECK-NEXT:       %4 = builtin.unrealized_conversion_cast %1 : i32 to ui32
 // CHECK-NEXT:       %5 = builtin.unrealized_conversion_cast %2 : i32 to ui32
 // CHECK-NEXT:       "comp.binary_op_init_common"(%3, %4, %5) : (ui32, ui32, ui32) -> ()
+// CHECK-NEXT:       "comp.mm_init"(%3, %4, %3, %3) : (ui32, ui32, ui32, ui32) -> ()
 // CHECK-NEXT:       "cb.wait_front"(%0, %1) : (i32, i32) -> ()
 // CHECK-NEXT:       "cb.wait_front"(%1, %1) : (i32, i32) -> ()
 // CHECK-NEXT:       "comp.tile_regs_acquire"() : () -> ()
@@ -211,7 +213,7 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }
 // CHECK-NEXT:   builtin.module attributes {kernel_type = "data_out"} {
-// CHECK-NEXT:     func.func @run_data_out(%0 : ui32, %1 : ui32, %2 : ui32) {
+// CHECK-NEXT:     func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32) {
 // CHECK-NEXT:       %3 = "dm.get_noc_addr_from_bank_id"(%0, %1) <{dram = true}> : (ui32, ui32) -> ui64
 // CHECK-NEXT:       %4 = arith.constant 1 : i32
 // CHECK-NEXT:       %5 = arith.constant 16 : i32
