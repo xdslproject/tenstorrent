@@ -321,7 +321,7 @@ class MatmulToTT(RewritePattern):
         acquire_regs = compute.RegsAcquire()
 
         # add the first tiles in cb0 and cb1, storing the result tile
-        do_add = compute.Matmul(zero_u, one_u, zero_u, zero_u, zero_u)
+        do_matmul = compute.Matmul(zero_u, one_u, zero_u, zero_u, zero_u, zero_u)
 
         # commit the result, signals the packer
         commit = compute.RegsCommit()
@@ -353,7 +353,7 @@ class MatmulToTT(RewritePattern):
                                 wait0,
                                 wait1,
                                 acquire_regs,
-                                do_add,
+                                do_matmul,
                                 commit,
                                 regs_wait,
                                 pack,

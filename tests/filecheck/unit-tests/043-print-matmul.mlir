@@ -77,7 +77,7 @@ builtin.module {
       "cb.wait_front"(%0, %1) : (i32, i32) -> ()
       "cb.wait_front"(%1, %1) : (i32, i32) -> ()
       "comp.tile_regs_acquire"() : () -> ()
-      "comp.matmul_tiles"(%3, %4, %3, %3, %3) : (ui32, ui32, ui32, ui32, ui32) -> ()
+      "comp.matmul_tiles"(%3, %4, %3, %3, %3, %3) : (ui32, ui32, ui32, ui32, ui32, ui32) -> ()
       "comp.tile_regs_commit"() : () -> ()
       "comp.tile_regs_wait"() : () -> ()
       "comp.pack_tile"(%3, %5, %3) <{out_of_order_output = false}> : (ui32, ui32, ui32) -> ()
@@ -103,4 +103,4 @@ builtin.module {
   }
 }
 
-// CHECK: matmul_tiles(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0));
+// CHECK: matmul_tiles(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0));

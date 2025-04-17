@@ -460,7 +460,7 @@ class Matmul(IRDLOperation):
     tile0 = operand_def(uint32)
     tile1 = operand_def(uint32)
     dst = operand_def(uint32)
-    transpose = opt_operand_def(uint32)
+    transpose = operand_def(uint32)
 
     def __init__(
         self,
@@ -469,7 +469,7 @@ class Matmul(IRDLOperation):
         tile0: SSAValue | Operation,
         tile1: SSAValue | Operation,
         dst: SSAValue | Operation,
-        transpose: SSAValue | Operation = None,
+        transpose: SSAValue | Operation,
     ):
         super().__init__(operands=[cb0, cb1, tile0, tile1, dst, transpose])
 
