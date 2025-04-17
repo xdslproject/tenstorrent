@@ -574,7 +574,7 @@ class PrintMetalium:
         self.print(")")
 
     def print_tthost_core(self, op):
-        self.print("{")
+        self.print("CoreCoord{")
         self.print_expr(op.src_noc_x)
         self.print(", ")
         self.print_expr(op.src_noc_y)
