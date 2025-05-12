@@ -1,3 +1,6 @@
+from datetime import datetime as dt
+import os
+
 from xdsl.dialects.builtin import Signedness
 from xdsl.ir import (
     Block,
@@ -153,6 +156,7 @@ class PrintMetalium:
     def __init__(self, write_files: bool = False):
         self._indent = 0
         self._writing_files = write_files
+        self.date = dt.now().strftime("%d-%m-%y--%H-%M")
         self._file = None
         self._names = {}  # SSAVal -> Variable Name
         self._free_end_of_fn = []
@@ -190,7 +194,8 @@ class PrintMetalium:
                 self._kernel_type.append(kernel_type)
 
                 if self._writing_files:
-                    self._file = open(f"{kernel_type}.cpp", 'w')
+                    os.makedirs(self.date, exist_ok=True)
+                    self._file = open(f"{self.date}/{kernel_type}.cpp", 'w')
 
                 if kernel_type == "host":
                     self.print(
