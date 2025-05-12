@@ -115,7 +115,10 @@ class MatmulToTT(RewritePattern):
         operations += sizes
 
         program = host.TTCreateProgram()
+        program.results[0].name_hint = "prog"
+
         zero = arith.ConstantOp.from_int_and_width(0, 32)
+        zero.results[0].name_hint = "zero"
         one = arith.ConstantOp.from_int_and_width(1, 32)
         sixteen = arith.ConstantOp.from_int_and_width(16, 32)
         device = host.TTCreateDevice(zero)
@@ -146,6 +149,7 @@ class MatmulToTT(RewritePattern):
         kernel_din = host.TTCreateKernel(
             program, core, "reader.cpp", RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]), 0
         )
+        kernel_din.results[0].name_hint = "reader_kernel"
 
         kernel_dout = host.TTCreateKernel(
             program,
@@ -154,6 +158,7 @@ class MatmulToTT(RewritePattern):
             RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_1]),
             1,
         )
+        kernel_dout.results[0].name_hint = "writer_kernel"
 
         false_attr = BoolAttr(0, i1)
         kernel_compute = host.TTCreateComputeKernel(
@@ -164,17 +169,33 @@ class MatmulToTT(RewritePattern):
             false_attr,
             false_attr,
         )
+        kernel_compute.results[0].name_hint = "compute_kernel"
 
         operations += [kernel_din, kernel_dout, kernel_compute]
 
-        arg0 = host.TTGetMemoryAddress(dram_buffers[0])
-        arg1 = host.TTGetMemoryAddress(dram_buffers[1])
+        dram_in0_addr = host.TTGetMemoryAddress(dram_buffers[0])
+        dram_in1_addr = host.TTGetMemoryAddress(dram_buffers[1])
+        dram_out_addr = host.TTGetMemoryAddress(dram_buffers[2])
 
+        dram_in0_addr.results[0].name_hint = "dram_in0_addr"
+        dram_in1_addr.results[0].name_hint = "dram_in1_addr"
+        dram_out_addr.results[0].name_hint = "dram_out_addr"
+
+        in0_size = sizes[0]
+        in1_size = sizes[1]
+        out_size = sizes[2]
+
+        in0_size.results[0].name_hint = "size0"
+        in1_size.results[0].name_hint = "size1"
+        out_size.results[0].name_hint = "size_out"
+
+        dram_bank0 = zero
+        dram_bank1 = zero
         set_din_args = host.TTSetRuntimeArgs(
             program,
             kernel_din,
             core,
-            *(arg0, arg1, zero, zero, sizes[0], sizes[1])
+            *(dram_bank0, dram_bank1, dram_in0_addr, dram_in1_addr, in0_size, in1_size)
         )
 
         set_compute_args = host.TTSetRuntimeArgs(
@@ -183,15 +204,15 @@ class MatmulToTT(RewritePattern):
             core
         )
 
-        arg2 = host.TTGetMemoryAddress(dram_buffers[2])
+        dram_bank_id = zero
         set_dout_args = host.TTSetRuntimeArgs(
             program,
             kernel_dout,
             core,
-            *(arg2, zero, sizes[2])
+            *(dram_bank_id, dram_out_addr, out_size)
         )
 
-        operations += [arg0, arg1, arg2, set_din_args, set_compute_args, set_dout_args]
+        operations += [dram_in0_addr, dram_in1_addr, dram_out_addr, set_din_args, set_compute_args, set_dout_args]
 
         # launch program
         launch = host.TTEnqueueProgram(cq, program, false)
@@ -221,11 +242,18 @@ class MatmulToTT(RewritePattern):
         block = Block(arg_types=arg_types)
 
         bank_id0 = block.args[0]
-        mem_addr0 = block.args[1]
-        bank_id1 = block.args[2]
+        bank_id1 = block.args[1]
+        mem_addr0 = block.args[2]
         mem_addr1 = block.args[3]
         size_bytes0 = block.args[4]
         size_bytes1 = block.args[5]
+
+        bank_id0.name_hint = "bank_id0"
+        bank_id1.name_hint = "bank_id1"
+        mem_addr0.name_hint = "mem_addr0"
+        mem_addr1.name_hint = "mem_addr1"
+        size_bytes0.name_hint = "size_bytes0"
+        size_bytes1.name_hint = "size_bytes1"
 
         operations = []
 
@@ -287,6 +315,10 @@ class MatmulToTT(RewritePattern):
         bank_id = block.args[0]
         mem_addr = block.args[1]
         size_bytes = block.args[2]
+
+        bank_id.name_hint = "bank_id"
+        mem_addr.name_hint = "mem_addr"
+        size_bytes.name_hint = "size_bytes"
 
         dst_noc_addr = data_movement.DMGetNocAddrFromBankId(true_attr, bank_id, mem_addr)
 
