@@ -100,6 +100,10 @@ class MatmulToTT(RewritePattern):
         block = Block(arg_types=[t0, t1, t2])
         operations = []
 
+        in_array0 = block.args[0]
+        in_array1 = block.args[1]
+        out_array = block.args[2]
+
         assert isinstance(t0.get_element_type(), FixedBitwidthType)
         dt_size_bytes = t0.get_element_type().size
         sizes = [
@@ -125,8 +129,8 @@ class MatmulToTT(RewritePattern):
 
         # copy data from mat0 and mat1 into device DRAM buffers 0 and 1
         false = arith.ConstantOp.from_int_and_width(0, i1)
-        enqueue_write0 = host.TTEnqueueWriteBuffer(cq, dram_buffers[0], block.args[0], false)
-        enqueue_write1 = host.TTEnqueueWriteBuffer(cq, dram_buffers[1], block.args[1], false)
+        enqueue_write0 = host.TTEnqueueWriteBuffer(cq, dram_buffers[0], in_array0, false)
+        enqueue_write1 = host.TTEnqueueWriteBuffer(cq, dram_buffers[1], in_array1, false)
         operations += [false, enqueue_write0, enqueue_write1]
 
         # create circular buffers (which data_in core will then populate)
@@ -194,7 +198,7 @@ class MatmulToTT(RewritePattern):
         wait = host.TTFinish(cq)
 
         # copy the data back from device DRAM into host array
-        write_back = host.TTEnqueueReadBuffer(cq, dram_buffers[2], block.args[2], false)
+        write_back = host.TTEnqueueReadBuffer(cq, dram_buffers[2], out_array, false)
         close = host.TTCloseDevice(device)
 
         operations += [launch, wait, write_back, close, func.ReturnOp()]
@@ -215,6 +219,14 @@ class MatmulToTT(RewritePattern):
     def generate_data_in(self) -> builtin.ModuleOp:
         arg_types = [uint32, uint32, uint32, uint32, uint32, uint32]
         block = Block(arg_types=arg_types)
+
+        bank_id0 = block.args[0]
+        mem_addr0 = block.args[1]
+        bank_id1 = block.args[2]
+        mem_addr1 = block.args[3]
+        size_bytes0 = block.args[4]
+        size_bytes1 = block.args[5]
+
         operations = []
 
         zero_8 = arith.ConstantOp.from_int_and_width(0, 8)
@@ -226,10 +238,10 @@ class MatmulToTT(RewritePattern):
         true_attr = BoolAttr(1, i1)
 
         src0_noc_addr = data_movement.DMGetNocAddrFromBankId(
-            true_attr, block.args[0], block.args[1], zero_ui8
+            true_attr, bank_id0, mem_addr0, zero_ui8
         )
         src1_noc_addr = data_movement.DMGetNocAddrFromBankId(
-            true_attr, block.args[2], block.args[3], zero_ui8
+            true_attr, bank_id1, mem_addr1, zero_ui8
         )
 
         zero = arith.ConstantOp.from_int_and_width(0, 32)
@@ -243,8 +255,8 @@ class MatmulToTT(RewritePattern):
         operations += [zero, one, src0_noc_addr, src1_noc_addr, wp0, wp1]
 
         indexed_args = [
-            (cb0, block.args[4], src0_noc_addr, wp0),
-            (cb1, block.args[5], src1_noc_addr, wp1),
+            (cb0, size_bytes0, src0_noc_addr, wp0),
+            (cb1, size_bytes1, src1_noc_addr, wp1),
         ]
 
         for input_matrix, size, noc_addr, wp in indexed_args:
@@ -271,14 +283,19 @@ class MatmulToTT(RewritePattern):
         true_attr = BoolAttr(1, i1)
         arg_types = [uint32, uint32, uint32]
         block = Block(arg_types=arg_types)
-        dst_noc_addr = data_movement.DMGetNocAddrFromBankId(true_attr, block.args[0], block.args[1])
+
+        bank_id = block.args[0]
+        mem_addr = block.args[1]
+        size_bytes = block.args[2]
+
+        dst_noc_addr = data_movement.DMGetNocAddrFromBankId(true_attr, bank_id, mem_addr)
 
         one = arith.ConstantOp.from_int_and_width(1, 32)
         cb16 = arith.ConstantOp.from_int_and_width(16, 32)
         l1_read_addr = circular_buffer.CBGetReadPointer(cb16)
 
         wait = circular_buffer.CBWaitFront(cb16, one)
-        write = data_movement.DMNocAsyncWrite(l1_read_addr, dst_noc_addr, block.args[2])
+        write = data_movement.DMNocAsyncWrite(l1_read_addr, dst_noc_addr, size_bytes)
         write_barrier = data_movement.DMNocAsyncWriteBarrier()
         pop = circular_buffer.CBPopFront(cb16, one)
 
