@@ -242,9 +242,14 @@ class MatmulToTT(RewritePattern):
 
         operations += [zero, one, src0_noc_addr, src1_noc_addr, wp0, wp1]
 
-        for input_matrix, size in [(cb0, block.args[4]), (cb1, block.args[5])]:
+        indexed_args = [
+            (cb0, block.args[4], src0_noc_addr, wp0),
+            (cb1, block.args[5], src1_noc_addr, wp1),
+        ]
+
+        for input_matrix, size, noc_addr, wp in indexed_args:
             wait = circular_buffer.CBReserveBack(input_matrix, one)
-            read = data_movement.DMNocAsyncRead(src0_noc_addr, wp0, size)
+            read = data_movement.DMNocAsyncRead(noc_addr, wp, size)
             block_read = data_movement.DMNocAsyncReadBarrier()
             consume = circular_buffer.CBPushBack(input_matrix, one)
             operations += [wait, read, block_read, consume]

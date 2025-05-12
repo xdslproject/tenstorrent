@@ -97,7 +97,7 @@ builtin.module {
 // CHECK-NEXT:       "dm.noc_async_read_barrier"() : () -> ()
 // CHECK-NEXT:       "cb.push_back"(%8, %9) : (i32, i32) -> ()
 // CHECK-NEXT:       "cb.reserve_back"(%9, %9) : (i32, i32) -> ()
-// CHECK-NEXT:       "dm.noc_async_read"(%10, %12, %5) : (ui64, ui32, ui32) -> ()
+// CHECK-NEXT:       "dm.noc_async_read"(%11, %13, %5) : (ui64, ui32, ui32) -> ()
 // CHECK-NEXT:       "dm.noc_async_read_barrier"() : () -> ()
 // CHECK-NEXT:       "cb.push_back"(%9, %9) : (i32, i32) -> ()
 // CHECK-NEXT:       func.return
