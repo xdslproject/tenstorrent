@@ -2,10 +2,10 @@
 
 builtin.module {
   builtin.module attributes {kernel_type = "host", vis = "external"} {
-    func.func @host_entry(%0 : memref<10x10xi32>, %1 : memref<10x10xi32>, %2 : memref<10x10xi32>) {
-      %3 = arith.constant 400 : i32
-      %4 = arith.constant 400 : i32
-      %5 = arith.constant 400 : i32
+    func.func @host_entry(%0 : memref<32x32xi32>, %1 : memref<32x32xi32>, %2 : memref<32x32xi32>) {
+      %3 = arith.constant 4096 : i32
+      %4 = arith.constant 4096 : i32
+      %5 = arith.constant 4096 : i32
       %6 = "tthost.create_program"() : () -> !tthost.program
       %7 = arith.constant 0 : i32
       %8 = arith.constant 1 : i32
@@ -20,8 +20,8 @@ builtin.module {
       %17 = "tthost.create_buffer"(%14) : (!tthost.dram_buffer_config) -> !tthost.buffer
       %18 = "tthost.create_buffer"(%15) : (!tthost.dram_buffer_config) -> !tthost.buffer
       %19 = arith.constant false
-      "tthost.enqueue_write_buffer"(%12, %16, %0, %19) : (!tthost.command_queue, !tthost.buffer, memref<10x10xi32>, i1) -> ()
-      "tthost.enqueue_write_buffer"(%12, %17, %1, %19) : (!tthost.command_queue, !tthost.buffer, memref<10x10xi32>, i1) -> ()
+      "tthost.enqueue_write_buffer"(%12, %16, %0, %19) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+      "tthost.enqueue_write_buffer"(%12, %17, %1, %19) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
       %20 = "tthost.create_cb_configuration"(%8, %3, %7) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
       %21 = "tthost.create_cb_configuration"(%8, %4, %8) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
       %22 = "tthost.create_cb_configuration"(%8, %5, %9) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
@@ -39,7 +39,7 @@ builtin.module {
       "tthost.set_runtime_args"(%6, %27, %11, %31, %7, %5) {operandSegmentSizes = array<i32: 1, 1, 1, 3>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, index, i32, i32) -> ()
       "tthost.enqueue_program"(%12, %6, %19) : (!tthost.command_queue, !tthost.program, i1) -> ()
       "tthost.finish"(%12) : (!tthost.command_queue) -> ()
-      "tthost.enqueue_read_buffer"(%12, %18, %2, %19) : (!tthost.command_queue, !tthost.buffer, memref<10x10xi32>, i1) -> ()
+      "tthost.enqueue_read_buffer"(%12, %18, %2, %19) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
       "tthost.close_device"(%10) : (!tthost.device) -> ()
       func.return
     }
@@ -111,23 +111,23 @@ builtin.module {
 // CHECK:      extern "C" void host_entry(std::int32_t* fn_arg_0, std::int32_t* fn_arg_1, std::int32_t* fn_arg_2) {
 // CHECK-NEXT:     Program program_0 = CreateProgram();
 // CHECK-NEXT:     IDevice* device_1 = CreateDevice(0);
-// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_2 = CreateBuffer({.device=device, .size=400, .page_size=400, .buffer_type = BufferType::DRAM});
-// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_3 = CreateBuffer({.device=device, .size=400, .page_size=400, .buffer_type = BufferType::DRAM});
-// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_4 = CreateBuffer({.device=device, .size=400, .page_size=400, .buffer_type = BufferType::DRAM});
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_2 = CreateBuffer({.device=device, .size=4096, .page_size=4096, .buffer_type = BufferType::DRAM});
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_3 = CreateBuffer({.device=device, .size=4096, .page_size=4096, .buffer_type = BufferType::DRAM});
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_4 = CreateBuffer({.device=device, .size=4096, .page_size=4096, .buffer_type = BufferType::DRAM});
 // CHECK-NEXT:     EnqueueWriteBuffer(device_1->command_queue(), buffer_2, fn_arg_0, false);
 // CHECK-NEXT:     EnqueueWriteBuffer(device_1->command_queue(), buffer_3, fn_arg_1, false);
-// CHECK-NEXT:     CircularBufferConfig cb_config_5 = CircularBufferConfig(1*400, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 400);
-// CHECK-NEXT:     CircularBufferConfig cb_config_6 = CircularBufferConfig(1*400, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 400);
-// CHECK-NEXT:     CircularBufferConfig cb_config_7 = CircularBufferConfig(1*400, {{[{][{]}}16, tt::DataFormat::Int32{{[}][}]}}).set_page_size(16, 400);
+// CHECK-NEXT:     CircularBufferConfig cb_config_5 = CircularBufferConfig(1*4096, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 4096);
+// CHECK-NEXT:     CircularBufferConfig cb_config_6 = CircularBufferConfig(1*4096, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 4096);
+// CHECK-NEXT:     CircularBufferConfig cb_config_7 = CircularBufferConfig(1*4096, {{[{][{]}}16, tt::DataFormat::Int32{{[}][}]}}).set_page_size(16, 4096);
 // CHECK-NEXT:     CBHandle cb_8 = tt_metal::CreateCircularBuffer(program_0, CoreCoord{0, 0}, cb_config_5);
 // CHECK-NEXT:     CBHandle cb_9 = tt_metal::CreateCircularBuffer(program_0, CoreCoord{0, 0}, cb_config_6);
 // CHECK-NEXT:     CBHandle cb_10 = tt_metal::CreateCircularBuffer(program_0, CoreCoord{0, 0}, cb_config_7);
 // CHECK-NEXT:     KernelHandle kernel_11 = CreateKernel(program_0, "reader.cpp", CoreCoord{0, 0}, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
 // CHECK-NEXT:     KernelHandle kernel_12 = CreateKernel(program_0, "writer.cpp", CoreCoord{0, 0}, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
 // CHECK-NEXT:     KernelHandle kernel_13 = CreateKernel(program_0, "compute.cpp", CoreCoord{0, 0}, ComputeConfig {.math_fidelity = MathFidelity::LoFi, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
-// CHECK-NEXT:     SetRuntimeArgs(program_0, kernel_11, CoreCoord{0, 0}, {buffer_2->address(), buffer_3->address(), 0, 0, 400, 400});
+// CHECK-NEXT:     SetRuntimeArgs(program_0, kernel_11, CoreCoord{0, 0}, {buffer_2->address(), buffer_3->address(), 0, 0, 4096, 4096});
 // CHECK-NEXT:     SetRuntimeArgs(program_0, kernel_13, CoreCoord{0, 0}, {});
-// CHECK-NEXT:     SetRuntimeArgs(program_0, kernel_12, CoreCoord{0, 0}, {buffer_4->address(), 0, 400});
+// CHECK-NEXT:     SetRuntimeArgs(program_0, kernel_12, CoreCoord{0, 0}, {buffer_4->address(), 0, 4096});
 // CHECK-NEXT:     EnqueueProgram(device_1->command_queue(), program_0, false);
 // CHECK-NEXT:     Finish(device_1->command_queue());
 // CHECK-NEXT:     EnqueueReadBuffer(device_1->command_queue(), buffer_4, fn_arg_2, false);
