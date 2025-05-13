@@ -180,6 +180,9 @@ class PrintMetalium:
     def is_unknown(self):
         return self._kernel_type[-1] == "unknown"
 
+    def print_include(self, lib: str):
+        self.print(f"#include {lib}", end="\n")
+
     def print_op(self, operation):
         if self._skip_next_op:
             self._skip_next_op = False
@@ -195,47 +198,26 @@ class PrintMetalium:
 
                 if self._writing_files:
                     os.makedirs(self.date, exist_ok=True)
-                    self._file = open(f"{self.date}/{kernel_type}.cpp", 'w')
+                    self._file = open(f"{self.date}/{kernel_type}.cpp", "w")
 
                 if kernel_type == "host":
-                    self.print(
-                        '#include "host_api.hpp"', indented=True, end="\n"
-                    )
-                    self.print(
-                        '#include "device_impl.hpp"',
-                        indented=True,
-                        end="\n",
-                    )
-                    self.print("\nusing namespace tt;", indented=True, end="\n")
-                    self.print(
-                        "using namespace tt::tt_metal;\n", indented=True, end="\n"
-                    )
-                elif kernel_type == "data_in":
-                    self.print("#include <stdint.h>", indented=True, end="\n")
-                    self.print('#include "dataflow_api.h"', indented=True, end="\n")
-                    self.print('#include "debug/dprint.h"', indented=True, end="\n")
-                elif kernel_type == "data_out":
-                    self.print('#include "dataflow_api.h"', indented=True, end="\n")
-                    self.print('#include "debug/dprint.h"', indented=True, end="\n")
+                    self.print_include('"host_api.hpp"')
+                    self.print_include('"device_impl.hpp"')
+                    self.println("\nusing namespace tt;")
+                    self.println("using namespace tt::tt_metal;\n")
+
+                elif kernel_type == "data_in" or kernel_type == "data_out":
+                    self.print_include("<stdint.h>")
+                    self.print_include('"dataflow_api.h"')
+                    self.print_include('"debug/dprint.h"')
+
+                # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
                 elif kernel_type == "compute":
-                    self.print("#include <cstdint>", indented=True, end="\n")
-                    # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
-                    self.print(
-                        '#include "compute_kernel_api/matmul.h',
-                        indented=True,
-                        end='\n'
-                    )
-                    self.print(
-                        '#include "compute_kernel_api/tile_move_copy.h"',
-                        indented=True,
-                        end="\n",
-                    )
-                    self.print(
-                        '#include "compute_kernel_api/eltwise_binary.h"',
-                        indented=True,
-                        end="\n",
-                    )
-                    self.print('#include "debug/dprint.h"', indented=True, end="\n")
+                    self.print_include("<cstdint>")
+                    self.print_include('"compute_kernel_api/matmul.h')
+                    self.print_include('"compute_kernel_api/tile_move_copy.h"')
+                    self.print_include('"compute_kernel_api/eltwise_binary.h"')
+                    self.print_include('"debug/dprint.h"')
             else:
                 self._kernel_type.append("unknown")
             for region in operation.regions:
@@ -309,12 +291,12 @@ class PrintMetalium:
     def print_return(self, op):
         if len(op.arguments) > 0:
             assert len(op.arguments) == 1
-            self.print("return ", indented=True)
+            self.print("return ", True)
             self.print_expr(op.arguments[0])
             self.print(";", end="\n")
 
     def print_ttset_runtime_args(self, op):
-        self.print("SetRuntimeArgs(", indented=True)
+        self.print("SetRuntimeArgs(", True)
         self.print_expr(op.program)
         self.print(", ")
         self.print_expr(op.kernel)
@@ -328,17 +310,17 @@ class PrintMetalium:
         self.print("});", end="\n")
 
     def print_ttclose_device(self, op):
-        self.print("CloseDevice(", indented=True)
+        self.print("CloseDevice(", True)
         self.print_expr(op.device)
         self.print(");", end="\n")
 
     def print_ttfinish(self, op):
-        self.print("Finish(", indented=True)
+        self.print("Finish(", True)
         self.print_expr(op.command_queue)
         self.print(");", end="\n")
 
     def print_ttenqueue_program(self, op):
-        self.print("EnqueueProgram(", indented=True)
+        self.print("EnqueueProgram(", True)
         self.print_expr(op.command_queue)
         self.print(", ")
         self.print_expr(op.program)
@@ -348,9 +330,9 @@ class PrintMetalium:
 
     def print_ttenqueue_readwrite_buffer(self, op):
         if isa(op, host.TTEnqueueWriteBuffer):
-            self.print("EnqueueWriteBuffer(", indented=True)
+            self.print("EnqueueWriteBuffer(", True)
         elif isa(op, host.TTEnqueueReadBuffer):
-            self.print("EnqueueReadBuffer(", indented=True)
+            self.print("EnqueueReadBuffer(", True)
         else:
             assert False
         self.print_expr(op.command_queue)
@@ -483,7 +465,7 @@ class PrintMetalium:
             type_str = MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
             var_name = op.results[0].name_hint
 
-            self.print(f"{type_str} * {var_name} = ({type_str}*) ", indented=True)
+            self.print(f"{type_str} * {var_name} = ({type_str}*) ", True)
             self.print_expr(op.inputs[0])
             self.print(";", end="\n")
             self._names[op.results[0]] = var_name
@@ -503,23 +485,21 @@ class PrintMetalium:
         if self.is_unknown():
             raise ValueError("Can only print in functions marked with @tt.decorator")
         elif self.is_host():
-            self.print(f'printf("{string}\\n");', indented=True, end="\n")
+            self.print(f'printf("{string}\\n");', True, end="\n")
         elif self.is_data_in():
             self.print(
                 f'DPRINT_DATA0(DPRINT << "{string}" << ENDL());',
-                indented=True,
+                True,
                 end="\n",
             )
         elif self.is_data_out():
             self.print(
                 f'DPRINT_DATA1(DPRINT << "{string}" << ENDL());',
-                indented=True,
+                True,
                 end="\n",
             )
         elif self.is_compute():
-            self.print(
-                f'DPRINT_MATH(DPRINT << "{string}" << ENDL());', indented=True, end="\n"
-            )
+            self.print(f'DPRINT_MATH(DPRINT << "{string}" << ENDL());', True, end="\n")
         else:
             raise ValueError(f"Unknown kernel type: {self._kernel_type[-1]}")
 
@@ -534,9 +514,7 @@ class PrintMetalium:
             if tgt_name.isdigit():
                 tgt_name = "write_ptr_" + tgt_name
             assert op.results[0].type in MLIR_TO_CPP_TYPES
-            self.print(
-                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True
-            )
+            self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", True)
             self.print("get_write_ptr(")
             self.print_expr(op.cb_id)
             self.print(");", end="\n")
@@ -553,9 +531,7 @@ class PrintMetalium:
             if tgt_name.isdigit():
                 tgt_name = "read_ptr_" + tgt_name
             assert op.results[0].type in MLIR_TO_CPP_TYPES
-            self.print(
-                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True
-            )
+            self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", True)
             self.print("get_read_ptr(")
             self.print_expr(op.cb_id)
             self.print(");", end="\n")
@@ -602,9 +578,7 @@ class PrintMetalium:
             if tgt_name.isdigit():
                 tgt_name = "noc_addr_" + tgt_name
             assert op.results[0].type in MLIR_TO_CPP_TYPES
-            self.print(
-                f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", indented=True
-            )
+            self.print(f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = ", True)
             self.print_tt_operation_generic(op, False)
             self.print(";", end="\n")
             self._names[op.results[0]] = tgt_name
@@ -622,7 +596,7 @@ class PrintMetalium:
             assert op.results[0].type in MLIR_TO_CPP_TYPES
             self.print(
                 f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateKernel(",
-                indented=True,
+                True,
             )
             self.print_expr(op.program)
             self.print(f", {op.kernel_name}, ")
@@ -670,7 +644,7 @@ class PrintMetalium:
             assert op.results[0].type in MLIR_TO_CPP_TYPES
             self.print(
                 f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = tt_metal::CreateCircularBuffer(",
-                indented=True,
+                True,
             )
             self.print_expr(op.program)
             self.print(", ")
@@ -693,7 +667,7 @@ class PrintMetalium:
             assert op.results[0].type in MLIR_TO_CPP_TYPES
             self.print(
                 f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateBuffer(",
-                indented=True,
+                True,
             )
             self.print_expr(op.config)
             self.print(");", end="\n")
@@ -723,7 +697,7 @@ class PrintMetalium:
             assert op.results[0].type in MLIR_TO_CPP_TYPES
             self.print(
                 f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CircularBufferConfig(",
-                indented=True,
+                True,
             )
             self.print_expr(op.num_buffers)
             self.print("*")
@@ -755,7 +729,7 @@ class PrintMetalium:
             assert op.results[0].type in MLIR_TO_CPP_TYPES
             self.print(
                 f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateDevice(",
-                indented=True,
+                True,
             )
             self.print_expr(op.index)
             self.print(");", end="\n")
@@ -774,7 +748,7 @@ class PrintMetalium:
             assert op.results[0].type in MLIR_TO_CPP_TYPES
             self.print(
                 f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CreateProgram();",
-                indented=True,
+                True,
                 end="\n",
             )
             self._names[op.results[0]] = tgt_name
@@ -836,10 +810,10 @@ class PrintMetalium:
         if self.is_host() and not external_host:
             func_name = "main"
 
-        self.print(f"\n{return_type} {func_name}", indented=True)
+        self.print(f"\n{return_type} {func_name}", True)
 
         if not self.is_compute():
-            self.print('(')
+            self.print("(")
 
         if not is_tt_kernel:
             for idx, input_type in enumerate(func_op.function_type.inputs):
@@ -865,7 +839,7 @@ class PrintMetalium:
                 type_decl = MLIR_TO_CPP_TYPES[input]
                 self.print(
                     f"{type_decl} fn_arg_{idx} = get_arg_val<{type_decl}>({idx});",
-                    indented=True,
+                    True,
                     end="\n",
                 )
 
@@ -878,7 +852,7 @@ class PrintMetalium:
         self.print_region(list(func_op.body.block.ops)[:-1])
 
         for free_c in self._free_end_of_fn:
-            self.print(f"free({free_c});", indented=True, end="\n")
+            self.print(f"free({free_c});", True, end="\n")
 
         self.print_op(ret_op)
 
@@ -886,7 +860,7 @@ class PrintMetalium:
 
         self._free_end_of_fn = []
 
-        self.print("}", indented=True, end="\n")
+        self.print("}", True, end="\n")
 
     def is_tt_kernel(self, func):
         op = func.parent.parent.parent
@@ -899,7 +873,7 @@ class PrintMetalium:
         store_i = loop.body.block.first_op
         loop_index_name = store_i.operands[1].name_hint
 
-        self.print(f"for ({loop_index_name} = ", indented=True)
+        self.print(f"for ({loop_index_name} = ", True)
         self.print_expr(loop.lb)
         self.print(f"; {loop_index_name} < ")
         self.print_expr(loop.ub)
@@ -914,7 +888,7 @@ class PrintMetalium:
         self.print_region(list(loop.body.ops)[1:])
         self._indent -= 1
 
-        self.print("}", indented=True, end="\n")
+        self.print("}", True, end="\n")
 
     def print_region(self, body: Region | list):
         if isa(body, list):
@@ -947,7 +921,7 @@ class PrintMetalium:
             type_decl += "&"
 
         if scalar:
-            self.print(modifier + type_decl + " " + var_name, indented=True)
+            self.print(modifier + type_decl + " " + var_name, True)
 
             if PrintMetalium.is_decl_init(op):
                 self.print(" = ")
@@ -964,14 +938,14 @@ class PrintMetalium:
             if isa(op, memref.AllocOp):
                 self.print(
                     f"{type_decl} * {var_name} = ({type_decl}*) malloc(sizeof({type_decl})*{total_size});",
-                    indented=True,
+                    True,
                     end="\n",
                 )
                 self._free_end_of_fn.append(var_name)
             elif isa(op, memref.AllocaOp):
                 self.print(
                     f"{type_decl} {var_name}[{total_size}];",
-                    indented=True,
+                    True,
                     end="\n",
                 )
             else:
@@ -995,13 +969,11 @@ class PrintMetalium:
         ssa_destination = op.operands[1]
 
         if isa(ssa_destination.type.element_type, host.DRAMBufferConfig):
-            self.print(
-                f"InterleavedBufferConfig {ssa_destination.name_hint} ", indented=True
-            )
+            self.print(f"InterleavedBufferConfig {ssa_destination.name_hint} ", True)
 
         else:
             var_name = self._names[ssa_destination]
-            self.print(f"{var_name}", indented=True)
+            self.print(f"{var_name}", True)
             if len(op.indices) > 0:
                 # For now we limit ourselves to one dimensional arrays
                 assert len(op.indices) == 1
@@ -1014,7 +986,7 @@ class PrintMetalium:
         self.print(";", end="\n")
 
     def print_if_statement(self, op: scf.IfOp):
-        self.print("if (", indented=True)
+        self.print("if (", True)
         self.print_expr(op.cond)
         self.print(") {", end="\n")
 
@@ -1024,13 +996,13 @@ class PrintMetalium:
 
         or_else = len(op.false_region.blocks) > 0
 
-        self.print("}" + (" else {" if or_else else ""), indented=True, end="\n")
+        self.print("}" + (" else {" if or_else else ""), True, end="\n")
 
         if or_else:
             self._indent += 1
             self.print_region(op.false_region)
             self._indent -= 1
-            self.print("}", indented=True, end="\n")
+            self.print("}", True, end="\n")
 
     def create_fresh_variable(self, hint="a") -> str:
         names = self._names.values()
@@ -1053,7 +1025,7 @@ class PrintMetalium:
 
     def print_tt_operation_generic(self, operation, is_statement):
         api_name = get_api_name(operation.name)
-        self.print(api_name, indented=is_statement)
+        self.print(api_name, is_statement)
         if operation.properties:
             self.print("<")
             for idx, p in enumerate(operation.properties.values()):
@@ -1076,6 +1048,9 @@ class PrintMetalium:
             print(prefix + s, file=self._file, end=end)
         else:
             print(prefix + s, end=end)
+
+    def println(self, s: str, indented: bool = False):
+        self.print(s, indented, end="\n")
 
     @property
     def _prefix(self):
