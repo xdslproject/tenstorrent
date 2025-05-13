@@ -177,6 +177,9 @@ class PrintMetalium:
     def is_data_out(self):
         return self._kernel_type[-1] == "data_out"
 
+    def is_device(self):
+        return self.is_compute() or self.is_data_out() or self.is_data_in()
+
     def is_unknown(self):
         return self._kernel_type[-1] == "unknown"
 
@@ -793,7 +796,6 @@ class PrintMetalium:
 
         }
         """
-        is_tt_kernel = self.is_tt_kernel(func_op)
         return_type = "void"
 
         if len(func_op.function_type.outputs) > 0:
@@ -820,7 +822,7 @@ class PrintMetalium:
         if not self.is_compute():
             self.print("(")
 
-        if not is_tt_kernel:
+        if self.is_host():
             for idx, input_type in enumerate(func_op.function_type.inputs):
                 is_ref = isa(input_type, builtin.MemRefType)
                 if is_ref:
@@ -839,7 +841,7 @@ class PrintMetalium:
         self.print(" {", end="\n")
         self.indent()
 
-        if is_tt_kernel:
+        if self.is_device():
             for idx, input in enumerate(func_op.function_type.inputs):
                 type_decl = MLIR_TO_CPP_TYPES[input]
                 self.print(
@@ -866,12 +868,6 @@ class PrintMetalium:
         self._free_end_of_fn = []
 
         self.print("}", True, end="\n")
-
-    def is_tt_kernel(self, func):
-        op = func.parent.parent.parent
-        assert isa(op, builtin.ModuleOp)
-        kernel_type = op.attributes["kernel_type"].data
-        return kernel_type == "data_in" or kernel_type == "data_out"
 
     def print_for_loop(self, loop: scf.ForOp):
         # we know the first operation in the loop should be the store into i
