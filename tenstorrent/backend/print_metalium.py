@@ -837,7 +837,7 @@ class PrintMetalium:
             self.print(")")
 
         self.print(" {", end="\n")
-        self._indent += 1
+        self.indent()
 
         if is_tt_kernel:
             for idx, input in enumerate(func_op.function_type.inputs):
@@ -861,7 +861,7 @@ class PrintMetalium:
 
         self.print_op(ret_op)
 
-        self._indent -= 1
+        self.dedent()
 
         self._free_end_of_fn = []
 
@@ -886,12 +886,12 @@ class PrintMetalium:
         self.print_expr(loop.step)
         self.print(") {", end="\n")
 
-        self._indent += 1
+        self.indent()
         # Remove the first operation as this assigns the loop variable and
         # we have handled this above already by looking into that operation and
         # extracting the name
         self.print_region(list(loop.body.ops)[1:])
-        self._indent -= 1
+        self.dedent()
 
         self.print("}", True, end="\n")
 
@@ -995,18 +995,18 @@ class PrintMetalium:
         self.print_expr(op.cond)
         self.print(") {", end="\n")
 
-        self._indent += 1
+        self.indent()
         self.print_op(op.true_region.blocks[0])
-        self._indent -= 1
+        self.dedent()
 
         or_else = len(op.false_region.blocks) > 0
 
         self.print("}" + (" else {" if or_else else ""), True, end="\n")
 
         if or_else:
-            self._indent += 1
+            self.indent()
             self.print_region(op.false_region)
-            self._indent -= 1
+            self.dedent()
             self.print("}", True, end="\n")
 
     def create_fresh_variable(self, hint="a") -> str:
@@ -1056,6 +1056,12 @@ class PrintMetalium:
 
     def println(self, s: str, indented: bool = False):
         self.print(s, indented, end="\n")
+        
+    def indent(self):
+        self._indent += 1
+        
+    def dedent(self):
+        self._indent -= 1
 
     @property
     def _prefix(self):
