@@ -210,6 +210,7 @@ class PrintMetalium:
                     self.print_include("<stdint.h>")
                     self.print_include('"dataflow_api.h"')
                     self.print_include('"debug/dprint.h"')
+                    self.println("\nnamespace NAMESPACE {")
 
                 # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
                 elif kernel_type == "compute":
@@ -228,6 +229,10 @@ class PrintMetalium:
             if self.is_unknown() and self._writing_files:
                 self._file.close()
                 self._file = None
+
+            if self.is_compute():
+                self.println("}")  # closes namespace
+
             self._kernel_type.pop()
         elif isa(operation, Block):
             for op in operation.ops:
