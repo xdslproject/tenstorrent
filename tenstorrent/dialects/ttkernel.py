@@ -4,8 +4,23 @@ from dataclasses import dataclass
 from enum import Enum
 
 from xdsl.dialects.builtin import MemRefType, i32, i64, IntegerAttr, FixedBitwidthType
-from xdsl.ir import ParametrizedAttribute, TypeAttribute, Data, SSAValue, Operation, Dialect, Attribute
-from xdsl.irdl import irdl_attr_definition, ParameterDef, irdl_op_definition, IRDLOperation, operand_def, result_def
+from xdsl.ir import (
+    ParametrizedAttribute,
+    TypeAttribute,
+    Data,
+    SSAValue,
+    Operation,
+    Dialect,
+    Attribute,
+)
+from xdsl.irdl import (
+    irdl_attr_definition,
+    ParameterDef,
+    irdl_op_definition,
+    IRDLOperation,
+    operand_def,
+    result_def,
+)
 from xdsl.parser import AttrParser
 from xdsl.printer import Printer
 from xdsl.utils.hints import isa
@@ -62,8 +77,8 @@ class CBPortFlags(Enum):
                 return option
 
         return None
-    
-    
+
+
 @dataclass(frozen=True)
 class CBPortFlagsAttrBase(Data[tuple[CBPortFlags, ...]]):
     @property
@@ -89,9 +104,7 @@ class CBPortFlagsAttrBase(Data[tuple[CBPortFlags, ...]]):
     def print_parameter(self, printer: Printer):
         with printer.in_angle_brackets():
             flags = self.data
-            printer.print_string(
-                flags[0].data[0].value
-            )
+            printer.print_string(flags[0].data[0].value)
 
 
 @irdl_attr_definition
@@ -117,7 +130,7 @@ class CBType(ParametrizedAttribute, TypeAttribute):
         #  if isa(elem_type, TileType):
         #      page_size = elem_type.size_in_bytes
 
-        value = memref.get_shape()[-1]  * elem_type.bitwidth // 8
+        value = memref.get_shape()[-1] * elem_type.bitwidth // 8
         page_size = IntegerAttr(value, 32)
         super().__init__([port, address, memref, page_size, IntegerAttr(1, 32)])
 
@@ -140,11 +153,9 @@ class CBType(ParametrizedAttribute, TypeAttribute):
     def print_parameters(self, printer: Printer) -> None:
         with printer.in_angle_brackets():
             cb_port = str(self.parameters[0])
-            match = re.search(r'<(.*?)>', cb_port)
+            match = re.search(r"<(.*?)>", cb_port)
             printer.print(str(match.group(1)) + ", ")
-            printer.print(
-                ", ".join(str(p) for p in self.parameters[1:])
-            )
+            printer.print(", ".join(str(p) for p in self.parameters[1:]))
 
 
 @irdl_op_definition
@@ -175,7 +186,12 @@ class PackTileOp(IRDLOperation):
     out_cb = operand_def(CBType)
     out_index = operand_def(i32)
 
-    def __init__(self, dst_index: SSAValue | Operation, out_cb: SSAValue | Operation, out_index: SSAValue | Operation):
+    def __init__(
+        self,
+        dst_index: SSAValue | Operation,
+        out_cb: SSAValue | Operation,
+        out_index: SSAValue | Operation,
+    ):
         super().__init__(operands=[dst_index, out_cb, out_index])
 
 
@@ -187,7 +203,12 @@ class BinaryOpInitCommonOp(IRDLOperation):
     in1_cb = operand_def(CBType)
     out_cb = operand_def(CBType)
 
-    def __init__(self, in0_cb: SSAValue | Operation, in1_cb: SSAValue | Operation, out_cb: SSAValue | Operation):
+    def __init__(
+        self,
+        in0_cb: SSAValue | Operation,
+        in1_cb: SSAValue | Operation,
+        out_cb: SSAValue | Operation,
+    ):
         super().__init__(operands=[in0_cb, in1_cb, out_cb])
 
 
@@ -213,12 +234,12 @@ class AddTilesOp(IRDLOperation):
     dst_index = operand_def(i32)
 
     def __init__(
-            self,
-            in0_cb: SSAValue | Operation,
-            in1_cb: SSAValue | Operation,
-            in0_tile_in: SSAValue | Operation,
-            in1_tile_in: SSAValue | Operation,
-            dst_in: SSAValue | Operation
+        self,
+        in0_cb: SSAValue | Operation,
+        in1_cb: SSAValue | Operation,
+        in0_tile_in: SSAValue | Operation,
+        in1_tile_in: SSAValue | Operation,
+        dst_in: SSAValue | Operation,
     ):
         super().__init__(operands=[in0_cb, in1_cb, in0_tile_in, in1_tile_in, dst_in])
 
@@ -277,8 +298,12 @@ class GetNocAddrFromBankIdOp(IRDLOperation):
     # TODO: implement NOCAddr
     noc_addr = result_def(NocAddr())
 
-    def __init__(self, bank_id: SSAValue | Operation, bank_address_offset: SSAValue | Operation):
-        super().__init__(operands=[bank_id, bank_address_offset], result_types=[NocAddr()])
+    def __init__(
+        self, bank_id: SSAValue | Operation, bank_address_offset: SSAValue | Operation
+    ):
+        super().__init__(
+            operands=[bank_id, bank_address_offset], result_types=[NocAddr()]
+        )
 
 
 @irdl_op_definition
@@ -289,7 +314,12 @@ class NocAsyncReadOp(IRDLOperation):
     dst_local_l1_addr = operand_def(i32)
     size = operand_def(i32)
 
-    def __init__(self, src_noc_addr: SSAValue | Operation, dst_local_l1_addr: SSAValue | Operation, size: SSAValue | Operation):
+    def __init__(
+        self,
+        src_noc_addr: SSAValue | Operation,
+        dst_local_l1_addr: SSAValue | Operation,
+        size: SSAValue | Operation,
+    ):
         super().__init__(operands=[src_noc_addr, dst_local_l1_addr, size])
 
 
@@ -306,7 +336,12 @@ class NocAsyncWriteOp(IRDLOperation):
     dst_noc_addr = operand_def(NocAddr)
     size = operand_def(i32)
 
-    def __init__(self, src_local_l1_addr: SSAValue | Operation, dst_noc_addr: SSAValue | Operation, size: SSAValue | Operation):
+    def __init__(
+        self,
+        src_local_l1_addr: SSAValue | Operation,
+        dst_noc_addr: SSAValue | Operation,
+        size: SSAValue | Operation,
+    ):
         super().__init__(operands=[src_local_l1_addr, dst_noc_addr, size])
 
 

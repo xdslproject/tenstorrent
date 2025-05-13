@@ -6,7 +6,6 @@ from xdsl.dialects import builtin
 from xdsl.passes import ModulePass
 
 
-
 @dataclass(frozen=True)
 class ExtractDriver(ModulePass):
     """
@@ -19,7 +18,8 @@ class ExtractDriver(ModulePass):
     This extracts the driver host, which is somewhat the "remaining code" that
     wasn't transformed into the Tenstorrent dialects
     """
-    name = 'extract-driver'
+
+    name = "extract-driver"
 
     def apply(self, ctx: Context, op: builtin.ModuleOp) -> None:
         reg = op.regions[0]

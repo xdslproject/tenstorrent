@@ -11,7 +11,8 @@ class ExtractMetalium(ModulePass):
     Extract the Metalium-related code from code transformed to discover
     possible Metalium operations
     """
-    name = 'extract-metalium'
+
+    name = "extract-metalium"
 
     def apply(self, ctx: Context, op: builtin.ModuleOp) -> None:
         reg = op.regions[0]

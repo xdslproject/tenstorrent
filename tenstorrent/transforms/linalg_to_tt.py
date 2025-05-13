@@ -24,7 +24,6 @@ class MatmulToTT(RewritePattern):
         self.data_out = "kernel_main"
         self.compute = "compute"
 
-
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MatmulOp, rewriter: PatternRewriter):
         mat0 = op.operands[0]
@@ -51,31 +50,20 @@ class MatmulToTT(RewritePattern):
 
         arg_types = [t0, t1, t2]
 
-        region = Region(
-            Block(
-                [func.ReturnOp()],
-                arg_types=arg_types
-            )
-        )
+        region = Region(Block([func.ReturnOp()], arg_types=arg_types))
 
-        func_def_external = func.FuncOp.external(
-            self.host,
-            arg_types,
-            []
-        )
-        func_call_external = func.CallOp(
-            self.host,
-            [mat0, mat1, mat2],
-            return_types=[]
-        )
+        func_def_external = func.FuncOp.external(self.host, arg_types, [])
+        func_call_external = func.CallOp(self.host, [mat0, mat1, mat2], return_types=[])
 
         module = op.get_toplevel_object()
         top_block = module.body.block
         rewriter.insert_op(func_def_external, InsertPoint(top_block))
 
-        rewriter.replace_matched_op([
-            func_call_external,
-        ])
+        rewriter.replace_matched_op(
+            [
+                func_call_external,
+            ]
+        )
 
         container_module = builtin.ModuleOp([])
         module.regions[0].move_blocks(container_module.regions[0])
@@ -83,17 +71,10 @@ class MatmulToTT(RewritePattern):
         container_module.regions[0].detach_block(0)
 
         block = Block(
-            [
-                container_module,
-                host_code,
-                data_in_code,
-                compute_code,
-                data_out_code
-            ]
+            [container_module, host_code, data_in_code, compute_code, data_out_code]
         )
 
         module.regions[0].add_block(block)
-
 
     def generate_host_code(self, t0: MemRefType, t1: MemRefType, t2: MemRefType):
         # device/program setup
@@ -109,7 +90,7 @@ class MatmulToTT(RewritePattern):
         sizes = [
             arith.ConstantOp.from_int_and_width(dt_size_bytes * t0.element_count(), 32),
             arith.ConstantOp.from_int_and_width(dt_size_bytes * t1.element_count(), 32),
-            arith.ConstantOp.from_int_and_width(dt_size_bytes * t2.element_count(), 32)
+            arith.ConstantOp.from_int_and_width(dt_size_bytes * t2.element_count(), 32),
         ]
 
         operations += sizes
@@ -132,8 +113,12 @@ class MatmulToTT(RewritePattern):
 
         # copy data from mat0 and mat1 into device DRAM buffers 0 and 1
         false = arith.ConstantOp.from_int_and_width(0, i1)
-        enqueue_write0 = host.TTEnqueueWriteBuffer(cq, dram_buffers[0], in_array0, false)
-        enqueue_write1 = host.TTEnqueueWriteBuffer(cq, dram_buffers[1], in_array1, false)
+        enqueue_write0 = host.TTEnqueueWriteBuffer(
+            cq, dram_buffers[0], in_array0, false
+        )
+        enqueue_write1 = host.TTEnqueueWriteBuffer(
+            cq, dram_buffers[1], in_array1, false
+        )
         operations += [false, enqueue_write0, enqueue_write1]
 
         # create circular buffers (which data_in core will then populate)
@@ -147,7 +132,11 @@ class MatmulToTT(RewritePattern):
 
         # make the kernel objects
         kernel_din = host.TTCreateKernel(
-            program, core, "reader.cpp", RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]), 0
+            program,
+            core,
+            "reader.cpp",
+            RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]),
+            0,
         )
         kernel_din.results[0].name_hint = "reader_kernel"
 
@@ -195,24 +184,24 @@ class MatmulToTT(RewritePattern):
             program,
             kernel_din,
             core,
-            *(dram_bank0, dram_bank1, dram_in0_addr, dram_in1_addr, in0_size, in1_size)
+            *(dram_bank0, dram_bank1, dram_in0_addr, dram_in1_addr, in0_size, in1_size),
         )
 
-        set_compute_args = host.TTSetRuntimeArgs(
-            program,
-            kernel_compute,
-            core
-        )
+        set_compute_args = host.TTSetRuntimeArgs(program, kernel_compute, core)
 
         dram_bank_id = zero
         set_dout_args = host.TTSetRuntimeArgs(
-            program,
-            kernel_dout,
-            core,
-            *(dram_bank_id, dram_out_addr, out_size)
+            program, kernel_dout, core, *(dram_bank_id, dram_out_addr, out_size)
         )
 
-        operations += [dram_in0_addr, dram_in1_addr, dram_out_addr, set_din_args, set_compute_args, set_dout_args]
+        operations += [
+            dram_in0_addr,
+            dram_in1_addr,
+            dram_out_addr,
+            set_din_args,
+            set_compute_args,
+            set_dout_args,
+        ]
 
         # launch program
         launch = host.TTEnqueueProgram(cq, program, false)
@@ -234,7 +223,10 @@ class MatmulToTT(RewritePattern):
                     Region(block),
                 ),
             ],
-            attributes={"kernel_type": builtin.StringAttr("host"), "vis": builtin.StringAttr("external")},
+            attributes={
+                "kernel_type": builtin.StringAttr("host"),
+                "vis": builtin.StringAttr("external"),
+            },
         )
 
     def generate_data_in(self) -> builtin.ModuleOp:
@@ -259,7 +251,8 @@ class MatmulToTT(RewritePattern):
 
         zero_8 = arith.ConstantOp.from_int_and_width(0, 8)
         zero_ui8 = builtin.UnrealizedConversionCastOp(
-            operands=[zero_8], result_types=[IntegerType(8, signedness=Signedness.UNSIGNED)]
+            operands=[zero_8],
+            result_types=[IntegerType(8, signedness=Signedness.UNSIGNED)],
         )
         operations += [zero_8, zero_ui8]
 
@@ -320,7 +313,9 @@ class MatmulToTT(RewritePattern):
         mem_addr.name_hint = "mem_addr"
         size_bytes.name_hint = "size_bytes"
 
-        dst_noc_addr = data_movement.DMGetNocAddrFromBankId(true_attr, bank_id, mem_addr)
+        dst_noc_addr = data_movement.DMGetNocAddrFromBankId(
+            true_attr, bank_id, mem_addr
+        )
 
         one = arith.ConstantOp.from_int_and_width(1, 32)
         cb16 = arith.ConstantOp.from_int_and_width(16, 32)
@@ -348,12 +343,10 @@ class MatmulToTT(RewritePattern):
         return builtin.ModuleOp(
             [
                 func.FuncOp(
-                    self.data_out,
-                    FunctionType.from_lists(arg_types, []),
-                    Region(block)
+                    self.data_out, FunctionType.from_lists(arg_types, []), Region(block)
                 )
             ],
-            attributes={"kernel_type": builtin.StringAttr("data_out")}
+            attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
     def generate_compute(self) -> builtin.ModuleOp:
@@ -361,9 +354,15 @@ class MatmulToTT(RewritePattern):
         one = arith.ConstantOp.from_int_and_width(1, 32)
         sixteen = arith.ConstantOp.from_int_and_width(16, 32)
 
-        zero_u = builtin.UnrealizedConversionCastOp(operands=[zero], result_types=[uint32])
-        one_u = builtin.UnrealizedConversionCastOp(operands=[one], result_types=[uint32])
-        sixteen_u = builtin.UnrealizedConversionCastOp(operands=[sixteen], result_types=[uint32])
+        zero_u = builtin.UnrealizedConversionCastOp(
+            operands=[zero], result_types=[uint32]
+        )
+        one_u = builtin.UnrealizedConversionCastOp(
+            operands=[one], result_types=[uint32]
+        )
+        sixteen_u = builtin.UnrealizedConversionCastOp(
+            operands=[sixteen], result_types=[uint32]
+        )
 
         init_op = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
         mm_init = compute.MMInit(zero_u, one_u, zero_u, zero_u)
@@ -417,13 +416,13 @@ class MatmulToTT(RewritePattern):
                                 cb_pop0,
                                 cb_pop1,
                                 push,
-                                func.ReturnOp()
+                                func.ReturnOp(),
                             ]
                         )
-                    )
+                    ),
                 )
             ],
-            attributes={"kernel_type": builtin.StringAttr("compute")}
+            attributes={"kernel_type": builtin.StringAttr("compute")},
         )
 
 

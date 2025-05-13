@@ -11,7 +11,7 @@ from xdsl.pattern_rewriter import (
     GreedyRewritePatternApplier,
     RewritePattern,
     op_type_rewrite_pattern,
-    PatternRewriter
+    PatternRewriter,
 )
 
 from tenstorrent.dialects import *
@@ -43,7 +43,6 @@ class ReplaceTTxOps(RewritePattern):
             # TODO: this would currently break on nested funcs, fix for that
             if isinstance(operation, FuncOp):
                 self.replace_func_op(operation, rewriter)
-
 
     def replace_func_op(self, func: FuncOp, rewriter: PatternRewriter):
         # prepare to replace this FuncOp
@@ -81,17 +80,21 @@ class ReplaceTTxOps(RewritePattern):
                         default_cb_type = CBType(
                             self.get_next_cb_port(),
                             IntegerAttr(0, 32),
-                            MemRefType(Float32Type(), [8, 4, 4, 1024])
+                            MemRefType(Float32Type(), [8, 4, 4, 1024]),
                         )
                         block = func.body.block
 
                         # always expect our arguments' owners to be Operations not block arguments
                         # TODO: this isn't true right? think about Nick's data_in example with args
-                        if arg.owner not in replaced_ops and isinstance(arg.owner, Operation):
+                        if arg.owner not in replaced_ops and isinstance(
+                            arg.owner, Operation
+                        ):
                             insert_arg_index = len(block.args)
                             replaced_ops[arg.owner] = insert_arg_index
                             block.insert_arg(default_cb_type, insert_arg_index)
-                            rewriter.replace_op(arg.owner, [], [block.args[insert_arg_index]])
+                            rewriter.replace_op(
+                                arg.owner, [], [block.args[insert_arg_index]]
+                            )
 
                         # TODO: here arg.owner is a block argument, just change
                         #  the type from (e.g.) i32 -> CBType if needed
@@ -101,9 +104,7 @@ class ReplaceTTxOps(RewritePattern):
     def get_next_cb_port(self):
         identifier = f"cb_{self.cb_port_type}{self.cb_port_ctr}"
         flag = next((f for f in CBPortFlags if f.value == identifier))
-        cb_port = CBPortAttr(
-            [CBPortFlagsAttrBase([flag])]
-        )
+        cb_port = CBPortAttr([CBPortFlagsAttrBase([flag])])
 
         # set up the next cb port
         self.cb_port_ctr += 1
@@ -156,7 +157,9 @@ class RemoveAllLoads(RewritePattern):
 
 class RemoveAllUnrealizedConversionCasts(RewritePattern):
     @op_type_rewrite_pattern
-    def match_and_rewrite(self, op: builtin.UnrealizedConversionCastOp, rewriter: PatternRewriter):
+    def match_and_rewrite(
+        self, op: builtin.UnrealizedConversionCastOp, rewriter: PatternRewriter
+    ):
         rewriter.replace_matched_op([], [op.operands[0]])
 
 
@@ -165,6 +168,7 @@ class ConvertTTxToTTKernel(ModulePass):
     Transforms code written in the Tenstorrent xDSL dialect to the officially
     supported ttmlir dialect written by Tenstorrent
     """
+
     name = "convert-ttx-to-ttkernel"
 
     def apply(self, ctx: Context, op: builtin.ModuleOp) -> None:
@@ -175,7 +179,7 @@ class ConvertTTxToTTKernel(ModulePass):
                     RemoveAllLoads(),
                 ]
             ),
-            apply_recursively=False
+            apply_recursively=False,
         ).rewrite_module(op)
 
         PatternRewriteWalker(
@@ -184,7 +188,7 @@ class ConvertTTxToTTKernel(ModulePass):
                     RemoveAllStores(),
                 ]
             ),
-            apply_recursively=False
+            apply_recursively=False,
         ).rewrite_module(op)
 
         PatternRewriteWalker(
@@ -193,7 +197,7 @@ class ConvertTTxToTTKernel(ModulePass):
                     RemoveAllAllocs(),
                 ]
             ),
-            apply_recursively=False
+            apply_recursively=False,
         ).rewrite_module(op)
 
         PatternRewriteWalker(
@@ -202,7 +206,7 @@ class ConvertTTxToTTKernel(ModulePass):
                     ReplaceTTxOps(),
                 ]
             ),
-            apply_recursively=False
+            apply_recursively=False,
         ).rewrite_module(op)
 
         # 'op' is the higest level op

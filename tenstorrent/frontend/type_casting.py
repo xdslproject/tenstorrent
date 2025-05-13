@@ -1,7 +1,16 @@
 from typing import List, Tuple
 
-from xdsl.dialects.builtin import Operation, SSAValue, MemRefType, IndexType, IntegerType, Signedness, Float32Type, \
-    ContainerType, AnyFloat
+from xdsl.dialects.builtin import (
+    Operation,
+    SSAValue,
+    MemRefType,
+    IndexType,
+    IntegerType,
+    Signedness,
+    Float32Type,
+    ContainerType,
+    AnyFloat,
+)
 from xdsl.dialects import builtin, arith
 from xdsl.ir.core import Attribute
 from xdsl.utils.type import have_compatible_shape
@@ -9,8 +18,9 @@ from xdsl.utils.type import have_compatible_shape
 from tenstorrent.dialects import ConstExprType
 
 
-
-def cast_if_needed(ssa: SSAValue, target_type: Attribute, ops) -> Tuple[List[Operation], SSAValue]:
+def cast_if_needed(
+    ssa: SSAValue, target_type: Attribute, ops
+) -> Tuple[List[Operation], SSAValue]:
     """
     Uses self.get_cast, but returns new values only if needed, otherwise just
     returns the old values
@@ -22,7 +32,9 @@ def cast_if_needed(ssa: SSAValue, target_type: Attribute, ops) -> Tuple[List[Ope
     return ops, ssa
 
 
-def _wrap_into_constexpr(ssa: SSAValue, target_type: ConstExprType) -> Tuple[List[Operation], SSAValue]:
+def _wrap_into_constexpr(
+    ssa: SSAValue, target_type: ConstExprType
+) -> Tuple[List[Operation], SSAValue]:
     t1 = ssa.type
     t2 = target_type.get_element_type()
     if t1 != t2:
@@ -37,7 +49,9 @@ def _wrap_into_constexpr(ssa: SSAValue, target_type: ConstExprType) -> Tuple[Lis
     return [wrap], wrap.results[0]
 
 
-def _unwrap_from_constexpr(ssa: SSAValue, target_type) -> Tuple[List[Operation], SSAValue]:
+def _unwrap_from_constexpr(
+    ssa: SSAValue, target_type
+) -> Tuple[List[Operation], SSAValue]:
     unwrap = builtin.UnrealizedConversionCastOp(
         operands=[ssa], result_types=[ssa.type.get_element_type()]
     )
@@ -45,7 +59,9 @@ def _unwrap_from_constexpr(ssa: SSAValue, target_type) -> Tuple[List[Operation],
     return [unwrap] + ops, ssa
 
 
-def _cast_between_containers(ssa: SSAValue, target_type: ContainerType) -> Tuple[List[Operation], SSAValue]:
+def _cast_between_containers(
+    ssa: SSAValue, target_type: ContainerType
+) -> Tuple[List[Operation], SSAValue]:
     if ssa.type.get_element_type() == target_type.get_element_type():
         return [], ssa
 
@@ -55,7 +71,9 @@ def _cast_between_containers(ssa: SSAValue, target_type: ContainerType) -> Tuple
     )
 
 
-def _cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
+def _cast_with_container(
+    ssa: SSAValue, target_type: Attribute
+) -> Tuple[List[Operation], SSAValue]:
     found_type = ssa.type
     if isinstance(found_type, ContainerType) and isinstance(target_type, ContainerType):
         return _cast_between_containers(ssa, target_type)
@@ -76,7 +94,9 @@ def _cast_with_container(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Op
     raise NotImplementedError(f"Unimplemented cast: {found_type} -> {target_type}")
 
 
-def _cast_from_int_to_float(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SSAValue]:
+def _cast_from_int_to_float(
+    ssa: SSAValue, target_type: Attribute
+) -> Tuple[List[Operation], SSAValue]:
     signedness = ssa.type.signedness.data
 
     if signedness in [Signedness.SIGNED, Signedness.SIGNLESS]:
@@ -86,9 +106,7 @@ def _cast_from_int_to_float(ssa: SSAValue, target_type: Attribute) -> Tuple[List
     # else unsigned, cast to signed first
     to_si = builtin.UnrealizedConversionCastOp(
         operands=[ssa],
-        result_types=[
-            IntegerType(ssa.type.bitwidth, Signedness.SIGNED)
-        ],
+        result_types=[IntegerType(ssa.type.bitwidth, Signedness.SIGNED)],
     )
     ops, ssa = get_cast(to_si.results[0], target_type)
     return [to_si] + ops, ssa
@@ -120,19 +138,23 @@ def get_cast(ssa: SSAValue, target_type: Attribute) -> Tuple[List[Operation], SS
     if isinstance(found_type, IntegerType) and target_type == IntegerType:
         return [], ssa
 
-    if isinstance(found_type, IntegerType) and target_type.bitwidth != ssa.type.bitwidth:
+    if (
+        isinstance(found_type, IntegerType)
+        and target_type.bitwidth != ssa.type.bitwidth
+    ):
         # TODO: No MLIR OP for casting downwards on bitwidths afaik
         #  if expanding: ___, if decreasing: ___
         #  also have to decide order of casting, e.g.
         #  i32 -> ui8 => (i32 -> ui32 -> ui8) or (i32 -> i8 -> ui8)
         pass
 
-    if isinstance(found_type, IntegerType) and target_type.bitwidth == ssa.type.bitwidth:
+    if (
+        isinstance(found_type, IntegerType)
+        and target_type.bitwidth == ssa.type.bitwidth
+    ):
         conv_op = builtin.UnrealizedConversionCastOp(
             operands=[ssa], result_types=[target_type]
         )
         return [conv_op], conv_op.results[0]
 
-    raise NotImplementedError(
-        f"Unsupported type cast {ssa.type} to {target_type}"
-    )
+    raise NotImplementedError(f"Unsupported type cast {ssa.type} to {target_type}")

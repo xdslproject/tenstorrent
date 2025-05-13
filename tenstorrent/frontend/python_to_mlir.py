@@ -444,7 +444,6 @@ class PythonToMLIR(ast.NodeVisitor):
             )
             return operations + idx_ops + [store], self.symbol_table[var_name]
 
-
     def visit_Constant(self, node) -> Tuple[List[Operation], SSAValue]:
         data = node.value
 
@@ -507,14 +506,22 @@ class PythonToMLIR(ast.NodeVisitor):
                 rhs_ssa_val.type,
             )
 
-            operations, lhs_ssa_val = cast_if_needed(lhs_ssa_val, target_type, operations)
-            operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
+            operations, lhs_ssa_val = cast_if_needed(
+                lhs_ssa_val, target_type, operations
+            )
+            operations, rhs_ssa_val = cast_if_needed(
+                rhs_ssa_val, target_type, operations
+            )
 
             # special case: if we have a division, we also want to cast
             if isinstance(node, ast.Div):
                 target_type = Float32Type()
-                operations, lhs_ssa_val = cast_if_needed(lhs_ssa_val, target_type, operations)
-                operations, rhs_ssa_val = cast_if_needed(rhs_ssa_val, target_type, operations)
+                operations, lhs_ssa_val = cast_if_needed(
+                    lhs_ssa_val, target_type, operations
+                )
+                operations, rhs_ssa_val = cast_if_needed(
+                    rhs_ssa_val, target_type, operations
+                )
 
             op_constructor = self.get_operation(node, lhs_ssa_val.type)
             bin_op = op_constructor(lhs_ssa_val, rhs_ssa_val, None)
@@ -700,7 +707,9 @@ class PythonToMLIR(ast.NodeVisitor):
         noc_id = node.args[4].value
         assert noc_id == 0 or noc_id == 1
 
-        kernel_name = 'reader' if rv_core_flag == RISCVCoreFlags.DATAMOVEMENT_0 else 'writer'
+        kernel_name = (
+            "reader" if rv_core_flag == RISCVCoreFlags.DATAMOVEMENT_0 else "writer"
+        )
 
         kernel_create = TTCreateKernel(
             program_ssa,
@@ -942,7 +951,9 @@ class PythonToMLIR(ast.NodeVisitor):
                     )
 
             if isinstance(types, EqAttrConstraint):
-                type_cast_ops, results[i] = cast_if_needed(ssa_val, types.attr, type_cast_ops)
+                type_cast_ops, results[i] = cast_if_needed(
+                    ssa_val, types.attr, type_cast_ops
+                )
 
         new_operation = constructor(*(props + results))
         return type_cast_ops + [new_operation]
