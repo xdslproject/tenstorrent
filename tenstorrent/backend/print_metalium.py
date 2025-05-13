@@ -680,7 +680,7 @@ class PrintMetalium:
 
     def print_ttcreate_dram_config(self, op):
         self.print("{")
-        self.print(".device=device")
+        self.print(".device=device")  # TODO: this doesn't work, need to fix
         self.print(", .size=")
         self.print_expr(op.size)
         self.print(", .page_size=")
