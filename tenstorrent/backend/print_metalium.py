@@ -6,6 +6,7 @@ from xdsl.ir import (
     Block,
     Region,
     Operation,
+    SSAValue,
 )
 
 from xdsl.utils.hints import isa
@@ -468,15 +469,15 @@ class PrintMetalium:
                 self.print(")")
 
     def print_unrealized_conversion_cast_stmt(self, op):
-        if isa(op.results[0].type, builtin.MemRefType):
-            assert op.results[0].type.element_type in MLIR_TO_CPP_TYPES
-            type_str = MLIR_TO_CPP_TYPES[op.results[0].type.element_type]
-            var_name = op.results[0].name_hint
+        ssa = op.results[0]
+        if isa(ssa.type, builtin.MemRefType):
+            assert ssa.type.element_type in MLIR_TO_CPP_TYPES
+            type_str = MLIR_TO_CPP_TYPES[ssa.type.element_type]
+            var_name = self.get_or_create_varname(ssa)
 
             self.print(f"{type_str} * {var_name} = ({type_str}*) ", True)
             self.print_expr(op.inputs[0])
             self.print(";", end="\n")
-            self._names[op.results[0]] = var_name
 
     def print_unrealized_conversion_cast(self, op, is_expr=False):
         if is_expr:
@@ -546,7 +547,7 @@ class PrintMetalium:
             self._names[op.results[0]] = tgt_name
 
     def print_load_variable(self, op):
-        self.print(op.memref.name_hint)
+        self.print(op.memref.name_hint)  # TODO: should this be varname lookup?
         if len(op.indices) > 0:
             # For now we limit ourselves to one dimensional arrays
             assert len(op.indices) == 1
@@ -905,8 +906,7 @@ class PrintMetalium:
             # done in the assignment
             return
 
-        var_name = self.create_fresh_variable(op.results[0].name_hint)
-        self._names[op.results[0]] = var_name
+        var_name = self.get_or_create_varname(op.results[0])
         mlir_type = op.result_types[0].element_type
 
         modifier = ""
@@ -968,13 +968,13 @@ class PrintMetalium:
                 return
         ssa_value = op.operands[0]
         ssa_destination = op.operands[1]
+        varname = self.get_or_create_varname(ssa_destination)
 
         if isa(ssa_destination.type.element_type, host.DRAMBufferConfig):
-            self.print(f"InterleavedBufferConfig {ssa_destination.name_hint} ", True)
+            self.print(f"InterleavedBufferConfig {varname} ", True)
 
         else:
-            var_name = self._names[ssa_destination]
-            self.print(f"{var_name}", True)
+            self.print(f"{varname}", True)
             if len(op.indices) > 0:
                 # For now we limit ourselves to one dimensional arrays
                 assert len(op.indices) == 1
@@ -1005,10 +1005,12 @@ class PrintMetalium:
             self.dedent()
             self.print("}", True, end="\n")
 
-    def create_fresh_variable(self, hint="a") -> str:
+    def _create_varname(self, ssa: SSAValue, hint: str = None) -> str:
         names = self._names.values()
-        if hint not in names:
-            return hint
+        assert ssa not in self._names
+
+        if not hint:
+            hint = ssa.name_hint if ssa.name_hint else "a"
 
         count = 0
         name = hint
@@ -1016,7 +1018,23 @@ class PrintMetalium:
             count += 1
             name = hint + str(count)
 
+        self._names[ssa] = name
         return name
+
+    def _get_varname(self, ssa: SSAValue) -> str | None:
+        if ssa in self._names:
+            return self._names[ssa]
+
+        return None
+
+    def get_or_create_varname(self, ssa: SSAValue, hint: str = None) -> str:
+        """
+        Provided name hint overrides the ssa.name_hint.
+        """
+        if ssa not in self._names:
+            return self._create_varname(ssa, hint)
+
+        return self._names[ssa]
 
     def print_tt_expr_generic(self, expression):
         self.print_tt_operation_generic(expression, False)
@@ -1052,10 +1070,10 @@ class PrintMetalium:
 
     def println(self, s: str, indented: bool = False):
         self.print(s, indented, end="\n")
-        
+
     def indent(self):
         self._indent += 1
-        
+
     def dedent(self):
         self._indent -= 1
 
