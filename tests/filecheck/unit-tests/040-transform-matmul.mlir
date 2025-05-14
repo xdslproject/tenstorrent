@@ -104,7 +104,7 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }
 // CHECK-NEXT:   builtin.module attributes {kernel_type = "compute"} {
-// CHECK-NEXT:     func.func @kernel_main() {
+// CHECK-NEXT:     func.func @MAIN() {
 // CHECK-NEXT:       %0 = arith.constant 0 : i32
 // CHECK-NEXT:       %1 = arith.constant 1 : i32
 // CHECK-NEXT:       %2 = arith.constant 16 : i32

@@ -66,7 +66,7 @@ builtin.module {
     }
   }
   builtin.module attributes {kernel_type = "compute"} {
-    func.func @kernel_main() {
+    func.func @MAIN() {
       %0 = arith.constant 0 : i32
       %1 = arith.constant 1 : i32
       %2 = arith.constant 16 : i32

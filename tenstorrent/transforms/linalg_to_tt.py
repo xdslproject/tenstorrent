@@ -16,13 +16,14 @@ from xdsl.rewriter import InsertPoint
 from tenstorrent.dialects import *
 
 
+HOST_KERNEL_NAME = "host_entry"
+DATA_KERNEL_NAME = "kernel_main"
+COMP_KERNEL_NAME = "MAIN"
+
+
 class MatmulToTT(RewritePattern):
     def __init__(self):
         super().__init__()
-        self.host = "host_entry"
-        self.data_in = "kernel_main"
-        self.data_out = "kernel_main"
-        self.compute = "compute"
 
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MatmulOp, rewriter: PatternRewriter):
@@ -52,8 +53,8 @@ class MatmulToTT(RewritePattern):
 
         region = Region(Block([func.ReturnOp()], arg_types=arg_types))
 
-        func_def_external = func.FuncOp.external(self.host, arg_types, [])
-        func_call_external = func.CallOp(self.host, [mat0, mat1, mat2], return_types=[])
+        func_def_external = func.FuncOp.external(HOST_KERNEL_NAME, arg_types, [])
+        func_call_external = func.CallOp(HOST_KERNEL_NAME, [mat0, mat1, mat2], return_types=[])
 
         module = op.get_toplevel_object()
         top_block = module.body.block
@@ -218,7 +219,7 @@ class MatmulToTT(RewritePattern):
         return builtin.ModuleOp(
             [
                 func.FuncOp(
-                    self.host,
+                    HOST_KERNEL_NAME,
                     FunctionType.from_lists([t0, t1, t2], []),
                     Region(block),
                 ),
@@ -292,7 +293,7 @@ class MatmulToTT(RewritePattern):
         return builtin.ModuleOp(
             [
                 func.FuncOp(
-                    self.data_in,
+                    DATA_KERNEL_NAME,
                     FunctionType.from_lists(arg_types, []),
                     Region(block),
                 ),
@@ -343,7 +344,7 @@ class MatmulToTT(RewritePattern):
         return builtin.ModuleOp(
             [
                 func.FuncOp(
-                    self.data_out, FunctionType.from_lists(arg_types, []), Region(block)
+                    DATA_KERNEL_NAME, FunctionType.from_lists(arg_types, []), Region(block)
                 )
             ],
             attributes={"kernel_type": builtin.StringAttr("data_out")},
@@ -392,7 +393,7 @@ class MatmulToTT(RewritePattern):
         return builtin.ModuleOp(
             [
                 func.FuncOp(
-                    self.data_out,
+                    COMP_KERNEL_NAME,
                     FunctionType.from_lists([], []),
                     Region(
                         Block(
