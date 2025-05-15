@@ -1,3 +1,5 @@
+from typing import List, Tuple, Optional
+
 from xdsl.context import MLContext
 from xdsl.dialects import memref, builtin, arith, func
 from xdsl.dialects.builtin import FixedBitwidthType, BoolAttr, FunctionType
@@ -14,6 +16,12 @@ from xdsl.pattern_rewriter import (
 from xdsl.rewriter import InsertPoint
 
 from tenstorrent.dialects import *
+from tenstorrent.templates import (
+    create_device_dram_buffer,
+    populate_dram_buffer,
+    create_circular_buffer,
+    prepare_tensor_storage,
+)
 
 
 HOST_KERNEL_NAME = "host_entry"
@@ -28,7 +36,6 @@ class MatmulToTT(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MatmulOp, rewriter: PatternRewriter):
         self.generate_binop_code(op, rewriter)
-
 
     def generate_binop_code(self, op, rewriter: PatternRewriter):
         mat0 = op.operands[0]
@@ -49,7 +56,7 @@ class MatmulToTT(RewritePattern):
         # TODO: Can abstract most of this out for binary operations
         # TODO: Ensure that nD-MemRefs are ok for this
 
-        host_code = self.generate_binop_host_code(t0, t1, t2)
+        host_code = self.generate_host_code(t0, t1, t2)
         data_in_code = self.generate_data_in()
         data_out_code = self.generate_data_out()
         compute_code = self.generate_compute()
@@ -57,7 +64,9 @@ class MatmulToTT(RewritePattern):
         arg_types = [t0, t1, t2]
 
         func_def_external = func.FuncOp.external(HOST_KERNEL_NAME, arg_types, [])
-        func_call_external = func.CallOp(HOST_KERNEL_NAME, [mat0, mat1, mat2], return_types=[])
+        func_call_external = func.CallOp(
+            HOST_KERNEL_NAME, [mat0, mat1, mat2], return_types=[]
+        )
 
         module = op.get_toplevel_object()
         top_block = module.body.block
@@ -80,67 +89,11 @@ class MatmulToTT(RewritePattern):
 
         module.regions[0].add_block(block)
 
-
-    def generate_binop_host_code(self, t0: MemRefType, t1: MemRefType, t2: MemRefType):
+    @staticmethod
+    def define_kernels(program, core) -> List[Operation]:
         """
-        Generates code which sets up the DRAM buffers, SRAM circular buffers,
-        and baby RISC-V cores for a binary operation on either matrices or
-        vectors.
+        returns [din, dout, comp]
         """
-        # device/program setup
-        block = Block(arg_types=[t0, t1, t2])
-        operations = []
-
-        in_array0 = block.args[0]
-        in_array1 = block.args[1]
-        out_array = block.args[2]
-
-        assert isinstance(t0.get_element_type(), FixedBitwidthType)
-        dt_size_bytes = t0.get_element_type().size
-        sizes = [
-            arith.ConstantOp.from_int_and_width(dt_size_bytes * t0.element_count(), 32),
-            arith.ConstantOp.from_int_and_width(dt_size_bytes * t1.element_count(), 32),
-            arith.ConstantOp.from_int_and_width(dt_size_bytes * t2.element_count(), 32),
-        ]
-
-        operations += sizes
-
-        program = host.TTCreateProgram()
-        program.results[0].name_hint = "prog"
-
-        zero = arith.ConstantOp.from_int_and_width(0, 32)
-        zero.results[0].name_hint = "zero"
-        one = arith.ConstantOp.from_int_and_width(1, 32)
-        sixteen = arith.ConstantOp.from_int_and_width(16, 32)
-        device = host.TTCreateDevice(zero)
-        core = host.TTHostCore(zero, zero)
-        cq = host.TTGetCommandQueue(device)
-
-        operations += [program, zero, one, sixteen, device, core, cq]
-        dram_configs = list(map(lambda s: host.TTCreateDRAMConfig(s, s), sizes))
-        dram_buffers = list(map(lambda c: host.TTCreateBuffer(c), dram_configs))
-        operations += dram_configs + dram_buffers
-
-        # copy data from mat0 and mat1 into device DRAM buffers 0 and 1
-        false = arith.ConstantOp.from_int_and_width(0, i1)
-        enqueue_write0 = host.TTEnqueueWriteBuffer(
-            cq, dram_buffers[0], in_array0, false
-        )
-        enqueue_write1 = host.TTEnqueueWriteBuffer(
-            cq, dram_buffers[1], in_array1, false
-        )
-        operations += [false, enqueue_write0, enqueue_write1]
-
-        # create circular buffers (which data_in core will then populate)
-        cb_configs = []
-        cbs = []
-        for i, index in enumerate([zero, one, sixteen]):
-            cb_configs += [host.TTCreateCBConfig(one, sizes[i], index, "int")]
-            cbs += [host.TTCreateCircularBuffer(program, core, cb_configs[i])]
-
-        operations += cb_configs + cbs
-
-        # make the kernel objects
         kernel_din = host.TTCreateKernel(
             program,
             core,
@@ -171,58 +124,124 @@ class MatmulToTT(RewritePattern):
         )
         kernel_compute.results[0].name_hint = "compute_kernel"
 
-        operations += [kernel_din, kernel_dout, kernel_compute]
+        return [kernel_din, kernel_dout, kernel_compute]
 
-        dram_in0_addr = host.TTGetMemoryAddress(dram_buffers[0])
-        dram_in1_addr = host.TTGetMemoryAddress(dram_buffers[1])
-        dram_out_addr = host.TTGetMemoryAddress(dram_buffers[2])
+    @staticmethod
+    def generate_host_code(*memref_types: MemRefType):
+        match len(memref_types):
+            case 2:
+                binop = False
+            case 3:
+                binop = True
+            case _:
+                raise ValueError("Expected 2 or 3 memref types")
 
-        dram_in0_addr.results[0].name_hint = "dram_in0_addr"
-        dram_in1_addr.results[0].name_hint = "dram_in1_addr"
-        dram_out_addr.results[0].name_hint = "dram_out_addr"
+        operations = []
+        arg_types = list(memref_types)
+        block = Block(arg_types=arg_types)
 
-        in0_size = sizes[0]
-        in1_size = sizes[1]
-        out_size = sizes[2]
+        # shared host-func globals
+        zero = arith.ConstantOp.from_int_and_width(0, 32)
+        zero.results[0].name_hint = "zero"
+        one = arith.ConstantOp.from_int_and_width(1, 32)
+        sixteen = arith.ConstantOp.from_int_and_width(16, 32)
 
-        in0_size.results[0].name_hint = "size0"
-        in1_size.results[0].name_hint = "size1"
-        out_size.results[0].name_hint = "size_out"
+        program = host.TTCreateProgram()
+        program.results[0].name_hint = "prog"
+        device = host.TTCreateDevice(zero)
+        core = host.TTHostCore(zero, zero)
+        cq = host.TTGetCommandQueue(device)
 
-        dram_bank0 = zero
-        dram_bank1 = zero
+        setup_cb0 = prepare_tensor_storage(
+            program,
+            core,
+            cq,
+            zero,
+            block.args[0],
+        )
+
+        setup_cb1 = (
+            prepare_tensor_storage(
+                program,
+                core,
+                cq,
+                one,
+                block.args[1],
+            )
+            if binop
+            else []
+        )
+
+        out_array = block.args[2 if binop else 1]
+        setup_cb16 = prepare_tensor_storage(
+            program,
+            core,
+            cq,
+            sixteen,
+            out_array,
+        )
+
+        operations += (
+            [
+                zero,
+                one,
+                sixteen,
+                program,
+                device,
+                core,
+                cq,
+            ]
+            + setup_cb0
+            + setup_cb1
+            + setup_cb16
+        )
+
+        # prepare the arguments for each kernel
+        dram_bank = zero  # TODO: generalise later, multi-core sharding, etc.
+        cb_setups = (setup_cb0, setup_cb1, setup_cb16)
+
+        sizes = [x[0] for x in cb_setups if x]
+        dram_buffers = [x[2] for x in cb_setups if x]
+        d_addrs = [host.TTGetMemoryAddress(b) for b in dram_buffers]
+
+        MatmulToTT.set_name_hints("dram_addr", d_addrs)
+        MatmulToTT.set_name_hints("size", sizes)
+
+        operations += d_addrs
+
+        # make the kernel objects
+        kernels = MatmulToTT.define_kernels(program, core)
+        operations += kernels
+
+        set_compute_args = host.TTSetRuntimeArgs(program, kernels[2], core)
+
+        set_dout_args = host.TTSetRuntimeArgs(
+            program, kernels[1], core, *(dram_bank, d_addrs[-1], sizes[-1])
+        )
+
+        ###################
+        din_args = (dram_bank, dram_bank) if binop else (dram_bank,)
+        din_args += tuple(d_addrs[:2]) + tuple(sizes[:2])
         set_din_args = host.TTSetRuntimeArgs(
             program,
-            kernel_din,
+            kernels[0],
             core,
-            *(dram_bank0, dram_bank1, dram_in0_addr, dram_in1_addr, in0_size, in1_size),
+            *din_args,
         )
+        ###################
 
-        set_compute_args = host.TTSetRuntimeArgs(program, kernel_compute, core)
-
-        dram_bank_id = zero
-        set_dout_args = host.TTSetRuntimeArgs(
-            program, kernel_dout, core, *(dram_bank_id, dram_out_addr, out_size)
-        )
-
-        operations += [
-            dram_in0_addr,
-            dram_in1_addr,
-            dram_out_addr,
-            set_din_args,
-            set_compute_args,
-            set_dout_args,
-        ]
+        operations += [set_compute_args, set_din_args, set_dout_args]
 
         # launch program
+        false = arith.ConstantOp.from_int_and_width(0, i1)
         launch = host.TTEnqueueProgram(cq, program, false)
         wait = host.TTFinish(cq)
 
-        # copy the data back from device DRAM into host array
-        write_back = host.TTEnqueueReadBuffer(cq, dram_buffers[2], out_array, false)
+        # copy the data back from device DRAM into the host array
+        write_back = host.TTEnqueueReadBuffer(cq, dram_buffers[-1], out_array, false)
         close = host.TTCloseDevice(device)
 
-        operations += [launch, wait, write_back, close, func.ReturnOp()]
+        operations += [false, launch, wait, write_back, close, func.ReturnOp()]
 
         block.add_ops(operations)
 
@@ -230,7 +249,7 @@ class MatmulToTT(RewritePattern):
             [
                 func.FuncOp(
                     HOST_KERNEL_NAME,
-                    FunctionType.from_lists([t0, t1, t2], []),
+                    FunctionType.from_lists(arg_types, []),
                     Region(block),
                 ),
             ],
@@ -239,6 +258,11 @@ class MatmulToTT(RewritePattern):
                 "vis": builtin.StringAttr("external"),
             },
         )
+
+    @staticmethod
+    def set_name_hints(hint: str, ops: List[Operation]):
+        for op in ops:
+            op.results[0].name_hint = hint
 
     def generate_data_in(self) -> builtin.ModuleOp:
         """
@@ -298,7 +322,9 @@ class MatmulToTT(RewritePattern):
         for cb, size, noc_addr, wp in indexed_args:
             wait = circular_buffer.CBReserveBack(cb, one)
             read = data_movement.DMNocAsyncRead(noc_addr, wp, size)
-            block_read = data_movement.DMNocAsyncReadBarrier()  # TODO: necessary for twice?
+            block_read = (
+                data_movement.DMNocAsyncReadBarrier()
+            )  # TODO: necessary for twice?
             push = circular_buffer.CBPushBack(cb, one)
             operations += [wait, read, block_read, push]
 
@@ -362,7 +388,9 @@ class MatmulToTT(RewritePattern):
         return builtin.ModuleOp(
             [
                 func.FuncOp(
-                    DATA_KERNEL_NAME, FunctionType.from_lists(arg_types, []), Region(block)
+                    DATA_KERNEL_NAME,
+                    FunctionType.from_lists(arg_types, []),
+                    Region(block),
                 )
             ],
             attributes={"kernel_type": builtin.StringAttr("data_out")},

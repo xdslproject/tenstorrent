@@ -34,19 +34,17 @@ def populate_dram_buffer(
     blocking: bool = False,
 ) -> List[Operation]:
     block = arith.ConstantOp.from_int_and_width(int(blocking), i1)
-    enqueue_write = host.TTEnqueueWriteBuffer(
-        cq, dram_buffer, host_mem, block
-    )
+    enqueue_write = host.TTEnqueueWriteBuffer(cq, dram_buffer, host_mem, block)
     return [block, enqueue_write]
 
 
 def create_circular_buffer(
-        program: SSAValue | Operation,
-        core: SSAValue | Operation,
-        page_count: SSAValue | Operation,
-        page_size: SSAValue | Operation,
-        cb_idx: SSAValue | Operation,
-        datatype: MemRefType | FixedBitwidthType | str | StringAttr
+    program: SSAValue | Operation,
+    core: SSAValue | Operation,
+    page_count: SSAValue | Operation,
+    page_size: SSAValue | Operation,
+    cb_idx: SSAValue | Operation,
+    datatype: MemRefType | FixedBitwidthType | str | StringAttr,
 ) -> List[Operation]:
     if not isinstance(datatype, str) and not isa(datatype, StringAttr):
         assert False
@@ -55,3 +53,44 @@ def create_circular_buffer(
     cb = host.TTCreateCircularBuffer(program, core, config)
 
     return [config, cb]
+
+
+def prepare_tensor_storage(
+    program: SSAValue | Operation,
+    core: SSAValue | Operation,
+    cq: SSAValue | Operation,
+    cb_index: int | SSAValue | Operation,
+    host_mem: SSAValue,
+) -> List[Operation]:
+    """
+    Given a standard Metalium program definition, produces MLIR, which creates
+    device DRAM buffers, populates them with data asynchronously, and creates
+    circular buffers.
+    """
+    operations = []
+
+    assert isinstance(host_mem.type, MemRefType)
+    operations += create_device_dram_buffer(host_mem.type)
+    dram_buffer = operations[-1]
+
+    operations += populate_dram_buffer(cq, host_mem, dram_buffer)
+
+    # TODO: generalise these in the future...
+    page_count = arith.ConstantOp.from_int_and_width(1, 32)
+    page_size = operations[0]  # reuse SSA that dram buffer uses for size
+
+    if isinstance(cb_index, int):
+        cb_index = arith.ConstantOp.from_int_and_width(cb_index, 32)
+        operations += [cb_index]
+
+    operations += [page_count]
+    operations += create_circular_buffer(
+        program,
+        core,
+        page_count,
+        page_size,
+        cb_index,
+        "int",  # TODO: generalise in the future, use elem type
+    )
+
+    return operations
