@@ -27,8 +27,13 @@ class MatmulToTT(RewritePattern):
 
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MatmulOp, rewriter: PatternRewriter):
+        self.generate_binop_code(op, rewriter)
+
+
+    def generate_binop_code(self, op, rewriter: PatternRewriter):
         mat0 = op.operands[0]
         mat1 = op.operands[1]
+        # TODO: owner won't always be AllocaOp
         assert isinstance(mat0.owner, memref.AllocaOp)
         assert isinstance(mat1.owner, memref.AllocaOp)
 
@@ -44,14 +49,12 @@ class MatmulToTT(RewritePattern):
         # TODO: Can abstract most of this out for binary operations
         # TODO: Ensure that nD-MemRefs are ok for this
 
-        host_code = self.generate_host_code(t0, t1, t2)
+        host_code = self.generate_binop_host_code(t0, t1, t2)
         data_in_code = self.generate_data_in()
         data_out_code = self.generate_data_out()
         compute_code = self.generate_compute()
 
         arg_types = [t0, t1, t2]
-
-        region = Region(Block([func.ReturnOp()], arg_types=arg_types))
 
         func_def_external = func.FuncOp.external(HOST_KERNEL_NAME, arg_types, [])
         func_call_external = func.CallOp(HOST_KERNEL_NAME, [mat0, mat1, mat2], return_types=[])
@@ -77,7 +80,13 @@ class MatmulToTT(RewritePattern):
 
         module.regions[0].add_block(block)
 
-    def generate_host_code(self, t0: MemRefType, t1: MemRefType, t2: MemRefType):
+
+    def generate_binop_host_code(self, t0: MemRefType, t1: MemRefType, t2: MemRefType):
+        """
+        Generates code which sets up the DRAM buffers, SRAM circular buffers,
+        and baby RISC-V cores for a binary operation on either matrices or
+        vectors.
+        """
         # device/program setup
         block = Block(arg_types=[t0, t1, t2])
         operations = []
@@ -150,6 +159,7 @@ class MatmulToTT(RewritePattern):
         )
         kernel_dout.results[0].name_hint = "writer_kernel"
 
+        # TODO: this code is tied to the specific binary operation
         false_attr = BoolAttr(0, i1)
         kernel_compute = host.TTCreateComputeKernel(
             program,
@@ -160,6 +170,7 @@ class MatmulToTT(RewritePattern):
             false_attr,
         )
         kernel_compute.results[0].name_hint = "compute_kernel"
+        ###########################
 
         operations += [kernel_din, kernel_dout, kernel_compute]
 
@@ -231,6 +242,10 @@ class MatmulToTT(RewritePattern):
         )
 
     def generate_data_in(self) -> builtin.ModuleOp:
+        """
+        Generates a kernel which reads data from two addresses in DRAM bank 0,
+        and populates CB0 and CB1 each with a single page of data.
+        """
         arg_types = [uint32, uint32, uint32, uint32, uint32, uint32]
         block = Block(arg_types=arg_types)
 
@@ -281,12 +296,12 @@ class MatmulToTT(RewritePattern):
             (cb1, size_bytes1, src1_noc_addr, wp1),
         ]
 
-        for input_matrix, size, noc_addr, wp in indexed_args:
-            wait = circular_buffer.CBReserveBack(input_matrix, one)
+        for cb, size, noc_addr, wp in indexed_args:
+            wait = circular_buffer.CBReserveBack(cb, one)
             read = data_movement.DMNocAsyncRead(noc_addr, wp, size)
-            block_read = data_movement.DMNocAsyncReadBarrier()
-            consume = circular_buffer.CBPushBack(input_matrix, one)
-            operations += [wait, read, block_read, consume]
+            block_read = data_movement.DMNocAsyncReadBarrier()  # TODO: necessary for twice?
+            push = circular_buffer.CBPushBack(cb, one)
+            operations += [wait, read, block_read, push]
 
         block.add_ops(operations + [func.ReturnOp()])
 
@@ -302,6 +317,10 @@ class MatmulToTT(RewritePattern):
         )
 
     def generate_data_out(self) -> builtin.ModuleOp:
+        """
+        Generates a kernel which waits for a page to be ready in CB16, then
+        consumes the page and writes it to the specified address in DRAM bank 0.
+        """
         true_attr = BoolAttr(1, i1)
         arg_types = [uint32, uint32, uint32]
         block = Block(arg_types=arg_types)
