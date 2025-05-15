@@ -708,8 +708,8 @@ class PrintMetalium:
                 f"{MLIR_TO_CPP_TYPES[op.results[0].type]} {tgt_name} = CircularBufferConfig(",
                 True,
             )
-            self.print_expr(op.num_buffers)
-            self.print("*")
+            self.print_expr(op.num_pages)
+            self.print(" * ")
             self.print_expr(op.page_size)
             self.print(", {{")
             self.print_expr(op.cb_index)

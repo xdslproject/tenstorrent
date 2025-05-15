@@ -764,17 +764,17 @@ class PythonToMLIR(ast.NodeVisitor):
     def handle_create_cb_config(self, node):
         assert len(node.args) == 4
 
-        num_buffers_ops, num_buffers_ssa = self.visit(node.args[0])
+        num_pages_ops, num_pages_ssa = self.visit(node.args[0])
         page_size_ops, page_size_ssa = self.visit(node.args[1])
         cb_index_ops, cb_index_ssa = self.visit(node.args[2])
         assert isa(node.args[3], ast.Name)
         data_type = node.args[3].id
 
         cbConfig = TTCreateCBConfig(
-            num_buffers_ssa, page_size_ssa, cb_index_ssa, data_type
+            num_pages_ssa, page_size_ssa, cb_index_ssa, data_type
         )
 
-        return num_buffers_ops + page_size_ops + cb_index_ops + [
+        return num_pages_ops + page_size_ops + cb_index_ops + [
             cbConfig
         ], cbConfig.results[0]
 

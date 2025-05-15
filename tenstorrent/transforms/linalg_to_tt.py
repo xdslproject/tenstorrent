@@ -159,7 +159,7 @@ class MatmulToTT(RewritePattern):
         )
         kernel_dout.results[0].name_hint = "writer_kernel"
 
-        # TODO: this code is tied to the specific binary operation
+        # TODO: allow variation of fidelity, fp32_acc_dest_en, math_approx_mode
         false_attr = BoolAttr(0, i1)
         kernel_compute = host.TTCreateComputeKernel(
             program,
@@ -170,7 +170,6 @@ class MatmulToTT(RewritePattern):
             false_attr,
         )
         kernel_compute.results[0].name_hint = "compute_kernel"
-        ###########################
 
         operations += [kernel_din, kernel_dout, kernel_compute]
 

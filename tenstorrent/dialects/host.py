@@ -275,14 +275,14 @@ class TTCreateCBConfig(IRDLOperation):
     name = "tthost.create_cb_configuration"
 
     data_type = prop_def(StringAttr)
-    num_buffers = operand_def(i32)
+    num_pages = operand_def(i32)
     page_size = operand_def(i32)
     cb_index = operand_def(i32)
     res: OpResult = result_def(Attribute)
 
     def __init__(
         self,
-        num_buffers: SSAValue | Operation,
+        num_pages: SSAValue | Operation,
         page_size: SSAValue | Operation,
         cb_index: SSAValue | Operation,
         data_type: str | StringAttr,
@@ -291,7 +291,7 @@ class TTCreateCBConfig(IRDLOperation):
             data_type = StringAttr(data_type)
 
         super().__init__(
-            operands=[num_buffers, page_size, cb_index],
+            operands=[num_pages, page_size, cb_index],
             properties={"data_type": data_type},
             result_types=[CircularBufferConfig()],
         )
