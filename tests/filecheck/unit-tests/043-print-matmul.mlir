@@ -112,9 +112,9 @@ builtin.module {
 // CHECK-NEXT:     std::shared_ptr<Buffer> buffer_3 = CreateBuffer({.device=device, .size=4096, .page_size=4096, .buffer_type = BufferType::DRAM});
 // CHECK-NEXT:     EnqueueWriteBuffer(device_0->command_queue(), buffer_1, fn_arg_0, false);
 // CHECK-NEXT:     EnqueueWriteBuffer(device_0->command_queue(), buffer_2, fn_arg_1, false);
-// CHECK-NEXT:     CircularBufferConfig cb_config_4 = CircularBufferConfig(1*4096, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 4096);
-// CHECK-NEXT:     CircularBufferConfig cb_config_5 = CircularBufferConfig(1*4096, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 4096);
-// CHECK-NEXT:     CircularBufferConfig cb_config_6 = CircularBufferConfig(1*4096, {{[{][{]}}16, tt::DataFormat::Int32{{[}][}]}}).set_page_size(16, 4096);
+// CHECK-NEXT:     CircularBufferConfig cb_config_4 = CircularBufferConfig(1 * 4096, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 4096);
+// CHECK-NEXT:     CircularBufferConfig cb_config_5 = CircularBufferConfig(1 * 4096, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 4096);
+// CHECK-NEXT:     CircularBufferConfig cb_config_6 = CircularBufferConfig(1 * 4096, {{[{][{]}}16, tt::DataFormat::Int32{{[}][}]}}).set_page_size(16, 4096);
 // CHECK-NEXT:     CBHandle cb_7 = tt_metal::CreateCircularBuffer(prog, CoreCoord{0, 0}, cb_config_4);
 // CHECK-NEXT:     CBHandle cb_8 = tt_metal::CreateCircularBuffer(prog, CoreCoord{0, 0}, cb_config_5);
 // CHECK-NEXT:     CBHandle cb_9 = tt_metal::CreateCircularBuffer(prog, CoreCoord{0, 0}, cb_config_6);
