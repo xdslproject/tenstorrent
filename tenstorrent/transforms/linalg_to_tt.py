@@ -63,10 +63,10 @@ class MatmulToTT(RewritePattern):
         # TODO: Can abstract most of this out for binary operations
         # TODO: Ensure that nD-MemRefs are ok for this
 
-        host_code = self.generate_host_code(t0, t1, t2)
-        data_in_code = self.generate_data_in()
-        data_out_code = self.generate_data_out()
-        compute_code = self.generate_compute(True, op)
+        host_code = MatmulToTT.generate_host_code(t0, t1, t2)
+        data_in_code = MatmulToTT.generate_data_in(True)
+        data_out_code = MatmulToTT.generate_data_out()
+        compute_code = MatmulToTT.generate_compute(True, op)
 
         arg_types = [t0, t1, t2]
 
@@ -271,69 +271,75 @@ class MatmulToTT(RewritePattern):
         for op in ops:
             op.results[0].name_hint = hint
 
-    def generate_data_in(self) -> builtin.ModuleOp:
-        """
-        Generates a kernel which reads data from two addresses in DRAM bank 0,
-        and populates CB0 and CB1 each with a single page of data.
-        """
-        arg_types = [uint32, uint32, uint32, uint32, uint32, uint32]
-        block = Block(arg_types=arg_types)
+    @staticmethod
+    def generate_blocking_read(
+        bank: SSAValue, addr: SSAValue, size: SSAValue, cb: int
+    ) -> List[Operation]:
+        bank.name_hint = "bank_id"
+        addr.name_hint = "mem_addr"
+        size.name_hint = "size_bytes"
 
-        bank_id0 = block.args[0]
-        bank_id1 = block.args[1]
-        mem_addr0 = block.args[2]
-        mem_addr1 = block.args[3]
-        size_bytes0 = block.args[4]
-        size_bytes1 = block.args[5]
-
-        bank_id0.name_hint = "bank_id0"
-        bank_id1.name_hint = "bank_id1"
-        mem_addr0.name_hint = "mem_addr0"
-        mem_addr1.name_hint = "mem_addr1"
-        size_bytes0.name_hint = "size_bytes0"
-        size_bytes1.name_hint = "size_bytes1"
-
-        operations = []
-
+        # TODO: reused values repeated for each blocking read
+        true_attr = BoolAttr(1, i1)
+        one = arith.ConstantOp.from_int_and_width(1, 32)
         zero_8 = arith.ConstantOp.from_int_and_width(0, 8)
         zero_ui8 = builtin.UnrealizedConversionCastOp(
             operands=[zero_8],
             result_types=[IntegerType(8, signedness=Signedness.UNSIGNED)],
         )
-        operations += [zero_8, zero_ui8]
 
-        true_attr = BoolAttr(1, i1)
+        cb = arith.ConstantOp.from_int_and_width(cb, 32)
 
-        src0_noc_addr = data_movement.DMGetNocAddrFromBankId(
-            true_attr, bank_id0, mem_addr0, zero_ui8
-        )
-        src1_noc_addr = data_movement.DMGetNocAddrFromBankId(
-            true_attr, bank_id1, mem_addr1, zero_ui8
+        src_noc_addr = data_movement.DMGetNocAddrFromBankId(
+            true_attr, bank, addr, zero_ui8
         )
 
-        zero = arith.ConstantOp.from_int_and_width(0, 32)
-        one = arith.ConstantOp.from_int_and_width(1, 32)
-        cb0 = zero
-        cb1 = one
+        write_ptr = circular_buffer.CBGetWritePointer(cb)
 
-        wp0 = circular_buffer.CBGetWritePointer(cb0)
-        wp1 = circular_buffer.CBGetWritePointer(cb1)
+        wait = circular_buffer.CBReserveBack(cb, one)
+        read = data_movement.DMNocAsyncRead(src_noc_addr, write_ptr, size)
+        block_op = data_movement.DMNocAsyncReadBarrier()
+        push = circular_buffer.CBPushBack(cb, one)
 
-        operations += [zero, one, src0_noc_addr, src1_noc_addr, wp0, wp1]
-
-        indexed_args = [
-            (cb0, size_bytes0, src0_noc_addr, wp0),
-            (cb1, size_bytes1, src1_noc_addr, wp1),
+        return [
+            one,
+            zero_8,
+            zero_ui8,
+            cb,
+            src_noc_addr,
+            write_ptr,
+            wait,
+            read,
+            block_op,
+            push,
         ]
 
-        for cb, size, noc_addr, wp in indexed_args:
-            wait = circular_buffer.CBReserveBack(cb, one)
-            read = data_movement.DMNocAsyncRead(noc_addr, wp, size)
-            block_read = (
-                data_movement.DMNocAsyncReadBarrier()
-            )  # TODO: necessary for twice?
-            push = circular_buffer.CBPushBack(cb, one)
-            operations += [wait, read, block_read, push]
+
+    @staticmethod
+    def generate_data_in(binop: bool) -> builtin.ModuleOp:
+        """
+        Generates a kernel which reads data from two addresses in DRAM bank 0,
+        and populates CB0 and CB1 each with a single page of data.
+        """
+        arg_types = [uint32, uint32, uint32] * (2 if binop else 1)
+        block = Block(arg_types=arg_types)
+
+        bank_id0 = block.args[0]
+        mem_addr0 = block.args[2 if binop else 1]
+        size_bytes0 = block.args[4 if binop else 2]
+
+        operations = MatmulToTT.generate_blocking_read(
+            bank_id0, mem_addr0, size_bytes0, 0
+        )
+
+        if binop:
+            bank_id1 = block.args[1]
+            mem_addr1 = block.args[3]
+            size_bytes1 = block.args[5]
+
+            operations += MatmulToTT.generate_blocking_read(
+                bank_id1, mem_addr1, size_bytes1, 1
+            )
 
         block.add_ops(operations + [func.ReturnOp()])
 
@@ -348,7 +354,9 @@ class MatmulToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_in")},
         )
 
-    def generate_data_out(self) -> builtin.ModuleOp:
+
+    @staticmethod
+    def generate_data_out() -> builtin.ModuleOp:
         """
         Generates a kernel which waits for a page to be ready in CB16, then
         consumes the page and writes it to the specified address in DRAM bank 0.
@@ -403,7 +411,9 @@ class MatmulToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
-    def generate_compute(self, binop: bool, op: Operation) -> builtin.ModuleOp:
+
+    @staticmethod
+    def generate_compute(binop: bool, op: Operation) -> builtin.ModuleOp:
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         one = arith.ConstantOp.from_int_and_width(1, 32)
         sixteen = arith.ConstantOp.from_int_and_width(16, 32)

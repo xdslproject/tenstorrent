@@ -90,23 +90,27 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }
 // CHECK-NEXT:   builtin.module attributes {kernel_type = "data_in"} {
-// CHECK-NEXT:     func.func @kernel_main(%bank_id0 : ui32, %bank_id1 : ui32, %mem_addr0 : ui32, %mem_addr1 : ui32, %size_bytes0 : ui32, %size_bytes1 : ui32) {
-// CHECK-NEXT:       %0 = arith.constant 0 : i8
-// CHECK-NEXT:       %1 = builtin.unrealized_conversion_cast %0 : i8 to ui8
-// CHECK-NEXT:       %2 = arith.constant 0 : i32
-// CHECK-NEXT:       %3 = arith.constant 1 : i32
-// CHECK-NEXT:       %4 = "dm.get_noc_addr_from_bank_id"(%bank_id0, %mem_addr0, %1) <{dram = true}> : (ui32, ui32, ui8) -> ui64
-// CHECK-NEXT:       %5 = "dm.get_noc_addr_from_bank_id"(%bank_id1, %mem_addr1, %1) <{dram = true}> : (ui32, ui32, ui8) -> ui64
-// CHECK-NEXT:       %6 = "cb.get_write_pointer"(%2) : (i32) -> ui32
-// CHECK-NEXT:       %7 = "cb.get_write_pointer"(%3) : (i32) -> ui32
-// CHECK-NEXT:       "cb.reserve_back"(%2, %3) : (i32, i32) -> ()
-// CHECK-NEXT:       "dm.noc_async_read"(%4, %6, %size_bytes0) : (ui64, ui32, ui32) -> ()
+// CHECK-NEXT:     func.func @kernel_main(%bank_id : ui32, %bank_id_1 : ui32, %mem_addr : ui32, %mem_addr_1 : ui32, %size_bytes : ui32, %size_bytes_1 : ui32) {
+// CHECK-NEXT:       %0 = arith.constant 1 : i32
+// CHECK-NEXT:       %1 = arith.constant 0 : i8
+// CHECK-NEXT:       %2 = builtin.unrealized_conversion_cast %1 : i8 to ui8
+// CHECK-NEXT:       %3 = arith.constant 0 : i32
+// CHECK-NEXT:       %4 = "dm.get_noc_addr_from_bank_id"(%bank_id, %mem_addr, %2) <{dram = true}> : (ui32, ui32, ui8) -> ui64
+// CHECK-NEXT:       %5 = "cb.get_write_pointer"(%3) : (i32) -> ui32
+// CHECK-NEXT:       "cb.reserve_back"(%3, %0) : (i32, i32) -> ()
+// CHECK-NEXT:       "dm.noc_async_read"(%4, %5, %size_bytes) : (ui64, ui32, ui32) -> ()
 // CHECK-NEXT:       "dm.noc_async_read_barrier"() : () -> ()
-// CHECK-NEXT:       "cb.push_back"(%2, %3) : (i32, i32) -> ()
-// CHECK-NEXT:       "cb.reserve_back"(%3, %3) : (i32, i32) -> ()
-// CHECK-NEXT:       "dm.noc_async_read"(%5, %7, %size_bytes1) : (ui64, ui32, ui32) -> ()
+// CHECK-NEXT:       "cb.push_back"(%3, %0) : (i32, i32) -> ()
+// CHECK-NEXT:       %6 = arith.constant 1 : i32
+// CHECK-NEXT:       %7 = arith.constant 0 : i8
+// CHECK-NEXT:       %8 = builtin.unrealized_conversion_cast %7 : i8 to ui8
+// CHECK-NEXT:       %9 = arith.constant 1 : i32
+// CHECK-NEXT:       %10 = "dm.get_noc_addr_from_bank_id"(%bank_id_1, %mem_addr_1, %8) <{dram = true}> : (ui32, ui32, ui8) -> ui64
+// CHECK-NEXT:       %11 = "cb.get_write_pointer"(%9) : (i32) -> ui32
+// CHECK-NEXT:       "cb.reserve_back"(%9, %6) : (i32, i32) -> ()
+// CHECK-NEXT:       "dm.noc_async_read"(%10, %11, %size_bytes_1) : (ui64, ui32, ui32) -> ()
 // CHECK-NEXT:       "dm.noc_async_read_barrier"() : () -> ()
-// CHECK-NEXT:       "cb.push_back"(%3, %3) : (i32, i32) -> ()
+// CHECK-NEXT:       "cb.push_back"(%9, %6) : (i32, i32) -> ()
 // CHECK-NEXT:       func.return
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }
