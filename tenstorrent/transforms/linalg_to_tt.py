@@ -59,7 +59,7 @@ class MatmulToTT(RewritePattern):
         host_code = self.generate_host_code(t0, t1, t2)
         data_in_code = self.generate_data_in()
         data_out_code = self.generate_data_out()
-        compute_code = self.generate_compute()
+        compute_code = self.generate_compute(True)
 
         arg_types = [t0, t1, t2]
 
@@ -396,7 +396,7 @@ class MatmulToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
-    def generate_compute(self) -> builtin.ModuleOp:
+    def generate_compute(self, binop: bool) -> builtin.ModuleOp:
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         one = arith.ConstantOp.from_int_and_width(1, 32)
         sixteen = arith.ConstantOp.from_int_and_width(16, 32)
@@ -411,8 +411,8 @@ class MatmulToTT(RewritePattern):
             operands=[sixteen], result_types=[uint32]
         )
 
-        init_op = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
-        mm_init = compute.MMInit(zero_u, one_u, zero_u, zero_u)
+        bin_op_cmn_init = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
+        bin_op_init = compute.MMInit(zero_u, one_u, zero_u, zero_u)
 
         # wait for a single block of tiles in each input CB
         wait0 = circular_buffer.CBWaitFront(zero, one)
@@ -436,37 +436,29 @@ class MatmulToTT(RewritePattern):
 
         push = circular_buffer.CBPushBack(sixteen, one)
 
+        # TODO: handle unary op init, check unary ops available on compute cores
+        operations = []
+        operations += [zero, one, sixteen, zero_u, one_u, sixteen_u]
+        operations += [bin_op_cmn_init, bin_op_init, wait1] if binop else []
+        operations += [
+            wait0,
+            acquire_regs,
+            do_matmul,
+            commit,
+            regs_wait,
+            pack,
+            release,
+            cb_pop0,
+        ]
+        operations += [cb_pop1] if binop else []
+        operations += [push, func.ReturnOp()]
+
         return builtin.ModuleOp(
             [
                 func.FuncOp(
                     COMP_KERNEL_NAME,
                     FunctionType.from_lists([], []),
-                    Region(
-                        Block(
-                            [
-                                zero,
-                                one,
-                                sixteen,
-                                zero_u,
-                                one_u,
-                                sixteen_u,
-                                init_op,
-                                mm_init,
-                                wait0,
-                                wait1,
-                                acquire_regs,
-                                do_matmul,
-                                commit,
-                                regs_wait,
-                                pack,
-                                release,
-                                cb_pop0,
-                                cb_pop1,
-                                push,
-                                func.ReturnOp(),
-                            ]
-                        )
-                    ),
+                    Region(Block(operations)),
                 )
             ],
             attributes={"kernel_type": builtin.StringAttr("compute")},
