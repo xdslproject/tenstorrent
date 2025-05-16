@@ -17,9 +17,6 @@ from xdsl.rewriter import InsertPoint
 
 from tenstorrent.dialects import *
 from tenstorrent.templates import (
-    create_device_dram_buffer,
-    populate_dram_buffer,
-    create_circular_buffer,
     prepare_tensor_storage,
 )
 
@@ -31,9 +28,15 @@ COMP_KERNEL_NAME = "MAIN"
 
 # TODO: will need to think about non-perfect tiles, different init, different
 #  params etc. What happens in Metalium?
-LINALG_TO_TT = {
+
+# linalg.op -> (compute.init_op, compute.op)
+LINALG_TO_TT_BINARY = {
     MatmulOp: (compute.MMInit, compute.Matmul),
 }
+
+
+# linalg.op -> (compute.init_op, compute.op)
+LINALG_TO_TT_UNARY = {}
 
 
 class MatmulToTT(RewritePattern):
@@ -42,38 +45,37 @@ class MatmulToTT(RewritePattern):
 
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: MatmulOp, rewriter: PatternRewriter):
-        self.generate_binop_code(op, rewriter)
+        self.insert_tt_call(op, rewriter)
 
-    def generate_binop_code(self, op, rewriter: PatternRewriter):
-        mat0 = op.operands[0]
-        mat1 = op.operands[1]
-        # TODO: owner won't always be AllocaOp
-        assert isinstance(mat0.owner, memref.AllocaOp)
-        assert isinstance(mat1.owner, memref.AllocaOp)
+    def insert_tt_call(self, op, rewriter: PatternRewriter):
+        if type(op) not in LINALG_TO_TT_BINARY and type(op) not in LINALG_TO_TT_UNARY:
+            raise NotImplementedError(f"Unhandled linalg op: {type(op)}")
 
-        mat2 = op.operands[2]
-        assert isinstance(mat2.owner, memref.AllocaOp)
+        binop = type(op) in LINALG_TO_TT_BINARY
 
-        assert isinstance(mat0.type, MemRefType)
-        assert isinstance(mat1.type, MemRefType)
-        assert isinstance(mat2.type, MemRefType)
-        t0, t1, t2 = mat0.type, mat1.type, mat2.type
+        # for now assume all linalg ops work like this, memref form
+        tensor0, tensor1, tensor2 = op.operands if binop else op.operands + [None]
+        t0, t1 = tensor0.type, tensor1.type
 
-        # TODO: Each time this is called, incremement func names _i
-        # TODO: Can abstract most of this out for binary operations
-        # TODO: Ensure that nD-MemRefs are ok for this
+        assert isinstance(t0, MemRefType)
+        assert isinstance(t1, MemRefType)
+        host_code_args = (t0, t1)
 
-        host_code = MatmulToTT.generate_host_code(t0, t1, t2)
-        data_in_code = MatmulToTT.generate_data_in(True)
+        if binop:
+            t2 = tensor2.type
+            assert isinstance(t2, MemRefType)
+            host_code_args = (t0, t1, t2)
+
+        # TODO: Each time this is called, increment func names _i
+        host_code = MatmulToTT.generate_host_code(*host_code_args)
+        data_in_code = MatmulToTT.generate_data_in(binop)
         data_out_code = MatmulToTT.generate_data_out()
-        compute_code = MatmulToTT.generate_compute(True, op)
+        compute_code = MatmulToTT.generate_compute(binop, op)
 
-        arg_types = [t0, t1, t2]
+        arg_types = list(host_code_args)
 
         func_def_external = func.FuncOp.external(HOST_KERNEL_NAME, arg_types, [])
-        func_call_external = func.CallOp(
-            HOST_KERNEL_NAME, [mat0, mat1, mat2], return_types=[]
-        )
+        func_call_external = func.CallOp(HOST_KERNEL_NAME, op.operands, return_types=[])
 
         module = op.get_toplevel_object()
         top_block = module.body.block
@@ -226,7 +228,6 @@ class MatmulToTT(RewritePattern):
             program, kernels[1], core, *(dram_bank, d_addrs[-1], sizes[-1])
         )
 
-        ###################
         din_args = (dram_bank, dram_bank) if binop else (dram_bank,)
         din_args += tuple(d_addrs[:2]) + tuple(sizes[:2])
         set_din_args = host.TTSetRuntimeArgs(
@@ -235,7 +236,6 @@ class MatmulToTT(RewritePattern):
             core,
             *din_args,
         )
-        ###################
 
         operations += [set_compute_args, set_din_args, set_dout_args]
 
@@ -314,7 +314,6 @@ class MatmulToTT(RewritePattern):
             push,
         ]
 
-
     @staticmethod
     def generate_data_in(binop: bool) -> builtin.ModuleOp:
         """
@@ -353,7 +352,6 @@ class MatmulToTT(RewritePattern):
             ],
             attributes={"kernel_type": builtin.StringAttr("data_in")},
         )
-
 
     @staticmethod
     def generate_data_out() -> builtin.ModuleOp:
@@ -411,7 +409,6 @@ class MatmulToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
-
     @staticmethod
     def generate_compute(binop: bool, op: Operation) -> builtin.ModuleOp:
         zero = arith.ConstantOp.from_int_and_width(0, 32)
@@ -428,7 +425,8 @@ class MatmulToTT(RewritePattern):
             operands=[sixteen], result_types=[uint32]
         )
 
-        op_mapped = LINALG_TO_TT[type(op)]
+        t = type(op)
+        op_mapped = LINALG_TO_TT_BINARY[t] if binop else LINALG_TO_TT_UNARY[t]
 
         bin_op_cmn_init = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
         bin_op_init = op_mapped[0](zero_u, one_u, zero_u, zero_u)
