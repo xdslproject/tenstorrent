@@ -29,6 +29,13 @@ DATA_KERNEL_NAME = "kernel_main"
 COMP_KERNEL_NAME = "MAIN"
 
 
+# TODO: will need to think about non-perfect tiles, different init, different
+#  params etc. What happens in Metalium?
+LINALG_TO_TT = {
+    MatmulOp: (compute.MMInit, compute.Matmul),
+}
+
+
 class MatmulToTT(RewritePattern):
     def __init__(self):
         super().__init__()
@@ -59,7 +66,7 @@ class MatmulToTT(RewritePattern):
         host_code = self.generate_host_code(t0, t1, t2)
         data_in_code = self.generate_data_in()
         data_out_code = self.generate_data_out()
-        compute_code = self.generate_compute(True)
+        compute_code = self.generate_compute(True, op)
 
         arg_types = [t0, t1, t2]
 
@@ -396,7 +403,7 @@ class MatmulToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
-    def generate_compute(self, binop: bool) -> builtin.ModuleOp:
+    def generate_compute(self, binop: bool, op: Operation) -> builtin.ModuleOp:
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         one = arith.ConstantOp.from_int_and_width(1, 32)
         sixteen = arith.ConstantOp.from_int_and_width(16, 32)
@@ -411,8 +418,10 @@ class MatmulToTT(RewritePattern):
             operands=[sixteen], result_types=[uint32]
         )
 
+        op_mapped = LINALG_TO_TT[type(op)]
+
         bin_op_cmn_init = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
-        bin_op_init = compute.MMInit(zero_u, one_u, zero_u, zero_u)
+        bin_op_init = op_mapped[0](zero_u, one_u, zero_u, zero_u)
 
         # wait for a single block of tiles in each input CB
         wait0 = circular_buffer.CBWaitFront(zero, one)
@@ -422,7 +431,7 @@ class MatmulToTT(RewritePattern):
         acquire_regs = compute.RegsAcquire()
 
         # add the first tiles in cb0 and cb1, storing the result tile
-        do_matmul = compute.Matmul(zero_u, one_u, zero_u, zero_u, zero_u, zero_u)
+        do_matmul = op_mapped[1](zero_u, one_u, zero_u, zero_u, zero_u, zero_u)
 
         # commit the result, signals the packer
         commit = compute.RegsCommit()
