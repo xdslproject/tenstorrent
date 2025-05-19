@@ -29,6 +29,11 @@ COMP_KERNEL_NAME = "MAIN"
 # TODO: will need to think about non-perfect tiles, different init, different
 #  params etc. What happens in Metalium?
 
+# To add a new linalg -> TT op:
+#   1. Add it to one of LINALG_TO_TT_{UNARY, BINARY}
+#   2. Update get_op_args
+#   3. Update get_init_args
+
 # linalg.op -> (compute.init_op, compute.op)
 LINALG_TO_TT_BINARY = {
     MatmulOp: (compute.MMInit, compute.Matmul),
@@ -501,12 +506,18 @@ class LinalgToTT(RewritePattern):
         if op_t == MMInit:
             return zero, one, sixteen, zero
 
+        if op_t == AddInit:
+            return zero, one, false
+
         raise NotImplementedError(f"Unhandled args for init op: {op_t.__name__}")
 
     @staticmethod
     def get_op_args(op_t, zero, one, sixteen, true, false) -> Tuple[SSAValue, ...]:
         if op_t == Matmul:
             return zero, one, zero, zero, zero, zero
+
+        if op_t == Add:
+            return zero, one, zero, zero, zero
 
         raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")
 
