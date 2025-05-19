@@ -85,7 +85,7 @@ builtin.module {
       %4 = builtin.unrealized_conversion_cast %1 : i32 to ui32
       %5 = builtin.unrealized_conversion_cast %2 : i32 to ui32
       "comp.binary_op_init_common"(%3, %4, %5) : (ui32, ui32, ui32) -> ()
-      "comp.mm_init"(%3, %4, %3, %3) : (ui32, ui32, ui32, ui32) -> ()
+      "comp.mm_init"(%3, %4, %5, %3) : (ui32, ui32, ui32, ui32) -> ()
       "cb.wait_front"(%1, %1) : (i32, i32) -> ()
       "cb.wait_front"(%0, %1) : (i32, i32) -> ()
       "comp.tile_regs_acquire"() : () -> ()
@@ -164,7 +164,7 @@ builtin.module {
 // CHECK:      namespace NAMESPACE {
 // CHECK:      void MAIN {
 // CHECK-NEXT:     binary_op_init_common(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(16));
-// CHECK-NEXT:     mm_init(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0));
+// CHECK-NEXT:     mm_init(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(16), static_cast<std::uint32_t>(0));
 // CHECK-NEXT:     cb_wait_front(1, 1);
 // CHECK-NEXT:     cb_wait_front(0, 1);
 // CHECK-NEXT:     tile_regs_acquire();

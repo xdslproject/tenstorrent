@@ -123,7 +123,7 @@ builtin.module {
 // CHECK-NEXT:       %4 = builtin.unrealized_conversion_cast %1 : i32 to ui32
 // CHECK-NEXT:       %5 = builtin.unrealized_conversion_cast %2 : i32 to ui32
 // CHECK-NEXT:       "comp.binary_op_init_common"(%3, %4, %5) : (ui32, ui32, ui32) -> ()
-// CHECK-NEXT:       "comp.mm_init"(%3, %4, %3, %3) : (ui32, ui32, ui32, ui32) -> ()
+// CHECK-NEXT:       "comp.mm_init"(%3, %4, %5, %3) : (ui32, ui32, ui32, ui32) -> ()
 // CHECK-NEXT:       "cb.wait_front"(%1, %1) : (i32, i32) -> ()
 // CHECK-NEXT:       "cb.wait_front"(%0, %1) : (i32, i32) -> ()
 // CHECK-NEXT:       "comp.tile_regs_acquire"() : () -> ()

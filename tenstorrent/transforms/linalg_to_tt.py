@@ -3,7 +3,7 @@ from typing import List, Tuple, Optional
 from xdsl.context import Context
 from xdsl.dialects import builtin, arith, func
 from xdsl.dialects.builtin import FixedBitwidthType, BoolAttr, FunctionType
-from xdsl.dialects.linalg import MatmulOp
+from xdsl.dialects.linalg import MatmulOp, AddOp
 from xdsl.ir import Region, Block
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
@@ -32,6 +32,7 @@ COMP_KERNEL_NAME = "MAIN"
 # linalg.op -> (compute.init_op, compute.op)
 LINALG_TO_TT_BINARY = {
     MatmulOp: (compute.MMInit, compute.Matmul),
+    AddOp: (compute.AddInit, compute.Add),
 }
 
 
@@ -39,12 +40,19 @@ LINALG_TO_TT_BINARY = {
 LINALG_TO_TT_UNARY = {}
 
 
+
+REWRITE_TYPE = (
+    MatmulOp
+    | AddOp
+)
+
+
 class LinalgToTT(RewritePattern):
     def __init__(self):
         super().__init__()
 
     @op_type_rewrite_pattern
-    def match_and_rewrite(self, op: MatmulOp, rewriter: PatternRewriter):
+    def match_and_rewrite(self, op: REWRITE_TYPE, rewriter: PatternRewriter):
         self.insert_tt_call(op, rewriter)
 
     def insert_tt_call(self, op, rewriter: PatternRewriter):
@@ -429,7 +437,7 @@ class LinalgToTT(RewritePattern):
         op_mapped = LINALG_TO_TT_BINARY[t] if binop else LINALG_TO_TT_UNARY[t]
 
         bin_op_cmn_init = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
-        bin_op_init = op_mapped[0](zero_u, one_u, zero_u, zero_u)
+        bin_op_init = op_mapped[0](zero_u, one_u, sixteen_u, zero_u)
 
         # wait for a single block of tiles in each input CB
         wait0 = circular_buffer.CBWaitFront(zero, one)
@@ -438,7 +446,7 @@ class LinalgToTT(RewritePattern):
         # acquire 8 tile registers
         acquire_regs = compute.RegsAcquire()
 
-        # add the first tiles in cb0 and cb1, storing the result tile
+        # add the first tiles in cb0 and cb1, storing the result tile in dst[0]
         do_matmul = op_mapped[1](zero_u, one_u, zero_u, zero_u, zero_u, zero_u)
 
         # commit the result, signals the packer
