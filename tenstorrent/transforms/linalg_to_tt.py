@@ -1,7 +1,7 @@
 from typing import List, Tuple, Optional
 
-from xdsl.context import MLContext
-from xdsl.dialects import memref, builtin, arith, func
+from xdsl.context import Context
+from xdsl.dialects import builtin, arith, func
 from xdsl.dialects.builtin import FixedBitwidthType, BoolAttr, FunctionType
 from xdsl.dialects.linalg import MatmulOp
 from xdsl.ir import Region, Block
@@ -39,7 +39,7 @@ LINALG_TO_TT_BINARY = {
 LINALG_TO_TT_UNARY = {}
 
 
-class MatmulToTT(RewritePattern):
+class LinalgToTT(RewritePattern):
     def __init__(self):
         super().__init__()
 
@@ -67,10 +67,10 @@ class MatmulToTT(RewritePattern):
             host_code_args = (t0, t1, t2)
 
         # TODO: Each time this is called, increment func names _i
-        host_code = MatmulToTT.generate_host_code(*host_code_args)
-        data_in_code = MatmulToTT.generate_data_in(binop)
-        data_out_code = MatmulToTT.generate_data_out()
-        compute_code = MatmulToTT.generate_compute(binop, op)
+        host_code = LinalgToTT.generate_host_code(*host_code_args)
+        data_in_code = LinalgToTT.generate_data_in(binop)
+        data_out_code = LinalgToTT.generate_data_out()
+        compute_code = LinalgToTT.generate_compute(binop, op)
 
         arg_types = list(host_code_args)
 
@@ -213,13 +213,13 @@ class MatmulToTT(RewritePattern):
         dram_buffers = [x[2] for x in cb_setups if x]
         d_addrs = [host.TTGetMemoryAddress(b) for b in dram_buffers]
 
-        MatmulToTT.set_name_hints("dram_addr", d_addrs)
-        MatmulToTT.set_name_hints("size", sizes)
+        LinalgToTT.set_name_hints("dram_addr", d_addrs)
+        LinalgToTT.set_name_hints("size", sizes)
 
         operations += d_addrs
 
         # make the kernel objects
-        kernels = MatmulToTT.define_kernels(program, core)
+        kernels = LinalgToTT.define_kernels(program, core)
         operations += kernels
 
         set_compute_args = host.TTSetRuntimeArgs(program, kernels[2], core)
@@ -327,7 +327,7 @@ class MatmulToTT(RewritePattern):
         mem_addr0 = block.args[2 if binop else 1]
         size_bytes0 = block.args[4 if binop else 2]
 
-        operations = MatmulToTT.generate_blocking_read(
+        operations = LinalgToTT.generate_blocking_read(
             bank_id0, mem_addr0, size_bytes0, 0
         )
 
@@ -336,7 +336,7 @@ class MatmulToTT(RewritePattern):
             mem_addr1 = block.args[3]
             size_bytes1 = block.args[5]
 
-            operations += MatmulToTT.generate_blocking_read(
+            operations += LinalgToTT.generate_blocking_read(
                 bank_id1, mem_addr1, size_bytes1, 1
             )
 
@@ -483,22 +483,21 @@ class MatmulToTT(RewritePattern):
 
 
 @dataclass(frozen=True)
-class RewriteMatmulToTT(ModulePass):
+class LinalgToTenstorrentPass(ModulePass):
     """
     This transformation takes a linalg matmul operation and rewrites it using
     the Tenstorrent xDSL dialect into host code and three Metalium kernels
     """
+    name = "linalg-to-tt"
 
-    name = "rewrite-matmul-to-tt"
-
-    def apply(self, ctx: MLContext, input_module: builtin.ModuleOp):
+    def apply(self, ctx: Context, op: builtin.ModuleOp):
         walker = PatternRewriteWalker(
             GreedyRewritePatternApplier(
                 [
-                    MatmulToTT(),
+                    LinalgToTT(),
                 ]
             ),
             apply_recursively=False,
         )
 
-        walker.rewrite_module(input_module)
+        walker.rewrite_module(op)

@@ -13,7 +13,7 @@ from tenstorrent.dialects.ttkernel import TTKernel
 from tenstorrent.backend.print_metalium import PrintMetalium
 from tenstorrent.transforms.extract_driver import ExtractDriver
 from tenstorrent.transforms.extract_tenstorrent import ExtractMetalium
-from tenstorrent.transforms.linalg_to_tt import RewriteMatmulToTT
+from tenstorrent.transforms.linalg_to_tt import LinalgToTenstorrentPass
 from tenstorrent.transforms.ttxdsl_to_ttkernel import ConvertTTxToTTKernel
 
 
@@ -22,7 +22,7 @@ class TTOptMain(xDSLOptMain):
 
     def register_all_passes(self):
         super().register_all_passes()
-        self.register_pass(RewriteMatmulToTT.name, lambda: RewriteMatmulToTT)
+        self.register_pass(LinalgToTenstorrentPass.name, lambda: LinalgToTenstorrentPass)
         self.register_pass(ConvertTTxToTTKernel.name, lambda: ConvertTTxToTTKernel)
         self.register_pass(ExtractDriver.name, lambda: ExtractDriver)
         self.register_pass(ExtractMetalium.name, lambda: ExtractMetalium)

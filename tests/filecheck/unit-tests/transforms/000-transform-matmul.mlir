@@ -1,4 +1,4 @@
-// RUN: python3.13 tenstorrent/tools/tt-opt %s -p rewrite-matmul-to-tt | filecheck %s
+// RUN: python3.13 tenstorrent/tools/tt-opt %s -p linalg-to-tt | filecheck %s
 
 builtin.module {
   func.func @"_QMproblem_modPentry"() {
