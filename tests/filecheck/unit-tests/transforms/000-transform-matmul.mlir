@@ -1,7 +1,7 @@
 // RUN: python3.13 tenstorrent/tools/tt-opt %s -p linalg-to-tt | filecheck %s
 
 builtin.module {
-  func.func @"_QMproblem_modPentry"() {
+  func.func @"example_matmul"() {
     %0 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
     %1 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
     %2 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
@@ -12,7 +12,7 @@ builtin.module {
   }
   func.func @main() {
     "memref.alloca_scope"() ({
-      func.call @_QMproblem_modPentry() : () -> ()
+      func.call @example_matmul() : () -> ()
       "memref.alloca_scope.return"() : () -> ()
     }) : () -> ()
     func.return
@@ -21,7 +21,7 @@ builtin.module {
 
 // CHECK:      builtin.module {
 // CHECK-NEXT:   builtin.module {
-// CHECK-NEXT:     func.func @_QMproblem_modPentry() {
+// CHECK-NEXT:     func.func @example_matmul() {
 // CHECK-NEXT:       %0 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
 // CHECK-NEXT:       %1 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
 // CHECK-NEXT:       %2 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
@@ -32,7 +32,7 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:     func.func @main() {
 // CHECK-NEXT:       "memref.alloca_scope"() ({
-// CHECK-NEXT:         func.call @_QMproblem_modPentry() : () -> ()
+// CHECK-NEXT:         func.call @example_matmul() : () -> ()
 // CHECK-NEXT:         "memref.alloca_scope.return"() : () -> ()
 // CHECK-NEXT:       }) : () -> ()
 // CHECK-NEXT:       func.return
