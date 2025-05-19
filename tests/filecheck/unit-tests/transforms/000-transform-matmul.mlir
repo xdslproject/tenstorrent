@@ -122,6 +122,8 @@ builtin.module {
 // CHECK-NEXT:       %3 = builtin.unrealized_conversion_cast %0 : i32 to ui32
 // CHECK-NEXT:       %4 = builtin.unrealized_conversion_cast %1 : i32 to ui32
 // CHECK-NEXT:       %5 = builtin.unrealized_conversion_cast %2 : i32 to ui32
+// CHECK-NEXT:       %6 = arith.constant true
+// CHECK-NEXT:       %7 = arith.constant false
 // CHECK-NEXT:       "comp.binary_op_init_common"(%3, %4, %5) : (ui32, ui32, ui32) -> ()
 // CHECK-NEXT:       "comp.mm_init"(%3, %4, %5, %3) : (ui32, ui32, ui32, ui32) -> ()
 // CHECK-NEXT:       "cb.wait_front"(%1, %1) : (i32, i32) -> ()

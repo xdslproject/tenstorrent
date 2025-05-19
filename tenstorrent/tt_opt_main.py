@@ -22,7 +22,9 @@ class TTOptMain(xDSLOptMain):
 
     def register_all_passes(self):
         super().register_all_passes()
-        self.register_pass(LinalgToTenstorrentPass.name, lambda: LinalgToTenstorrentPass)
+        self.register_pass(
+            LinalgToTenstorrentPass.name, lambda: LinalgToTenstorrentPass
+        )
         self.register_pass(ConvertTTxToTTKernel.name, lambda: ConvertTTxToTTKernel)
         self.register_pass(ExtractDriver.name, lambda: ExtractDriver)
         self.register_pass(ExtractMetalium.name, lambda: ExtractMetalium)

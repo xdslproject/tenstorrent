@@ -40,11 +40,7 @@ LINALG_TO_TT_BINARY = {
 LINALG_TO_TT_UNARY = {}
 
 
-
-REWRITE_TYPE = (
-    MatmulOp
-    | AddOp
-)
+REWRITE_TYPE = MatmulOp | AddOp
 
 
 class LinalgToTT(RewritePattern):
@@ -433,11 +429,19 @@ class LinalgToTT(RewritePattern):
             operands=[sixteen], result_types=[uint32]
         )
 
+        true = arith.ConstantOp.from_int_and_width(1, i1)
+        false = arith.ConstantOp.from_int_and_width(0, i1)
+
         t = type(op)
         op_mapped = LINALG_TO_TT_BINARY[t] if binop else LINALG_TO_TT_UNARY[t]
+        tt_init_op_type = op_mapped[0]
+        tt_op_type = op_mapped[1]
 
         bin_op_cmn_init = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
-        bin_op_init = op_mapped[0](zero_u, one_u, sixteen_u, zero_u)
+        tt_init_op_args = LinalgToTT.get_init_args(
+            tt_init_op_type, zero_u, one_u, sixteen_u, true, false
+        )
+        bin_op_init = tt_init_op_type(*tt_init_op_args)
 
         # wait for a single block of tiles in each input CB
         wait0 = circular_buffer.CBWaitFront(zero, one)
@@ -447,7 +451,10 @@ class LinalgToTT(RewritePattern):
         acquire_regs = compute.RegsAcquire()
 
         # add the first tiles in cb0 and cb1, storing the result tile in dst[0]
-        do_matmul = op_mapped[1](zero_u, one_u, zero_u, zero_u, zero_u, zero_u)
+        tt_op_args = LinalgToTT.get_op_args(
+            tt_op_type, zero_u, one_u, sixteen_u, true, false
+        )
+        do_tt_op = tt_op_type(*tt_op_args)
 
         # commit the result, signals the packer
         commit = compute.RegsCommit()
@@ -463,12 +470,12 @@ class LinalgToTT(RewritePattern):
 
         # TODO: handle unary op init, check unary ops available on compute cores
         operations = []
-        operations += [zero, one, sixteen, zero_u, one_u, sixteen_u]
+        operations += [zero, one, sixteen, zero_u, one_u, sixteen_u, true, false]
         operations += [bin_op_cmn_init, bin_op_init, wait1] if binop else []
         operations += [
             wait0,
             acquire_regs,
-            do_matmul,
+            do_tt_op,
             commit,
             regs_wait,
             pack,
@@ -489,6 +496,20 @@ class LinalgToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("compute")},
         )
 
+    @staticmethod
+    def get_init_args(op_t, zero, one, sixteen, true, false) -> Tuple[SSAValue, ...]:
+        if op_t == MMInit:
+            return zero, one, sixteen, zero
+
+        raise NotImplementedError(f"Unhandled args for init op: {op_t.__name__}")
+
+    @staticmethod
+    def get_op_args(op_t, zero, one, sixteen, true, false) -> Tuple[SSAValue, ...]:
+        if op_t == Matmul:
+            return zero, one, zero, zero, zero, zero
+
+        raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")
+
 
 @dataclass(frozen=True)
 class LinalgToTenstorrentPass(ModulePass):
@@ -496,6 +517,7 @@ class LinalgToTenstorrentPass(ModulePass):
     This transformation takes a linalg matmul operation and rewrites it using
     the Tenstorrent xDSL dialect into host code and three Metalium kernels
     """
+
     name = "linalg-to-tt"
 
     def apply(self, ctx: Context, op: builtin.ModuleOp):
