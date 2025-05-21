@@ -578,8 +578,7 @@ class LinalgToTenstorrentPass(ModulePass):
 
         walker.rewrite_module(op)
 
-        # TODO: only need to make a new container for first instance, others
-        #  can reuse it somehow
+        # put everything in a containing builtin.module 
         module = op.get_toplevel_object()
         container_module = builtin.ModuleOp([])
 
@@ -587,10 +586,6 @@ class LinalgToTenstorrentPass(ModulePass):
 
         container_module.regions[0].detach_block(0)
 
-        # TODO: probably want to make this block construction thing more global,
-        #  having this pass just return [host_code, data_in_code, ..], then
-        #  later concat all these lists into [container_module, *lists] and do
-        #  the transform
         block = Block(
             [container_module, *linalg_to_tt.operations_to_append]
         )
