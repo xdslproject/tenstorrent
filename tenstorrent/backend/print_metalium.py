@@ -162,6 +162,7 @@ class PrintMetalium:
         self._names = {}  # SSAVal -> Variable Name
         self._free_end_of_fn = []
         self._unique_name_ctr = 0
+        self._expected_filenames = {}
 
         self._kernel_type = []
         self._skip_next_op = False
@@ -187,7 +188,35 @@ class PrintMetalium:
     def print_include(self, lib: str):
         self.print(f"#include {lib}", end="\n")
 
-    def print_op(self, operation):
+    def update_expected_filename(self, operation: Operation):
+        # given a builtin.module attributes { kernel_type = "host }
+        # find the ops that define the expected filename for each kernel
+        # assumption: always appears in order (host -> *kernels)
+        rker_filename = ""
+        wker_filename = ""
+        cker_filename = ""
+
+        # assumption: TTCreateKernel, TTCreateComputeKernel ops all exist
+        for op in operation.walk():
+            if isinstance(op, host.TTCreateKernel):
+                rv_core_flag = list(op.riscv_core.flags)[0]
+                if rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0:
+                    rker_filename = op.properties["kernel_name"]
+                elif rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_1:
+                    wker_filename = op.properties["kernel_name"]
+
+            if isinstance(op, host.TTCreateComputeKernel):
+                cker_filename = op.properties["kernel_name"]
+
+        self._expected_filenames["data_in"] = rker_filename
+        self._expected_filenames["data_out"] = wker_filename
+        self._expected_filenames["compute"] = cker_filename
+
+    def expected_filename(self, kernel_type: str):
+        return self._expected_filenames[kernel_type]
+
+
+    def print_op(self, operation: Operation):
         if self._skip_next_op:
             self._skip_next_op = False
             return
@@ -202,13 +231,17 @@ class PrintMetalium:
 
                 if self._writing_files:
                     os.makedirs(self.date, exist_ok=True)
-                    self._file = open(f"{self.date}/{kernel_type}.cpp", "w")
+                    filename = self.expected_filename(kernel_type) if self.is_device() else f"{kernel_type}.cpp"
+                    self._file = open(f"{self.date}/{filename}", "w")
 
                 if kernel_type == "host":
                     self.print_include('"host_api.hpp"')
                     self.print_include('"device_impl.hpp"')
                     self.println("\nusing namespace tt;")
                     self.println("using namespace tt::tt_metal;\n")
+
+                    if self._writing_files:
+                        self.update_expected_filename(operation)
 
                 elif kernel_type == "data_in" or kernel_type == "data_out":
                     self.print_include("<stdint.h>")
@@ -814,7 +847,7 @@ class PrintMetalium:
         if self.is_compute():
             func_name = "MAIN"
         if external_host:
-            func_name = "host_entry"
+            func_name = func_name
         if self.is_host() and not external_host:
             func_name = "main"
 
