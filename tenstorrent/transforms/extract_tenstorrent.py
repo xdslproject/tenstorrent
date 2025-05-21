@@ -17,8 +17,8 @@ class ExtractMetalium(ModulePass):
     def apply(self, ctx: Context, op: builtin.ModuleOp) -> None:
         reg = op.regions[0]
 
-        # we assume there is 5 ops within the region (driver, host, *kernels)
-        # and we want the final 4 as these can be compiled together. Later may
+        # we assume there is >= 5 ops within the region (driver, [host, *kernels]+)
+        # and we want all but the first as these can be compiled together. Later may
         # want to extract data_in, data_out, compute, host, separately
-        assert len(reg.ops) == 5
+        assert len(reg.ops) >= 5
         reg.block.detach_op(reg.block.first_op)
