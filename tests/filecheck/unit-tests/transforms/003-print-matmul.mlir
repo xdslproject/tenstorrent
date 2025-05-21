@@ -6,48 +6,51 @@ builtin.module {
       %zero = arith.constant 0 : i32
       %3 = arith.constant 1 : i32
       %4 = arith.constant 16 : i32
+      %5 = arith.constant 0 : i32
+      %6 = arith.constant 1 : i32
+      %7 = arith.constant 16 : i32
       %prog = "tthost.create_program"() : () -> !tthost.program
-      %5 = "tthost.create_device"(%zero) : (i32) -> !tthost.device
-      %6 = "tthost.core"(%zero, %zero) : (i32, i32) -> !tthost.corecoord
-      %7 = "tthost.get_command_queue"(%5) : (!tthost.device) -> !tthost.command_queue
+      %8 = "tthost.create_device"(%zero) : (i32) -> !tthost.device
+      %9 = "tthost.core"(%zero, %zero) : (i32, i32) -> !tthost.corecoord
+      %10 = "tthost.get_command_queue"(%8) : (!tthost.device) -> !tthost.command_queue
       %size = arith.constant 4096 : i32
-      %8 = "tthost.create_dram_configuration"(%size, %size) : (i32, i32) -> !tthost.dram_buffer_config
-      %9 = "tthost.create_buffer"(%8) : (!tthost.dram_buffer_config) -> !tthost.buffer
-      %10 = arith.constant false
-      "tthost.enqueue_write_buffer"(%7, %9, %0, %10) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
-      %11 = arith.constant 1 : i32
-      %12 = "tthost.create_cb_configuration"(%11, %size, %zero) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
-      %13 = "tthost.create_circular_buffer"(%prog, %6, %12) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
+      %11 = "tthost.create_dram_configuration"(%size, %size) : (i32, i32) -> !tthost.dram_buffer_config
+      %12 = "tthost.create_buffer"(%11) : (!tthost.dram_buffer_config) -> !tthost.buffer
+      %13 = arith.constant false
+      "tthost.enqueue_write_buffer"(%10, %12, %0, %13) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+      %14 = arith.constant 1 : i32
+      %15 = "tthost.create_cb_configuration"(%14, %size, %5) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+      %16 = "tthost.create_circular_buffer"(%prog, %9, %15) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
       %size_1 = arith.constant 4096 : i32
-      %14 = "tthost.create_dram_configuration"(%size_1, %size_1) : (i32, i32) -> !tthost.dram_buffer_config
-      %15 = "tthost.create_buffer"(%14) : (!tthost.dram_buffer_config) -> !tthost.buffer
-      %16 = arith.constant false
-      "tthost.enqueue_write_buffer"(%7, %15, %1, %16) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
-      %17 = arith.constant 1 : i32
-      %18 = "tthost.create_cb_configuration"(%17, %size_1, %3) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
-      %19 = "tthost.create_circular_buffer"(%prog, %6, %18) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
+      %17 = "tthost.create_dram_configuration"(%size_1, %size_1) : (i32, i32) -> !tthost.dram_buffer_config
+      %18 = "tthost.create_buffer"(%17) : (!tthost.dram_buffer_config) -> !tthost.buffer
+      %19 = arith.constant false
+      "tthost.enqueue_write_buffer"(%10, %18, %1, %19) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+      %20 = arith.constant 1 : i32
+      %21 = "tthost.create_cb_configuration"(%20, %size_1, %6) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+      %22 = "tthost.create_circular_buffer"(%prog, %9, %21) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
       %size_2 = arith.constant 4096 : i32
-      %20 = "tthost.create_dram_configuration"(%size_2, %size_2) : (i32, i32) -> !tthost.dram_buffer_config
-      %21 = "tthost.create_buffer"(%20) : (!tthost.dram_buffer_config) -> !tthost.buffer
-      %22 = arith.constant false
-      "tthost.enqueue_write_buffer"(%7, %21, %2, %22) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
-      %23 = arith.constant 1 : i32
-      %24 = "tthost.create_cb_configuration"(%23, %size_2, %4) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
-      %25 = "tthost.create_circular_buffer"(%prog, %6, %24) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
-      %dram_addr = "tthost.get_memory_address"(%9) : (!tthost.buffer) -> index
-      %dram_addr_1 = "tthost.get_memory_address"(%15) : (!tthost.buffer) -> index
-      %dram_addr_2 = "tthost.get_memory_address"(%21) : (!tthost.buffer) -> index
-      %reader_kernel = "tthost.create_kernel"(%prog, %6) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-      %writer_kernel = "tthost.create_kernel"(%prog, %6) <{kernel_name = "writer.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-      %compute_kernel = "tthost.create_compute_kernel"(%prog, %6) <{kernel_name = "compute.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<LoFi>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
-      "tthost.set_runtime_args"(%prog, %compute_kernel, %6) {operandSegmentSizes = array<i32: 1, 1, 1, 0>} : (!tthost.program, !tthost.kernel, !tthost.corecoord) -> ()
-      "tthost.set_runtime_args"(%prog, %reader_kernel, %6, %zero, %zero, %dram_addr, %dram_addr_1, %size, %size_1) {operandSegmentSizes = array<i32: 1, 1, 1, 6>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, i32, i32, index, index, i32, i32) -> ()
-      "tthost.set_runtime_args"(%prog, %writer_kernel, %6, %zero, %dram_addr_2, %size_2) {operandSegmentSizes = array<i32: 1, 1, 1, 3>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, i32, index, i32) -> ()
-      %26 = arith.constant false
-      "tthost.enqueue_program"(%7, %prog, %26) : (!tthost.command_queue, !tthost.program, i1) -> ()
-      "tthost.finish"(%7) : (!tthost.command_queue) -> ()
-      "tthost.enqueue_read_buffer"(%7, %21, %2, %26) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
-      "tthost.close_device"(%5) : (!tthost.device) -> ()
+      %23 = "tthost.create_dram_configuration"(%size_2, %size_2) : (i32, i32) -> !tthost.dram_buffer_config
+      %24 = "tthost.create_buffer"(%23) : (!tthost.dram_buffer_config) -> !tthost.buffer
+      %25 = arith.constant false
+      "tthost.enqueue_write_buffer"(%10, %24, %2, %25) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+      %26 = arith.constant 1 : i32
+      %27 = "tthost.create_cb_configuration"(%26, %size_2, %7) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+      %28 = "tthost.create_circular_buffer"(%prog, %9, %27) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
+      %dram_addr = "tthost.get_memory_address"(%12) : (!tthost.buffer) -> index
+      %dram_addr_1 = "tthost.get_memory_address"(%18) : (!tthost.buffer) -> index
+      %dram_addr_2 = "tthost.get_memory_address"(%24) : (!tthost.buffer) -> index
+      %reader_kernel = "tthost.create_kernel"(%prog, %9) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %writer_kernel = "tthost.create_kernel"(%prog, %9) <{kernel_name = "writer.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %compute_kernel = "tthost.create_compute_kernel"(%prog, %9) <{kernel_name = "compute.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<LoFi>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      "tthost.set_runtime_args"(%prog, %compute_kernel, %9) {operandSegmentSizes = array<i32: 1, 1, 1, 0>} : (!tthost.program, !tthost.kernel, !tthost.corecoord) -> ()
+      "tthost.set_runtime_args"(%prog, %reader_kernel, %9, %zero, %zero, %dram_addr, %dram_addr_1, %size, %size_1) {operandSegmentSizes = array<i32: 1, 1, 1, 6>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, i32, i32, index, index, i32, i32) -> ()
+      "tthost.set_runtime_args"(%prog, %writer_kernel, %9, %zero, %dram_addr_2, %size_2) {operandSegmentSizes = array<i32: 1, 1, 1, 3>} : (!tthost.program, !tthost.kernel, !tthost.corecoord, i32, index, i32) -> ()
+      %29 = arith.constant false
+      "tthost.enqueue_program"(%10, %prog, %29) : (!tthost.command_queue, !tthost.program, i1) -> ()
+      "tthost.finish"(%10) : (!tthost.command_queue) -> ()
+      "tthost.enqueue_read_buffer"(%10, %24, %2, %29) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+      "tthost.close_device"(%8) : (!tthost.device) -> ()
       func.return
     }
   }
@@ -80,25 +83,29 @@ builtin.module {
     func.func @MAIN() {
       %0 = arith.constant 0 : i32
       %1 = arith.constant 1 : i32
-      %2 = arith.constant 16 : i32
-      %3 = builtin.unrealized_conversion_cast %0 : i32 to ui32
-      %4 = builtin.unrealized_conversion_cast %1 : i32 to ui32
-      %5 = builtin.unrealized_conversion_cast %2 : i32 to ui32
-      %6 = arith.constant true
-      %7 = arith.constant false
-      "comp.binary_op_init_common"(%3, %4, %5) : (ui32, ui32, ui32) -> ()
-      "comp.mm_init"(%3, %4, %5, %3) : (ui32, ui32, ui32, ui32) -> ()
-      "cb.wait_front"(%1, %1) : (i32, i32) -> ()
-      "cb.wait_front"(%0, %1) : (i32, i32) -> ()
+      %2 = arith.constant 0 : i32
+      %3 = arith.constant 1 : i32
+      %4 = arith.constant 16 : i32
+      %5 = builtin.unrealized_conversion_cast %0 : i32 to ui32
+      %6 = builtin.unrealized_conversion_cast %1 : i32 to ui32
+      %7 = builtin.unrealized_conversion_cast %2 : i32 to ui32
+      %8 = builtin.unrealized_conversion_cast %3 : i32 to ui32
+      %9 = builtin.unrealized_conversion_cast %4 : i32 to ui32
+      %10 = arith.constant true
+      %11 = arith.constant false
+      "comp.binary_op_init_common"(%7, %8, %9) : (ui32, ui32, ui32) -> ()
+      "comp.mm_init"(%7, %8, %9, %5) : (ui32, ui32, ui32, ui32) -> ()
+      "cb.wait_front"(%3, %1) : (i32, i32) -> ()
+      "cb.wait_front"(%2, %1) : (i32, i32) -> ()
       "comp.tile_regs_acquire"() : () -> ()
-      "comp.matmul_tiles"(%3, %4, %3, %3, %3, %3) : (ui32, ui32, ui32, ui32, ui32, ui32) -> ()
+      "comp.matmul_tiles"(%7, %8, %5, %5, %5, %5) : (ui32, ui32, ui32, ui32, ui32, ui32) -> ()
       "comp.tile_regs_commit"() : () -> ()
       "comp.tile_regs_wait"() : () -> ()
-      "comp.pack_tile"(%3, %5, %3) <{out_of_order_output = false}> : (ui32, ui32, ui32) -> ()
+      "comp.pack_tile"(%5, %9, %5) <{out_of_order_output = false}> : (ui32, ui32, ui32) -> ()
       "comp.tile_regs_release"() : () -> ()
-      "cb.pop_front"(%0, %1) : (i32, i32) -> ()
-      "cb.pop_front"(%1, %1) : (i32, i32) -> ()
-      "cb.push_back"(%2, %1) : (i32, i32) -> ()
+      "cb.pop_front"(%2, %1) : (i32, i32) -> ()
+      "cb.pop_front"(%3, %1) : (i32, i32) -> ()
+      "cb.push_back"(%4, %1) : (i32, i32) -> ()
       func.return
     }
   }

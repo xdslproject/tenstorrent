@@ -55,6 +55,10 @@ class LinalgToTT(RewritePattern):
 
         self.operations_to_append = []
 
+        self.cb_in0_id = 0
+        self.cb_in1_id = 1
+        self.cb_out_id = 2
+
     def get_ops_replaced(self):
         ops_replaced = self._ops_replaced
         self._ops_replaced += 1
@@ -63,6 +67,10 @@ class LinalgToTT(RewritePattern):
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: REWRITE_TYPE, rewriter: PatternRewriter):
         self.insert_tt_call(op, rewriter)
+
+        self.cb_in0_id += 3
+        self.cb_in1_id += 3
+        self.cb_out_id += 3
 
     def insert_tt_call(self, op, rewriter: PatternRewriter):
         if type(op) not in LINALG_TO_TT_BINARY and type(op) not in LINALG_TO_TT_UNARY:
@@ -88,10 +96,10 @@ class LinalgToTT(RewritePattern):
         if not i == 0:
             host_f_name += f"_{i}"
 
-        host_code = LinalgToTT.generate_host_code(i, *host_code_args)
-        data_in_code = LinalgToTT.generate_data_in(binop)
-        data_out_code = LinalgToTT.generate_data_out()
-        compute_code = LinalgToTT.generate_compute(binop, op)
+        host_code = self.generate_host_code(i, *host_code_args)
+        data_in_code = self.generate_data_in(binop)
+        data_out_code = self.generate_data_out()
+        compute_code = self.generate_compute(binop, op)
 
         arg_types = list(host_code_args)
 
@@ -151,8 +159,7 @@ class LinalgToTT(RewritePattern):
 
         return [kernel_din, kernel_dout, kernel_compute]
 
-    @staticmethod
-    def generate_host_code(i: int, *memref_types: MemRefType):
+    def generate_host_code(self, i: int, *memref_types: MemRefType):
         match len(memref_types):
             case 2:
                 binop = False
@@ -169,7 +176,10 @@ class LinalgToTT(RewritePattern):
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         zero.results[0].name_hint = "zero"
         one = arith.ConstantOp.from_int_and_width(1, 32)
-        sixteen = arith.ConstantOp.from_int_and_width(16, 32)
+
+        cb_in0_id = arith.ConstantOp.from_int_and_width(self.cb_in0_id, 32)
+        cb_in1_id = arith.ConstantOp.from_int_and_width(self.cb_in1_id, 32)
+        cb_out_id = arith.ConstantOp.from_int_and_width(self.cb_out_id, 32)
 
         program = host.TTCreateProgram()
         program.results[0].name_hint = "prog"
@@ -181,7 +191,7 @@ class LinalgToTT(RewritePattern):
             program,
             core,
             cq,
-            zero,
+            cb_in0_id,
             block.args[0],
         )
 
@@ -190,7 +200,7 @@ class LinalgToTT(RewritePattern):
                 program,
                 core,
                 cq,
-                one,
+                cb_in1_id,
                 block.args[1],
             )
             if binop
@@ -202,7 +212,7 @@ class LinalgToTT(RewritePattern):
             program,
             core,
             cq,
-            sixteen,
+            cb_out_id,
             out_array,
         )
 
@@ -210,7 +220,9 @@ class LinalgToTT(RewritePattern):
             [
                 zero,
                 one,
-                sixteen,
+                cb_in0_id,
+                cb_in1_id,
+                cb_out_id,
                 program,
                 device,
                 core,
@@ -330,8 +342,7 @@ class LinalgToTT(RewritePattern):
             push,
         ]
 
-    @staticmethod
-    def generate_data_in(binop: bool) -> builtin.ModuleOp:
+    def generate_data_in(self, binop: bool) -> builtin.ModuleOp:
         """
         Generates a kernel which reads data from two addresses in DRAM bank 0,
         and populates CB0 and CB1 each with a single page of data.
@@ -344,7 +355,7 @@ class LinalgToTT(RewritePattern):
         size_bytes0 = block.args[4 if binop else 2]
 
         operations = LinalgToTT.generate_blocking_read(
-            bank_id0, mem_addr0, size_bytes0, 0
+            bank_id0, mem_addr0, size_bytes0, self.cb_in0_id
         )
 
         if binop:
@@ -353,7 +364,7 @@ class LinalgToTT(RewritePattern):
             size_bytes1 = block.args[5]
 
             operations += LinalgToTT.generate_blocking_read(
-                bank_id1, mem_addr1, size_bytes1, 1
+                bank_id1, mem_addr1, size_bytes1, self.cb_in1_id
             )
 
         block.add_ops(operations + [func.ReturnOp()])
@@ -369,8 +380,7 @@ class LinalgToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_in")},
         )
 
-    @staticmethod
-    def generate_data_out() -> builtin.ModuleOp:
+    def generate_data_out(self) -> builtin.ModuleOp:
         """
         Generates a kernel which waits for a page to be ready in CB16, then
         consumes the page and writes it to the specified address in DRAM bank 0.
@@ -392,19 +402,19 @@ class LinalgToTT(RewritePattern):
         )
 
         one = arith.ConstantOp.from_int_and_width(1, 32)
-        cb16 = arith.ConstantOp.from_int_and_width(16, 32)
-        l1_read_addr = circular_buffer.CBGetReadPointer(cb16)
+        cb_out = arith.ConstantOp.from_int_and_width(self.cb_out_id, 32)
+        l1_read_addr = circular_buffer.CBGetReadPointer(cb_out)
 
-        wait = circular_buffer.CBWaitFront(cb16, one)
+        wait = circular_buffer.CBWaitFront(cb_out, one)
         write = data_movement.DMNocAsyncWrite(l1_read_addr, dst_noc_addr, size_bytes)
         write_barrier = data_movement.DMNocAsyncWriteBarrier()
-        pop = circular_buffer.CBPopFront(cb16, one)
+        pop = circular_buffer.CBPopFront(cb_out, one)
 
         block.add_ops(
             [
                 dst_noc_addr,
                 one,
-                cb16,
+                cb_out,
                 l1_read_addr,
                 wait,
                 write,
@@ -425,11 +435,10 @@ class LinalgToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
-    @staticmethod
-    def generate_compute(binop: bool, op: Operation) -> builtin.ModuleOp:
+
+    def generate_compute(self, binop: bool, op: Operation) -> builtin.ModuleOp:
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         one = arith.ConstantOp.from_int_and_width(1, 32)
-        sixteen = arith.ConstantOp.from_int_and_width(16, 32)
 
         zero_u = builtin.UnrealizedConversionCastOp(
             operands=[zero], result_types=[uint32]
@@ -437,9 +446,20 @@ class LinalgToTT(RewritePattern):
         one_u = builtin.UnrealizedConversionCastOp(
             operands=[one], result_types=[uint32]
         )
-        sixteen_u = builtin.UnrealizedConversionCastOp(
-            operands=[sixteen], result_types=[uint32]
+
+        cb_in0_id = arith.ConstantOp.from_int_and_width(self.cb_in0_id, 32)
+        cb_in1_id = arith.ConstantOp.from_int_and_width(self.cb_in1_id, 32)
+        cb_out_id = arith.ConstantOp.from_int_and_width(self.cb_out_id, 32)
+        cb_in0_u = builtin.UnrealizedConversionCastOp(
+            operands=[cb_in0_id], result_types=[uint32]
         )
+        cb_in1_u = builtin.UnrealizedConversionCastOp(
+            operands=[cb_in1_id], result_types=[uint32]
+        )
+        cb_out_u = builtin.UnrealizedConversionCastOp(
+            operands=[cb_out_id], result_types=[uint32]
+        )
+
 
         true = arith.ConstantOp.from_int_and_width(1, i1)
         false = arith.ConstantOp.from_int_and_width(0, i1)
@@ -449,40 +469,41 @@ class LinalgToTT(RewritePattern):
         tt_init_op_type = op_mapped[0]
         tt_op_type = op_mapped[1]
 
-        bin_op_cmn_init = compute.BinaryOpInitCommon(zero_u, one_u, sixteen_u)
+        bin_op_cmn_init = compute.BinaryOpInitCommon(cb_in0_u, cb_in1_u, cb_out_u)
         tt_init_op_args = LinalgToTT.get_init_args(
-            tt_init_op_type, zero_u, one_u, sixteen_u, true, false
+            tt_init_op_type, cb_in0_u, cb_in1_u, cb_out_u, zero_u, one_u, true, false
         )
         bin_op_init = tt_init_op_type(*tt_init_op_args)
 
         # wait for a single block of tiles in each input CB
-        wait0 = circular_buffer.CBWaitFront(zero, one)
-        wait1 = circular_buffer.CBWaitFront(one, one)
+        wait0 = circular_buffer.CBWaitFront(cb_in0_id, one)
+        wait1 = circular_buffer.CBWaitFront(cb_in1_id, one)
 
         # acquire 8 tile registers
         acquire_regs = compute.RegsAcquire()
 
         # add the first tiles in cb0 and cb1, storing the result tile in dst[0]
         tt_op_args = LinalgToTT.get_op_args(
-            tt_op_type, zero_u, one_u, sixteen_u, true, false
+            tt_op_type, cb_in0_u, cb_in1_u, cb_out_u, zero_u, one_u, true, false
         )
         do_tt_op = tt_op_type(*tt_op_args)
 
         # commit the result, signals the packer
         commit = compute.RegsCommit()
         regs_wait = compute.RegsWait()
-        pack = compute.PackTile(BoolAttr(0, i1), zero_u, sixteen_u, zero_u)
+        pack = compute.PackTile(BoolAttr(0, i1), zero_u, cb_out_u, zero_u)
         release = compute.RegsRelease()
 
         # tt.cb_pop_front(cb0, 1)
-        cb_pop0 = circular_buffer.CBPopFront(zero, one)
-        cb_pop1 = circular_buffer.CBPopFront(one, one)
+        cb_pop0 = circular_buffer.CBPopFront(cb_in0_id, one)
+        cb_pop1 = circular_buffer.CBPopFront(cb_in1_id, one)
 
-        push = circular_buffer.CBPushBack(sixteen, one)
+        push = circular_buffer.CBPushBack(cb_out_id, one)
 
         # TODO: handle unary op init, check unary ops available on compute cores
         operations = []
-        operations += [zero, one, sixteen, zero_u, one_u, sixteen_u, true, false]
+        operations += [zero, one, cb_in0_id, cb_in1_id, cb_out_id, zero_u]
+        operations += [one_u, cb_in0_u, cb_in1_u, cb_out_u, true, false]
         operations += [bin_op_cmn_init, bin_op_init, wait1] if binop else []
         operations += [
             wait0,
@@ -508,23 +529,28 @@ class LinalgToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("compute")},
         )
 
+    # TODO: may have to generalise this later for other args
     @staticmethod
-    def get_init_args(op_t, zero, one, sixteen, true, false) -> Tuple[SSAValue, ...]:
+    def get_init_args(op_t, cb0, cb1, cb_out, zero, one, true, false) -> Tuple[SSAValue, ...]:
         if op_t == MMInit:
-            return zero, one, sixteen, zero
+            # cb0, cb1, cb_out, transpose
+            return cb0, cb1, cb_out, zero
 
         if op_t == AddInit:
-            return zero, one, false
+            # cb0, cb1, accumulate to dst
+            return cb0, cb1, false
 
         raise NotImplementedError(f"Unhandled args for init op: {op_t.__name__}")
 
     @staticmethod
-    def get_op_args(op_t, zero, one, sixteen, true, false) -> Tuple[SSAValue, ...]:
+    def get_op_args(op_t, cb0, cb1, cb_out, zero, one, true, false) -> Tuple[SSAValue, ...]:
         if op_t == Matmul:
-            return zero, one, zero, zero, zero, zero
+            # cb0, cb1, tile0, tile1, dst[i], transpose
+            return cb0, cb1, zero, zero, zero, zero
 
         if op_t == Add:
-            return zero, one, zero, zero, zero
+            # cb0, cb1, tile0, tile1, dst[i]
+            return cb0, cb1, zero, zero, zero
 
         raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")
 
