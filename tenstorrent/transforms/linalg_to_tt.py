@@ -51,6 +51,14 @@ REWRITE_TYPE = MatmulOp | AddOp
 class LinalgToTT(RewritePattern):
     def __init__(self):
         super().__init__()
+        self._ops_replaced = 0
+
+        self.operations_to_append = []
+
+    def get_ops_replaced(self):
+        ops_replaced = self._ops_replaced
+        self._ops_replaced += 1
+        return ops_replaced
 
     @op_type_rewrite_pattern
     def match_and_rewrite(self, op: REWRITE_TYPE, rewriter: PatternRewriter):
@@ -75,20 +83,25 @@ class LinalgToTT(RewritePattern):
             assert isinstance(t2, MemRefType)
             host_code_args = (t0, t1, t2)
 
-        # TODO: Each time this is called, increment func names _i
-        host_code = LinalgToTT.generate_host_code(*host_code_args)
+        i = self.get_ops_replaced()
+        host_f_name = HOST_KERNEL_NAME
+        if not i == 0:
+            host_f_name += f"_{i}"
+
+        host_code = LinalgToTT.generate_host_code(i, *host_code_args)
         data_in_code = LinalgToTT.generate_data_in(binop)
         data_out_code = LinalgToTT.generate_data_out()
         compute_code = LinalgToTT.generate_compute(binop, op)
 
         arg_types = list(host_code_args)
 
-        func_def_external = func.FuncOp.external(HOST_KERNEL_NAME, arg_types, [])
-        func_call_external = func.CallOp(HOST_KERNEL_NAME, op.operands, return_types=[])
+        func_def_external = func.FuncOp.external(host_f_name, arg_types, [])
+        func_call_external = func.CallOp(host_f_name, op.operands, return_types=[])
 
+        # assumes driver code always first block
         module = op.get_toplevel_object()
-        top_block = module.body.block
-        rewriter.insert_op(func_def_external, InsertPoint(top_block))
+        driver_block = module.body.block
+        rewriter.insert_op(func_def_external, InsertPoint(driver_block))
 
         rewriter.replace_matched_op(
             [
@@ -96,26 +109,20 @@ class LinalgToTT(RewritePattern):
             ]
         )
 
-        container_module = builtin.ModuleOp([])
-        module.regions[0].move_blocks(container_module.regions[0])
+        self.operations_to_append += [host_code, data_in_code, compute_code, data_out_code]
 
-        container_module.regions[0].detach_block(0)
-
-        block = Block(
-            [container_module, host_code, data_in_code, compute_code, data_out_code]
-        )
-
-        module.regions[0].add_block(block)
 
     @staticmethod
-    def define_kernels(program, core) -> List[Operation]:
+    def define_kernels(program, core, i) -> List[Operation]:
         """
         returns [din, dout, comp]
         """
+        suffix = f"_{i}" if i != 0 else ""
+
         kernel_din = host.TTCreateKernel(
             program,
             core,
-            "reader.cpp",
+            f"reader{suffix}.cpp",
             RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]),
             0,
         )
@@ -124,7 +131,7 @@ class LinalgToTT(RewritePattern):
         kernel_dout = host.TTCreateKernel(
             program,
             core,
-            "writer.cpp",
+            f"writer{suffix}.cpp",
             RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_1]),
             1,
         )
@@ -135,7 +142,7 @@ class LinalgToTT(RewritePattern):
         kernel_compute = host.TTCreateComputeKernel(
             program,
             core,
-            "compute.cpp",
+            f"compute{suffix}.cpp",
             MathFidelityFlagsAttr([MathFidelityFlags.LOFI]),
             false_attr,
             false_attr,
@@ -145,7 +152,7 @@ class LinalgToTT(RewritePattern):
         return [kernel_din, kernel_dout, kernel_compute]
 
     @staticmethod
-    def generate_host_code(*memref_types: MemRefType):
+    def generate_host_code(i: int, *memref_types: MemRefType):
         match len(memref_types):
             case 2:
                 binop = False
@@ -166,8 +173,8 @@ class LinalgToTT(RewritePattern):
 
         program = host.TTCreateProgram()
         program.results[0].name_hint = "prog"
-        device = host.TTCreateDevice(zero)
-        core = host.TTHostCore(zero, zero)
+        device = host.TTCreateDevice(zero)  # TODO: may later take device count as arg
+        core = host.TTHostCore(zero, zero)  # TODO: update later
         cq = host.TTGetCommandQueue(device)
 
         setup_cb0 = prepare_tensor_storage(
@@ -228,7 +235,7 @@ class LinalgToTT(RewritePattern):
         operations += d_addrs
 
         # make the kernel objects
-        kernels = LinalgToTT.define_kernels(program, core)
+        kernels = LinalgToTT.define_kernels(program, core, i)
         operations += kernels
 
         set_compute_args = host.TTSetRuntimeArgs(program, kernels[2], core)
@@ -264,7 +271,7 @@ class LinalgToTT(RewritePattern):
         return builtin.ModuleOp(
             [
                 func.FuncOp(
-                    HOST_KERNEL_NAME,
+                    HOST_KERNEL_NAME + (f"_{i}" if i != 0 else ""),
                     FunctionType.from_lists(arg_types, []),
                     Region(block),
                 ),
@@ -532,13 +539,34 @@ class LinalgToTenstorrentPass(ModulePass):
     name = "linalg-to-tt"
 
     def apply(self, ctx: Context, op: builtin.ModuleOp):
+        linalg_to_tt = LinalgToTT()
+
         walker = PatternRewriteWalker(
             GreedyRewritePatternApplier(
                 [
-                    LinalgToTT(),
+                    linalg_to_tt,
                 ]
             ),
             apply_recursively=False,
         )
 
         walker.rewrite_module(op)
+
+        # TODO: only need to make a new container for first instance, others
+        #  can reuse it somehow
+        module = op.get_toplevel_object()
+        container_module = builtin.ModuleOp([])
+
+        module.regions[0].move_blocks(container_module.regions[0])
+
+        container_module.regions[0].detach_block(0)
+
+        # TODO: probably want to make this block construction thing more global,
+        #  having this pass just return [host_code, data_in_code, ..], then
+        #  later concat all these lists into [container_module, *lists] and do
+        #  the transform
+        block = Block(
+            [container_module, *linalg_to_tt.operations_to_append]
+        )
+
+        module.regions[0].add_block(block)
