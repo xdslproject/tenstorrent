@@ -131,7 +131,10 @@ MLIR_TO_CPP_TYPES = {
     host.CBHandle(): "CBHandle",
 }
 
-TYPE_STR_TO_TT_DATA_FORMAT = {"int": "Int32"}
+TYPE_STR_TO_TT_DATA_FORMAT = {
+    "int": "Int32",
+    "float": "Float32",
+}
 
 
 def get_api_name(op_name: str) -> str:
@@ -215,7 +218,6 @@ class PrintMetalium:
     def expected_filename(self, kernel_type: str):
         return self._expected_filenames[kernel_type]
 
-
     def print_op(self, operation: Operation):
         if self._skip_next_op:
             self._skip_next_op = False
@@ -231,7 +233,11 @@ class PrintMetalium:
 
                 if self._writing_files:
                     os.makedirs(self.date, exist_ok=True)
-                    filename = self.expected_filename(kernel_type) if self.is_device() else f"{kernel_type}.cpp"
+                    filename = (
+                        self.expected_filename(kernel_type)
+                        if self.is_device()
+                        else f"{kernel_type}.cpp"
+                    )
                     self._file = open(f"{self.date}/{filename}", "w")
 
                 if kernel_type == "host":

@@ -1,7 +1,14 @@
 from typing import List
 
 from xdsl.dialects import arith
-from xdsl.dialects.builtin import MemRefType, FixedBitwidthType, i1, StringAttr
+from xdsl.dialects.builtin import (
+    MemRefType,
+    FixedBitwidthType,
+    i1,
+    StringAttr,
+    i32,
+    f32,
+)
 from xdsl.ir import Operation, SSAValue
 from xdsl.utils.hints import isa
 
@@ -83,6 +90,10 @@ def prepare_tensor_storage(
         cb_index = arith.ConstantOp.from_int_and_width(cb_index, 32)
         operations += [cb_index]
 
+    dt = host_mem.type.get_element_type()
+    type_map = {i32: "int", f32: "float"}
+    type_str = type_map[dt]
+
     operations += [page_count]
     operations += create_circular_buffer(
         program,
@@ -90,7 +101,7 @@ def prepare_tensor_storage(
         page_count,
         page_size,
         cb_index,
-        "int",  # TODO: generalise in the future, use elem type
+        type_str,
     )
 
     return operations

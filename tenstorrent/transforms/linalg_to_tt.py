@@ -117,8 +117,12 @@ class LinalgToTT(RewritePattern):
             ]
         )
 
-        self.operations_to_append += [host_code, data_in_code, compute_code, data_out_code]
-
+        self.operations_to_append += [
+            host_code,
+            data_in_code,
+            compute_code,
+            data_out_code,
+        ]
 
     @staticmethod
     def define_kernels(program, core, i) -> List[Operation]:
@@ -435,7 +439,6 @@ class LinalgToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
-
     def generate_compute(self, binop: bool, op: Operation) -> builtin.ModuleOp:
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         one = arith.ConstantOp.from_int_and_width(1, 32)
@@ -459,7 +462,6 @@ class LinalgToTT(RewritePattern):
         cb_out_u = builtin.UnrealizedConversionCastOp(
             operands=[cb_out_id], result_types=[uint32]
         )
-
 
         true = arith.ConstantOp.from_int_and_width(1, i1)
         false = arith.ConstantOp.from_int_and_width(0, i1)
@@ -531,7 +533,9 @@ class LinalgToTT(RewritePattern):
 
     # TODO: may have to generalise this later for other args
     @staticmethod
-    def get_init_args(op_t, cb0, cb1, cb_out, zero, one, true, false) -> Tuple[SSAValue, ...]:
+    def get_init_args(
+        op_t, cb0, cb1, cb_out, zero, one, true, false
+    ) -> Tuple[SSAValue, ...]:
         if op_t == MMInit:
             # cb0, cb1, cb_out, transpose
             return cb0, cb1, cb_out, zero
@@ -543,7 +547,9 @@ class LinalgToTT(RewritePattern):
         raise NotImplementedError(f"Unhandled args for init op: {op_t.__name__}")
 
     @staticmethod
-    def get_op_args(op_t, cb0, cb1, cb_out, zero, one, true, false) -> Tuple[SSAValue, ...]:
+    def get_op_args(
+        op_t, cb0, cb1, cb_out, zero, one, true, false
+    ) -> Tuple[SSAValue, ...]:
         if op_t == Matmul:
             # cb0, cb1, tile0, tile1, dst[i], transpose
             return cb0, cb1, zero, zero, zero, zero
@@ -578,7 +584,7 @@ class LinalgToTenstorrentPass(ModulePass):
 
         walker.rewrite_module(op)
 
-        # put everything in a containing builtin.module 
+        # put everything in a containing builtin.module
         module = op.get_toplevel_object()
         container_module = builtin.ModuleOp([])
 
@@ -586,8 +592,6 @@ class LinalgToTenstorrentPass(ModulePass):
 
         container_module.regions[0].detach_block(0)
 
-        block = Block(
-            [container_module, *linalg_to_tt.operations_to_append]
-        )
+        block = Block([container_module, *linalg_to_tt.operations_to_append])
 
         module.regions[0].add_block(block)
