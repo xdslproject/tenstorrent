@@ -248,7 +248,7 @@ builtin.module {
 // CHECK-NEXT:     KernelHandle writer_kernel = CreateKernel(prog, "writer.cpp", CoreCoord{0, 0}, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
 // CHECK-NEXT:     KernelHandle compute_kernel = CreateKernel(prog, "compute.cpp", CoreCoord{0, 0}, ComputeConfig {.math_fidelity = MathFidelity::LoFi, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
 // CHECK:          add_tiles(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(0));
-// CHECK:      extern "C" void host_entry_1(std::int32_t* fn_arg_0, std::int32_t* fn_arg_1, std::int32_t* fn_arg_2) {
+// CHECK:      extern "C" void hosgt_entry_1(std::int32_t* fn_arg_0, std::int32_t* fn_arg_1, std::int32_t* fn_arg_2) {
 // CHECK:          KernelHandle kernel_27 = CreateKernel(program_16, "reader_1.cpp", CoreCoord{0, 0}, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
 // CHECK-NEXT:     KernelHandle kernel_28 = CreateKernel(program_16, "writer_1.cpp", CoreCoord{0, 0}, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
 // CHECK-NEXT:     KernelHandle kernel_29 = CreateKernel(program_16, "compute_1.cpp", CoreCoord{0, 0}, ComputeConfig {.math_fidelity = MathFidelity::LoFi, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
