@@ -21,6 +21,17 @@ uint64 = IntegerType(64, signedness=Signedness.UNSIGNED)
 
 
 @irdl_op_definition
+class InitSFPU(IRDLOperation):
+    name = "comp.init_sfpu"
+
+    cb_in = operand_def(i32)
+    cb_out = operand_def(i32)
+
+    def __init__(self, cb_in: SSAValue | Operation, cb_out: SSAValue | Operation):
+        super().__init__(operands=[cb_in, cb_out])
+
+
+@irdl_op_definition
 class Copy(IRDLOperation):
     name = "comp.copy_tile"
 
@@ -1603,6 +1614,7 @@ class PackTile(IRDLOperation):
 Compute = Dialect(
     "comp",
     [
+        InitSFPU,
         Copy,
         CopyToDSTInitShortWithDT,
         CopyToDSTInitShort,

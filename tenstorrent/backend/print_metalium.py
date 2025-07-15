@@ -257,9 +257,12 @@ class PrintMetalium:
                 # TODO: generalise based on code possible? MLIR ops for include? Pass that adds these?
                 elif kernel_type == "compute":
                     self.print_include("<cstdint>")
+                    self.print_include('"compute_kernel_api/common.h"')
                     self.print_include('"compute_kernel_api/matmul.h"')
                     self.print_include('"compute_kernel_api/tile_move_copy.h"')
                     self.print_include('"compute_kernel_api/eltwise_binary.h"')
+                    self.print_include('"compute_kernel_api/eltwise_unary/eltwise_unary.h"')
+                    self.print_include('"compute_kernel_api/eltwise_unary/exp.h"')
                     self.print_include('"debug/dprint.h"')
                     self.println("\nnamespace NAMESPACE {")
             else:
