@@ -14,11 +14,11 @@ builtin.module {
       "comp.init_sfpu"(%cb_in, %cb_out) : (i32, i32) -> ()
       "comp.exp_tile_init"() <{ fast_and_approx = false }> : () -> ()
 
-      // grab lock on (I think...) dst
+      // grab lock on dst
       "comp.tile_regs_acquire"() : () -> ()
       "cb.wait_front"(%cb_in, %1) : (i32, i32) -> ()
 
-      // manually copy the tile from the circular buffer to (i think) dst[0]
+      // manually copy the tile from the circular buffer to dst[0]
       "comp.copy_tile"(%u_0, %u_0, %u_0): (ui32, ui32, ui32) -> ()
 
       // perform sfpu function
