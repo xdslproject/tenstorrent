@@ -43,6 +43,8 @@ builtin.module {
 // CHECK:      #include "compute_kernel_api/tile_move_copy.h"
 // CHECK:      #include "compute_kernel_api/eltwise_unary/eltwise_unary.h"
 // CHECK:      #include "compute_kernel_api/eltwise_unary/exp.h"
+// CHECK:      #include "compute_kernel_api/eltwise_binary_sfpu.h"
+// CHECK:      #include "compute_kernel_api/add_int32_sfpu.h"
 
 // CHECK:      namespace NAMESPACE {
 // CHECK:      void MAIN {
