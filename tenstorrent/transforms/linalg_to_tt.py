@@ -466,14 +466,18 @@ class LinalgToTT(RewritePattern):
             operands=[cb_out], result_types=[uint32]
         )
 
+        idst0 = zero_u
+        idst1 = one_u
+
         true = arith.ConstantOp.from_int_and_width(1, i1)
         false = arith.ConstantOp.from_int_and_width(0, i1)
 
         use_tmatrix = LinalgToTT.runs_on_tensix_matrix(linalg_op)
+        use_tvector = not use_tmatrix
+
         op_mapped = LinalgToTT.get_ops(linalg_op, use_tmatrix)
         tt_init_op_type = op_mapped[0]
         tt_op_type = op_mapped[1]
-        using_sfpu = op_mapped in LINALG_TO_TT_VECTOR
 
         bin_op_cmn_init = compute.BinaryOpInitCommon(cb_in0_u, cb_in1_u, cb_out_u)
         sfpu_init = compute.InitSFPU(cb_in0, cb_out)
@@ -488,6 +492,8 @@ class LinalgToTT(RewritePattern):
 
         # acquire 8 tile registers
         acquire_regs = compute.RegsAcquire()
+        copy_tile0 = compute.Copy(cb_in0_u, zero_u, idst0)
+        copy_tile1 = compute.Copy(cb_in1_u, zero_u, idst1)
 
         # add the first tiles in cb0 and cb1, storing the result tile in dst[0]
         tt_op_args = LinalgToTT.get_op_args(
@@ -512,11 +518,19 @@ class LinalgToTT(RewritePattern):
         operations = []
         operations += [zero, one, cb_in0, cb_in1_id, cb_out, zero_u]
         operations += [one_u, cb_in0_u, cb_in1_u, cb_out_u, true, false]
-        operations += [bin_op_cmn_init, bin_op_init, wait1] if binop else []
-        operations += [sfpu_init] if not use_tmatrix else []
+        operations += [sfpu_init] if use_tvector else []
+        operations += [bin_op_cmn_init] if binop and use_tmatrix else []
+        operations += [bin_op_init, wait1] if binop else []
         operations += [
             wait0,
             acquire_regs,
+        ]
+
+        # copy tiles if using the Vector unit
+        operations += [copy_tile0] if use_tvector else []
+        operations += [copy_tile1] if use_tvector and binop else []
+
+        operations += [
             do_tt_op,
             commit,
             regs_wait,
@@ -551,6 +565,9 @@ class LinalgToTT(RewritePattern):
             # cb0, cb1, accumulate to dst
             return cb0, cb1, false
 
+        if op_t == AddInt32Init:
+            return ()
+
         raise NotImplementedError(f"Unhandled args for init op: {op_t.__name__}")
 
     @staticmethod
@@ -564,6 +581,10 @@ class LinalgToTT(RewritePattern):
         if op_t == Add:
             # cb0, cb1, tile0, tile1, dst[i]
             return cb0, cb1, zero, zero, zero
+
+        # idst0, idst1
+        if op_t == AddInt32:
+            return zero, one
 
         raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")
 

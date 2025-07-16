@@ -189,8 +189,8 @@ class AddInt32Init(IRDLOperation):
 class AddInt32(IRDLOperation):
     name = "comp.add_int32_tile"
 
-    dst_index_0 = operand_def(i32)
-    dst_index_1 = operand_def(i32)
+    dst_index_0 = operand_def(uint32)
+    dst_index_1 = operand_def(uint32)
 
     def __init__(self, idst0: SSAValue | Operation, idst1: SSAValue | Operation):
         super().__init__(operands=[idst0, idst1])
