@@ -453,34 +453,37 @@ class LinalgToTT(RewritePattern):
             operands=[one], result_types=[uint32]
         )
 
-        cb_in0_id = arith.ConstantOp.from_int_and_width(self.cb_in0_id, 32)
+        cb_in0 = arith.ConstantOp.from_int_and_width(self.cb_in0_id, 32)
         cb_in1_id = arith.ConstantOp.from_int_and_width(self.cb_in1_id, 32)
-        cb_out_id = arith.ConstantOp.from_int_and_width(self.cb_out_id, 32)
+        cb_out = arith.ConstantOp.from_int_and_width(self.cb_out_id, 32)
         cb_in0_u = builtin.UnrealizedConversionCastOp(
-            operands=[cb_in0_id], result_types=[uint32]
+            operands=[cb_in0], result_types=[uint32]
         )
         cb_in1_u = builtin.UnrealizedConversionCastOp(
             operands=[cb_in1_id], result_types=[uint32]
         )
         cb_out_u = builtin.UnrealizedConversionCastOp(
-            operands=[cb_out_id], result_types=[uint32]
+            operands=[cb_out], result_types=[uint32]
         )
 
         true = arith.ConstantOp.from_int_and_width(1, i1)
         false = arith.ConstantOp.from_int_and_width(0, i1)
 
-        op_mapped = LinalgToTT.get_ops(linalg_op)
+        use_tmatrix = LinalgToTT.runs_on_tensix_matrix(linalg_op)
+        op_mapped = LinalgToTT.get_ops(linalg_op, use_tmatrix)
         tt_init_op_type = op_mapped[0]
         tt_op_type = op_mapped[1]
+        using_sfpu = op_mapped in LINALG_TO_TT_VECTOR
 
         bin_op_cmn_init = compute.BinaryOpInitCommon(cb_in0_u, cb_in1_u, cb_out_u)
+        sfpu_init = compute.InitSFPU(cb_in0, cb_out)
         tt_init_op_args = LinalgToTT.get_init_args(
             tt_init_op_type, cb_in0_u, cb_in1_u, cb_out_u, zero_u, one_u, true, false
         )
         bin_op_init = tt_init_op_type(*tt_init_op_args)
 
         # wait for a single block of tiles in each input CB
-        wait0 = circular_buffer.CBWaitFront(cb_in0_id, one)
+        wait0 = circular_buffer.CBWaitFront(cb_in0, one)
         wait1 = circular_buffer.CBWaitFront(cb_in1_id, one)
 
         # acquire 8 tile registers
@@ -499,16 +502,18 @@ class LinalgToTT(RewritePattern):
         release = compute.RegsRelease()
 
         # tt.cb_pop_front(cb0, 1)
-        cb_pop0 = circular_buffer.CBPopFront(cb_in0_id, one)
+        cb_pop0 = circular_buffer.CBPopFront(cb_in0, one)
         cb_pop1 = circular_buffer.CBPopFront(cb_in1_id, one)
 
-        push = circular_buffer.CBPushBack(cb_out_id, one)
+        push = circular_buffer.CBPushBack(cb_out, one)
 
         # TODO: handle unary op init, check unary ops available on compute cores
+        # TODO: check if bin_op_init is required for SFPU calls or only FPU
         operations = []
-        operations += [zero, one, cb_in0_id, cb_in1_id, cb_out_id, zero_u]
+        operations += [zero, one, cb_in0, cb_in1_id, cb_out, zero_u]
         operations += [one_u, cb_in0_u, cb_in1_u, cb_out_u, true, false]
         operations += [bin_op_cmn_init, bin_op_init, wait1] if binop else []
+        operations += [sfpu_init] if not use_tmatrix else []
         operations += [
             wait0,
             acquire_regs,
@@ -564,8 +569,7 @@ class LinalgToTT(RewritePattern):
 
 
     @staticmethod
-    def get_ops(linalg_op: Operation) -> Tuple[type, type]:
-        tensix_matrix = LinalgToTT.runs_on_tensix_matrix(linalg_op)
+    def get_ops(linalg_op: Operation, tensix_matrix: bool) -> Tuple[type, type]:
 
         table = LINALG_TO_TT_MATRIX if tensix_matrix else LINALG_TO_TT_VECTOR
 
