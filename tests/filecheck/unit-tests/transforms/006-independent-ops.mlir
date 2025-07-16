@@ -2,19 +2,19 @@
 
 builtin.module {
   func.func @"example_independent"() {
-    %0 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    %1 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    %2 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    %3 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    linalg.add ins(%0, %1 : memref<32x32xi32>, memref<32x32xi32>) outs(%3 : memref<32x32xi32>) -> ()
-    "memref.copy"(%3, %2) : (memref<32x32xi32>, memref<32x32xi32>) -> ()
+    %0 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    %1 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    %2 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    %3 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    linalg.add ins(%0, %1 : memref<32x32xf32>, memref<32x32xf32>) outs(%3 : memref<32x32xf32>) -> ()
+    "memref.copy"(%3, %2) : (memref<32x32xf32>, memref<32x32xf32>) -> ()
 
-    %4 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    %5 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    %6 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    %7 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-    linalg.matmul ins(%4, %5 : memref<32x32xi32>, memref<32x32xi32>) outs(%7 : memref<32x32xi32>) -> ()
-    "memref.copy"(%7, %6) : (memref<32x32xi32>, memref<32x32xi32>) -> ()
+    %4 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    %5 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    %6 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    %7 = "memref.alloca"() <{"operandSegmentSizes" = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+    linalg.matmul ins(%4, %5 : memref<32x32xf32>, memref<32x32xf32>) outs(%7 : memref<32x32xf32>) -> ()
+    "memref.copy"(%7, %6) : (memref<32x32xf32>, memref<32x32xf32>) -> ()
     func.return
   }
   func.func @main() {
@@ -30,18 +30,18 @@ builtin.module {
 // CHECK:      builtin.module {
 // CHECK-NEXT:   builtin.module {
 // CHECK-NEXT:     func.func @example_independent() {
-// CHECK-NEXT:       %0 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       %1 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       %2 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       %3 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       func.call @host_entry(%0, %1, %3) : (memref<32x32xi32>, memref<32x32xi32>, memref<32x32xi32>) -> ()
-// CHECK-NEXT:       "memref.copy"(%3, %2) : (memref<32x32xi32>, memref<32x32xi32>) -> ()
-// CHECK-NEXT:       %4 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       %5 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       %6 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       %7 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xi32>
-// CHECK-NEXT:       func.call @host_entry_1(%4, %5, %7) : (memref<32x32xi32>, memref<32x32xi32>, memref<32x32xi32>) -> ()
-// CHECK-NEXT:       "memref.copy"(%7, %6) : (memref<32x32xi32>, memref<32x32xi32>) -> ()
+// CHECK-NEXT:       %0 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       %1 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       %2 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       %3 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       func.call @host_entry(%0, %1, %3) : (memref<32x32xf32>, memref<32x32xf32>, memref<32x32xf32>) -> ()
+// CHECK-NEXT:       "memref.copy"(%3, %2) : (memref<32x32xf32>, memref<32x32xf32>) -> ()
+// CHECK-NEXT:       %4 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       %5 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       %6 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       %7 = "memref.alloca"() <{operandSegmentSizes = array<i32: 0, 0>}> : () -> memref<32x32xf32>
+// CHECK-NEXT:       func.call @host_entry_1(%4, %5, %7) : (memref<32x32xf32>, memref<32x32xf32>, memref<32x32xf32>) -> ()
+// CHECK-NEXT:       "memref.copy"(%7, %6) : (memref<32x32xf32>, memref<32x32xf32>) -> ()
 // CHECK-NEXT:       func.return
 // CHECK-NEXT:     }
 // CHECK-NEXT:     func.func @main() {
@@ -51,11 +51,11 @@ builtin.module {
 // CHECK-NEXT:       }) : () -> ()
 // CHECK-NEXT:       func.return
 // CHECK-NEXT:     }
-// CHECK-NEXT:     func.func private @host_entry(memref<32x32xi32>, memref<32x32xi32>, memref<32x32xi32>) -> ()
-// CHECK-NEXT:     func.func private @host_entry_1(memref<32x32xi32>, memref<32x32xi32>, memref<32x32xi32>) -> ()
+// CHECK-NEXT:     func.func private @host_entry(memref<32x32xf32>, memref<32x32xf32>, memref<32x32xf32>) -> ()
+// CHECK-NEXT:     func.func private @host_entry_1(memref<32x32xf32>, memref<32x32xf32>, memref<32x32xf32>) -> ()
 // CHECK-NEXT:   }
 // CHECK-NEXT:   builtin.module attributes {kernel_type = "host", vis = "external"} {
-// CHECK-NEXT:     func.func @host_entry(%0 : memref<32x32xi32>, %1 : memref<32x32xi32>, %2 : memref<32x32xi32>) {
+// CHECK-NEXT:     func.func @host_entry(%0 : memref<32x32xf32>, %1 : memref<32x32xf32>, %2 : memref<32x32xf32>) {
 // CHECK-NEXT:       %zero = arith.constant 0 : i32
 // CHECK-NEXT:       %3 = arith.constant 1 : i32
 // CHECK-NEXT:       %4 = arith.constant 0 : i32
@@ -69,25 +69,25 @@ builtin.module {
 // CHECK-NEXT:       %10 = "tthost.create_dram_configuration"(%size, %size) : (i32, i32) -> !tthost.dram_buffer_config
 // CHECK-NEXT:       %11 = "tthost.create_buffer"(%10) : (!tthost.dram_buffer_config) -> !tthost.buffer
 // CHECK-NEXT:       %12 = arith.constant false
-// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %11, %0, %12) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %11, %0, %12) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       %13 = arith.constant 1 : i32
-// CHECK-NEXT:       %14 = "tthost.create_cb_configuration"(%13, %size, %4) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+// CHECK-NEXT:       %14 = "tthost.create_cb_configuration"(%13, %size, %4) <{data_type = "float"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 // CHECK-NEXT:       %15 = "tthost.create_circular_buffer"(%prog, %8, %14) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %size_1 = arith.constant 4096 : i32
 // CHECK-NEXT:       %16 = "tthost.create_dram_configuration"(%size_1, %size_1) : (i32, i32) -> !tthost.dram_buffer_config
 // CHECK-NEXT:       %17 = "tthost.create_buffer"(%16) : (!tthost.dram_buffer_config) -> !tthost.buffer
 // CHECK-NEXT:       %18 = arith.constant false
-// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %17, %1, %18) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %17, %1, %18) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       %19 = arith.constant 1 : i32
-// CHECK-NEXT:       %20 = "tthost.create_cb_configuration"(%19, %size_1, %5) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+// CHECK-NEXT:       %20 = "tthost.create_cb_configuration"(%19, %size_1, %5) <{data_type = "float"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 // CHECK-NEXT:       %21 = "tthost.create_circular_buffer"(%prog, %8, %20) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %size_2 = arith.constant 4096 : i32
 // CHECK-NEXT:       %22 = "tthost.create_dram_configuration"(%size_2, %size_2) : (i32, i32) -> !tthost.dram_buffer_config
 // CHECK-NEXT:       %23 = "tthost.create_buffer"(%22) : (!tthost.dram_buffer_config) -> !tthost.buffer
 // CHECK-NEXT:       %24 = arith.constant false
-// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %23, %2, %24) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %23, %2, %24) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       %25 = arith.constant 1 : i32
-// CHECK-NEXT:       %26 = "tthost.create_cb_configuration"(%25, %size_2, %6) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+// CHECK-NEXT:       %26 = "tthost.create_cb_configuration"(%25, %size_2, %6) <{data_type = "float"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 // CHECK-NEXT:       %27 = "tthost.create_circular_buffer"(%prog, %8, %26) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %dram_addr = "tthost.get_memory_address"(%11) : (!tthost.buffer) -> index
 // CHECK-NEXT:       %dram_addr_1 = "tthost.get_memory_address"(%17) : (!tthost.buffer) -> index
@@ -101,7 +101,7 @@ builtin.module {
 // CHECK-NEXT:       %28 = arith.constant false
 // CHECK-NEXT:       "tthost.enqueue_program"(%9, %prog, %28) : (!tthost.command_queue, !tthost.program, i1) -> ()
 // CHECK-NEXT:       "tthost.finish"(%9) : (!tthost.command_queue) -> ()
-// CHECK-NEXT:       "tthost.enqueue_read_buffer"(%9, %23, %2, %28) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_read_buffer"(%9, %23, %2, %28) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       "tthost.close_device"(%7) : (!tthost.device) -> ()
 // CHECK-NEXT:       func.return
 // CHECK-NEXT:     }
@@ -175,7 +175,7 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }
 // CHECK-NEXT:   builtin.module attributes {kernel_type = "host", vis = "external"} {
-// CHECK-NEXT:     func.func @host_entry_1(%0 : memref<32x32xi32>, %1 : memref<32x32xi32>, %2 : memref<32x32xi32>) {
+// CHECK-NEXT:     func.func @host_entry_1(%0 : memref<32x32xf32>, %1 : memref<32x32xf32>, %2 : memref<32x32xf32>) {
 // CHECK-NEXT:       %zero = arith.constant 0 : i32
 // CHECK-NEXT:       %3 = arith.constant 1 : i32
 // CHECK-NEXT:       %4 = arith.constant 3 : i32
@@ -189,25 +189,25 @@ builtin.module {
 // CHECK-NEXT:       %10 = "tthost.create_dram_configuration"(%size, %size) : (i32, i32) -> !tthost.dram_buffer_config
 // CHECK-NEXT:       %11 = "tthost.create_buffer"(%10) : (!tthost.dram_buffer_config) -> !tthost.buffer
 // CHECK-NEXT:       %12 = arith.constant false
-// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %11, %0, %12) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %11, %0, %12) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       %13 = arith.constant 1 : i32
-// CHECK-NEXT:       %14 = "tthost.create_cb_configuration"(%13, %size, %4) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+// CHECK-NEXT:       %14 = "tthost.create_cb_configuration"(%13, %size, %4) <{data_type = "float"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 // CHECK-NEXT:       %15 = "tthost.create_circular_buffer"(%prog, %8, %14) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %size_1 = arith.constant 4096 : i32
 // CHECK-NEXT:       %16 = "tthost.create_dram_configuration"(%size_1, %size_1) : (i32, i32) -> !tthost.dram_buffer_config
 // CHECK-NEXT:       %17 = "tthost.create_buffer"(%16) : (!tthost.dram_buffer_config) -> !tthost.buffer
 // CHECK-NEXT:       %18 = arith.constant false
-// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %17, %1, %18) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %17, %1, %18) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       %19 = arith.constant 1 : i32
-// CHECK-NEXT:       %20 = "tthost.create_cb_configuration"(%19, %size_1, %5) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+// CHECK-NEXT:       %20 = "tthost.create_cb_configuration"(%19, %size_1, %5) <{data_type = "float"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 // CHECK-NEXT:       %21 = "tthost.create_circular_buffer"(%prog, %8, %20) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %size_2 = arith.constant 4096 : i32
 // CHECK-NEXT:       %22 = "tthost.create_dram_configuration"(%size_2, %size_2) : (i32, i32) -> !tthost.dram_buffer_config
 // CHECK-NEXT:       %23 = "tthost.create_buffer"(%22) : (!tthost.dram_buffer_config) -> !tthost.buffer
 // CHECK-NEXT:       %24 = arith.constant false
-// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %23, %2, %24) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_write_buffer"(%9, %23, %2, %24) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       %25 = arith.constant 1 : i32
-// CHECK-NEXT:       %26 = "tthost.create_cb_configuration"(%25, %size_2, %6) <{data_type = "int"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
+// CHECK-NEXT:       %26 = "tthost.create_cb_configuration"(%25, %size_2, %6) <{data_type = "float"}> : (i32, i32, i32) -> !tthost.circular_buffer_config
 // CHECK-NEXT:       %27 = "tthost.create_circular_buffer"(%prog, %8, %26) : (!tthost.program, !tthost.corecoord, !tthost.circular_buffer_config) -> !tthost.cb_handle
 // CHECK-NEXT:       %dram_addr = "tthost.get_memory_address"(%11) : (!tthost.buffer) -> index
 // CHECK-NEXT:       %dram_addr_1 = "tthost.get_memory_address"(%17) : (!tthost.buffer) -> index
@@ -221,7 +221,7 @@ builtin.module {
 // CHECK-NEXT:       %28 = arith.constant false
 // CHECK-NEXT:       "tthost.enqueue_program"(%9, %prog, %28) : (!tthost.command_queue, !tthost.program, i1) -> ()
 // CHECK-NEXT:       "tthost.finish"(%9) : (!tthost.command_queue) -> ()
-// CHECK-NEXT:       "tthost.enqueue_read_buffer"(%9, %23, %2, %28) : (!tthost.command_queue, !tthost.buffer, memref<32x32xi32>, i1) -> ()
+// CHECK-NEXT:       "tthost.enqueue_read_buffer"(%9, %23, %2, %28) : (!tthost.command_queue, !tthost.buffer, memref<32x32xf32>, i1) -> ()
 // CHECK-NEXT:       "tthost.close_device"(%7) : (!tthost.device) -> ()
 // CHECK-NEXT:       func.return
 // CHECK-NEXT:     }

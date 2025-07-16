@@ -1,8 +1,8 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 from xdsl.context import Context
 from xdsl.dialects import builtin, arith, func
-from xdsl.dialects.builtin import FixedBitwidthType, BoolAttr, FunctionType
+from xdsl.dialects.builtin import FixedBitwidthType, BoolAttr, FunctionType, Float32Type, Float16Type, BFloat16Type
 from xdsl.dialects.linalg import MatmulOp, AddOp
 from xdsl.ir import Region, Block
 from xdsl.passes import ModulePass
@@ -35,14 +35,17 @@ COMP_KERNEL_NAME = "MAIN"
 #   3. Update get_init_args
 
 # linalg.op -> (compute.init_op, compute.op)
-LINALG_TO_TT_BINARY = {
+LINALG_TO_TT_MATRIX: Dict[type, Tuple[type, type]] = {
     MatmulOp: (compute.MMInit, compute.Matmul),
     AddOp: (compute.AddInit, compute.Add),
 }
 
-
-# linalg.op -> (compute.init_op, compute.op)
-LINALG_TO_TT_UNARY = {}
+LINALG_TO_TT_VECTOR: Dict[type, Tuple[type, type]] = {
+    # TODO: create xDSL definitions of the Vector Unit calls
+    # TODO: this won't scale... need to look at datatype and select,
+    #       so this should be a function really not just a lookup table
+    AddOp: (compute.AddInt32Init, compute.AddInt32)
+}
 
 
 REWRITE_TYPE = MatmulOp | AddOp
@@ -73,10 +76,10 @@ class LinalgToTT(RewritePattern):
         self.cb_out_id += 3
 
     def insert_tt_call(self, op, rewriter: PatternRewriter):
-        if type(op) not in LINALG_TO_TT_BINARY and type(op) not in LINALG_TO_TT_UNARY:
+        if type(op) not in LINALG_TO_TT_MATRIX and type(op) not in LINALG_TO_TT_VECTOR:
             raise NotImplementedError(f"Unhandled linalg op: {type(op)}")
 
-        binop = type(op) in LINALG_TO_TT_BINARY
+        binop = len(op.operands) == 3
 
         # for now assume all linalg ops work like this, memref form
         tensor0, tensor1, tensor2 = op.operands if binop else op.operands + [None]
@@ -439,7 +442,7 @@ class LinalgToTT(RewritePattern):
             attributes={"kernel_type": builtin.StringAttr("data_out")},
         )
 
-    def generate_compute(self, binop: bool, op: Operation) -> builtin.ModuleOp:
+    def generate_compute(self, binop: bool, linalg_op: Operation) -> builtin.ModuleOp:
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         one = arith.ConstantOp.from_int_and_width(1, 32)
 
@@ -466,8 +469,7 @@ class LinalgToTT(RewritePattern):
         true = arith.ConstantOp.from_int_and_width(1, i1)
         false = arith.ConstantOp.from_int_and_width(0, i1)
 
-        t = type(op)
-        op_mapped = LINALG_TO_TT_BINARY[t] if binop else LINALG_TO_TT_UNARY[t]
+        op_mapped = LinalgToTT.get_ops(linalg_op)
         tt_init_op_type = op_mapped[0]
         tt_op_type = op_mapped[1]
 
@@ -559,6 +561,28 @@ class LinalgToTT(RewritePattern):
             return cb0, cb1, zero, zero, zero
 
         raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")
+
+
+    @staticmethod
+    def get_ops(linalg_op: Operation) -> Tuple[type, type]:
+        tensix_matrix = LinalgToTT.runs_on_tensix_matrix(linalg_op)
+
+        table = LINALG_TO_TT_MATRIX if tensix_matrix else LINALG_TO_TT_VECTOR
+
+        return table[type(linalg_op)]
+
+
+    @staticmethod
+    def runs_on_tensix_matrix(linalg_op: Operation) -> bool:
+        valid_ops = [MatmulOp, AddOp]  # TODO: think supports sub/div/softmax
+        valid_types = [Float32Type(), Float16Type(), BFloat16Type()]
+
+        ct = linalg_op.operands[0].type
+        assert isinstance(ct, MemRefType)
+        operand_type = ct.get_element_type()
+
+        return type(linalg_op) in valid_ops and operand_type in valid_types
+
 
 
 @dataclass(frozen=True)

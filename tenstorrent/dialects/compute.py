@@ -181,6 +181,23 @@ class Add(IRDLOperation):
 
 
 @irdl_op_definition
+class AddInt32Init(IRDLOperation):
+    name = "comp.add_int32_tile_init"
+
+
+@irdl_op_definition
+class AddInt32(IRDLOperation):
+    name = "comp.add_int32_tile"
+
+    dst_index_0 = operand_def(i32)
+    dst_index_1 = operand_def(i32)
+
+    def __init__(self, idst0: SSAValue | Operation, idst1: SSAValue | Operation):
+        super().__init__(operands=[idst0, idst1])
+
+
+
+@irdl_op_definition
 class SubInitNof(IRDLOperation):
     name = "comp.sub_tiles_init_nof"
 
@@ -1631,6 +1648,8 @@ Compute = Dialect(
         AddInitNof,
         AddInit,
         Add,
+        AddInt32Init,
+        AddInt32,
         SubInitNof,
         SubInit,
         Sub,
