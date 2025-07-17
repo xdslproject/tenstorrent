@@ -31,11 +31,10 @@ class KernelType(Enum):
 
 NodeWithBody = ast.If | ast.For | ast.While | ast.FunctionDef
 
-uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
 
 TYPE_STR_TO_MLIR_TYPE = {
     "int": builtin.i32,
-    "uint": uint32,
+    "uint": builtin.i32,
     "long": builtin.i64,
     "bool": builtin.i1,
     "half": builtin.f16,
@@ -395,21 +394,10 @@ class PythonToMLIR(ast.NodeVisitor):
             last_op = rhs_ops[-1]
 
             # TODO: not software engineering -- fix at a later date
+            # TODO: check the fact of only
+            # we [only] use builtin.UnrealizedConversionCastOp to model some MemRef
+            # allocations, so look out for that (I think)
             if (
-                isa(last_op, builtin.UnrealizedConversionCastOp)
-                and last_op.operand_types != (uint32,)
-                and not isinstance(last_op.result_types[0], MemRefType)
-            ):
-                # This is a normal value, so just store as usual
-                if not seen:
-                    operations += [self.allocate_memory(var_name)]
-
-                location = self.symbol_table[var_name]
-
-                # store result in that memref
-                store = memref.StoreOp.get(rhs_ssa_val, location, [])
-                operations.append(store)
-            elif (
                 isa(last_op, memref.AllocaOp)
                 or isa(last_op, memref.AllocOp)
                 or isa(last_op, builtin.UnrealizedConversionCastOp)
@@ -418,7 +406,7 @@ class PythonToMLIR(ast.NodeVisitor):
                 # in the bin op, so we pick the memref here
                 self.symbol_table[var_name] = rhs_ops[-1].results[0]
                 rhs_ops[-1].results[0].name_hint = var_name
-                assert seen == False
+                assert not seen
                 location = self.symbol_table[var_name]
             else:
                 # This is a normal value, so just store as usual

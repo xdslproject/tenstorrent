@@ -1,4 +1,4 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, MemRefType, IntegerAttr
+from xdsl.dialects.builtin import IntegerType, Signedness, i1, i8, i32, i64, MemRefType, IntegerAttr
 from xdsl.ir import SSAValue, Operation, Dialect, Attribute
 from xdsl.irdl import (
     IRDLOperation,
@@ -10,19 +10,14 @@ from xdsl.irdl import (
 )
 
 
-uint8 = IntegerType(8, signedness=Signedness.UNSIGNED)
-uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
-uint64 = IntegerType(64, signedness=Signedness.UNSIGNED)
-
-
 @irdl_op_definition
 class DMNocAsyncRead(IRDLOperation):
     name = "dm.noc_async_read"
 
-    src_noc_address = operand_def(uint64)
+    src_noc_address = operand_def(i64)
     dst_local_l1_addr = operand_def(IntegerType | MemRefType)
-    size = operand_def(uint32)
-    noc = opt_operand_def(uint8)
+    size = operand_def(i32)
+    noc = opt_operand_def(i8)
 
     def __init__(
         self,
@@ -39,9 +34,9 @@ class DMNocAsyncWrite(IRDLOperation):
     name = "dm.noc_async_write"
 
     src_local_l1_addr = operand_def(IntegerType | MemRefType)
-    dst_noc_addr = operand_def(uint64)
-    size = operand_def(uint32)
-    noc = opt_operand_def(uint8)
+    dst_noc_addr = operand_def(i64)
+    size = operand_def(i32)
+    noc = opt_operand_def(i8)
 
     def __init__(
         self,
@@ -64,7 +59,7 @@ class DMNocAsyncReadBarrier(IRDLOperation):
 
     name = "dm.noc_async_read_barrier"
 
-    noc = opt_operand_def(uint8)
+    noc = opt_operand_def(i8)
 
     def __init__(self, noc: SSAValue | Operation = None):
         super().__init__(operands=[noc])
@@ -74,7 +69,7 @@ class DMNocAsyncReadBarrier(IRDLOperation):
 class DMNocAsyncWriteBarrier(IRDLOperation):
     name = "dm.noc_async_write_barrier"
 
-    noc = opt_operand_def(uint8)
+    noc = opt_operand_def(i8)
 
     def __init__(self, noc: SSAValue | Operation = None):
         super().__init__(operands=[noc])
@@ -84,15 +79,15 @@ class DMNocAsyncWriteBarrier(IRDLOperation):
 class DMNocAsyncWriteMulticast(IRDLOperation):
     name = "dm.noc_async_write_multicast"
 
-    src_local_l1_addr = operand_def(uint32)
-    dst_noc_addr_multicast = operand_def(uint64)
-    size = operand_def(uint32)
-    num_dests = operand_def(uint32)
+    src_local_l1_addr = operand_def(i32)
+    dst_noc_addr_multicast = operand_def(i64)
+    size = operand_def(i32)
+    num_dests = operand_def(i32)
 
     # TODO: these arguments have default values
     linked = operand_def(i1)
     multicast_path_reserve = operand_def(i1)
-    noc = opt_operand_def(uint8)
+    noc = opt_operand_def(i8)
 
     def __init__(
         self,
@@ -121,14 +116,14 @@ class DMNocAsyncWriteMulticast(IRDLOperation):
 class DMNocSemaphoreSetMulticast(IRDLOperation):
     name = "dm.noc_semaphore_set_multicast"
 
-    src_local_l1_addr = operand_def(uint32)
-    dst_noc_addr_multicast = operand_def(uint64)
-    num_dests = operand_def(uint32)
+    src_local_l1_addr = operand_def(i32)
+    dst_noc_addr_multicast = operand_def(i64)
+    num_dests = operand_def(i32)
 
     # TODO: these arguments have default values
     linked = operand_def(i1)
     multicast_path_reserve = operand_def(i1)
-    noc = opt_operand_def(uint8)
+    noc = opt_operand_def(i8)
 
     def __init__(
         self,
@@ -155,9 +150,9 @@ class DMNocSemaphoreSetMulticast(IRDLOperation):
 class DMNocSemaphoreSet(IRDLOperation):
     name = "dm.noc_semaphore_set"
 
-    # volatile uint32_t *sem_addr  : is this  memref to a uint32?
-    sem_addr = operand_def(MemRefType(uint32, [1]))
-    val = operand_def(uint32)
+    # volatile i32_t *sem_addr  : is this  memref to a i32?
+    sem_addr = operand_def(MemRefType(i32, [1]))
+    val = operand_def(i32)
 
     def __init__(self, sem_addr: SSAValue | Operation, val: SSAValue | Operation):
         super().__init__(operands=[sem_addr, val])
@@ -168,8 +163,8 @@ class DMNocSemaphoreWait(IRDLOperation):
     name = "dm.noc_semaphore_wait"
 
     # as above
-    sem_addr = operand_def(MemRefType(uint32, [1]))
-    val = operand_def(uint32)
+    sem_addr = operand_def(MemRefType(i32, [1]))
+    val = operand_def(i32)
 
     def __init__(self, sem_addr: SSAValue | Operation, val: SSAValue | Operation):
         super().__init__(operands=[sem_addr, val])
@@ -179,9 +174,9 @@ class DMNocSemaphoreWait(IRDLOperation):
 class DMNocSemaphoreInc(IRDLOperation):
     name = "dm.noc_semaphore_inc"
 
-    addr = operand_def(uint64)
-    incr = operand_def(uint32)
-    noc_id = operand_def(uint8)
+    addr = operand_def(i64)
+    incr = operand_def(i32)
+    noc_id = operand_def(i8)
 
     def __init__(
         self,
@@ -198,10 +193,10 @@ class DMGetNocAddrFromBankId(IRDLOperation):
 
     dram = prop_def(IntegerAttr)
 
-    bank_id = operand_def(uint32)
-    bank_address_offset = operand_def(uint32)
-    noc = opt_operand_def(uint8)  # should have default = noc_index
-    result = result_def(uint64)
+    bank_id = operand_def(i32)
+    bank_address_offset = operand_def(i32)
+    noc = opt_operand_def(i8)  # should have default = noc_index
+    result = result_def(i64)
 
     def __init__(
         self,
@@ -213,7 +208,7 @@ class DMGetNocAddrFromBankId(IRDLOperation):
         super().__init__(
             operands=[bank_id, bank_address_offset, noc],
             properties={"dram": dram},
-            result_types=[uint64],
+            result_types=[i64],
         )
 
 
@@ -222,8 +217,8 @@ class DMInterleavedAddrGen(IRDLOperation):
     name = "dm.interleaved_addr_gen"
 
     dram = prop_def(IntegerAttr)
-    bank_base_address = operand_def(uint32)
-    page_size = operand_def(uint32)
+    bank_base_address = operand_def(i32)
+    page_size = operand_def(i32)
 
     def __init__(
         self,

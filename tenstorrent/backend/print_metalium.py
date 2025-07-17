@@ -110,15 +110,11 @@ Expressions = [
 
 Expressions = list(map(lambda x: x.__name__, Expressions))
 
-uint32 = builtin.IntegerType(32, signedness=builtin.Signedness.UNSIGNED)
-uint64 = builtin.IntegerType(64, signedness=builtin.Signedness.UNSIGNED)
 
 MLIR_TO_CPP_TYPES = {
     builtin.IndexType(): "std::int32_t",
     builtin.i32: "std::int32_t",
-    uint32: "uint32_t",
     builtin.i64: "std::int64_t",
-    uint64: "uint64_t",
     builtin.f32: "float",
     builtin.i1: "bool",
     host.CoreCoord(): "CoreCoord",
