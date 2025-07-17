@@ -1,8 +1,8 @@
 // RUN: python3.13 tenstorrent/tools/tt-opt %s -p convert-ttx-to-ttkernel | filecheck %s
 
 builtin.module {
-  builtin.module attributes  {"kernel_type" = "compute"} {
-    func.func @add_two_ints_vectorised() {
+  builtin.module attributes {kernel_type = "compute"} {
+    func.func @add_two_int_tiles() {
       %0 = arith.constant 0 : i32
       %cb0 = memref.alloc() : memref<i32>
       memref.store %0, %cb0[] : memref<i32>
@@ -15,60 +15,47 @@ builtin.module {
       %3 = memref.load %cb0[] : memref<i32>
       %4 = memref.load %cb1[] : memref<i32>
       %5 = memref.load %cb_out[] : memref<i32>
-      %6 = builtin.unrealized_conversion_cast %3 : i32 to ui32
-      %7 = builtin.unrealized_conversion_cast %4 : i32 to ui32
-      %8 = builtin.unrealized_conversion_cast %5 : i32 to ui32
-      "comp.binary_op_init_common"(%6, %7, %8) : (ui32, ui32, ui32) -> ()
+      "comp.binary_op_init_common"(%3, %4, %5) : (i32, i32, i32) -> ()
+      %6 = memref.load %cb0[] : memref<i32>
+      %7 = memref.load %cb1[] : memref<i32>
+      %8 = arith.constant false
+      "comp.add_tiles_init"(%6, %7, %8) : (i32, i32, i1) -> ()
       %9 = memref.load %cb0[] : memref<i32>
-      %10 = memref.load %cb1[] : memref<i32>
-      %11 = arith.constant false
-      %12 = builtin.unrealized_conversion_cast %9 : i32 to ui32
-      %13 = builtin.unrealized_conversion_cast %10 : i32 to ui32
-      "comp.add_tiles_init"(%12, %13, %11) : (ui32, ui32, i1) -> ()
-      %14 = memref.load %cb0[] : memref<i32>
-      %15 = arith.constant 1 : i32
-      "cb.wait_front"(%14, %15) : (i32, i32) -> ()
-      %16 = memref.load %cb1[] : memref<i32>
-      %17 = arith.constant 1 : i32
-      "cb.wait_front"(%16, %17) : (i32, i32) -> ()
+      %10 = arith.constant 1 : i32
+      "cb.wait_front"(%9, %10) : (i32, i32) -> ()
+      %11 = memref.load %cb1[] : memref<i32>
+      %12 = arith.constant 1 : i32
+      "cb.wait_front"(%11, %12) : (i32, i32) -> ()
       "comp.tile_regs_acquire"() : () -> ()
-      %18 = memref.load %cb0[] : memref<i32>
-      %19 = memref.load %cb1[] : memref<i32>
-      %20 = arith.constant 0 : i32
-      %21 = arith.constant 0 : i32
-      %22 = arith.constant 0 : i32
-      %23 = builtin.unrealized_conversion_cast %18 : i32 to ui32
-      %24 = builtin.unrealized_conversion_cast %19 : i32 to ui32
-      %25 = builtin.unrealized_conversion_cast %20 : i32 to ui32
-      %26 = builtin.unrealized_conversion_cast %21 : i32 to ui32
-      %27 = builtin.unrealized_conversion_cast %22 : i32 to ui32
-      "comp.add_tiles"(%23, %24, %25, %26, %27) : (ui32, ui32, ui32, ui32, ui32) -> ()
+      %13 = memref.load %cb0[] : memref<i32>
+      %14 = memref.load %cb1[] : memref<i32>
+      %15 = arith.constant 0 : i32
+      %16 = arith.constant 0 : i32
+      %17 = arith.constant 0 : i32
+      "comp.add_tiles"(%13, %14, %15, %16, %17) : (i32, i32, i32, i32, i32) -> ()
       "comp.tile_regs_commit"() : () -> ()
       "comp.tile_regs_wait"() : () -> ()
-      %28 = arith.constant 0 : i32
-      %29 = memref.load %cb_out[] : memref<i32>
-      %30 = arith.constant 0 : i32
-      %31 = builtin.unrealized_conversion_cast %28 : i32 to ui32
-      %32 = builtin.unrealized_conversion_cast %29 : i32 to ui32
-      %33 = builtin.unrealized_conversion_cast %30 : i32 to ui32
-      "comp.pack_tile"(%31, %32, %33) <{"out_of_order_output" = false}> : (ui32, ui32, ui32) -> ()
+      %18 = arith.constant 0 : i32
+      %19 = memref.load %cb_out[] : memref<i32>
+      %20 = arith.constant 0 : i32
+      "comp.pack_tile"(%18, %19, %20) <{out_of_order_output = false}> : (i32, i32, i32) -> ()
       "comp.tile_regs_release"() : () -> ()
-      %34 = memref.load %cb0[] : memref<i32>
-      %35 = arith.constant 1 : i32
-      "cb.pop_front"(%34, %35) : (i32, i32) -> ()
-      %36 = memref.load %cb1[] : memref<i32>
-      %37 = arith.constant 1 : i32
-      "cb.pop_front"(%36, %37) : (i32, i32) -> ()
-      %38 = memref.load %cb0[] : memref<i32>
-      %39 = arith.constant 1 : i32
-      "cb.push_back"(%38, %39) : (i32, i32) -> ()
+      %21 = memref.load %cb0[] : memref<i32>
+      %22 = arith.constant 1 : i32
+      "cb.pop_front"(%21, %22) : (i32, i32) -> ()
+      %23 = memref.load %cb1[] : memref<i32>
+      %24 = arith.constant 1 : i32
+      "cb.pop_front"(%23, %24) : (i32, i32) -> ()
+      %25 = memref.load %cb_out[] : memref<i32>
+      %26 = arith.constant 1 : i32
+      "cb.push_back"(%25, %26) : (i32, i32) -> ()
       func.return
     }
   }
 }
 
 // CHECK:      builtin.module {
-// CHECK-NEXT:   func.func @"add_two_ints_vectorised"(%0 : !ttkernel.cb<cb_in0, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, %1 : !ttkernel.cb<cb_in1, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, %2 : !ttkernel.cb<cb_in2, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>) {
+// CHECK-NEXT:   func.func @"add_two_int_tiles"(%0 : !ttkernel.cb<cb_in0, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, %1 : !ttkernel.cb<cb_in1, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, %2 : !ttkernel.cb<cb_in2, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>) {
 // CHECK-NEXT:     "ttkernel.binary_op_init_common"(%0, %1, %2) : (!ttkernel.cb<cb_in0, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, !ttkernel.cb<cb_in1, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, !ttkernel.cb<cb_in2, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>) -> ()
 // CHECK-NEXT:     %3 = arith.constant false
 // CHECK-NEXT:     "ttkernel.add_tiles_init"(%0, %1) : (!ttkernel.cb<cb_in0, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, !ttkernel.cb<cb_in1, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>) -> ()
@@ -92,7 +79,7 @@ builtin.module {
 // CHECK-NEXT:     %12 = arith.constant 1 : i32
 // CHECK-NEXT:     "ttkernel.cb_pop_front"(%1, %12) : (!ttkernel.cb<cb_in1, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, i32) -> ()
 // CHECK-NEXT:     %13 = arith.constant 1 : i32
-// CHECK-NEXT:     "ttkernel.cb_push_back"(%0, %13) : (!ttkernel.cb<cb_in0, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, i32) -> ()
+// CHECK-NEXT:     "ttkernel.cb_push_back"(%2, %13) : (!ttkernel.cb<cb_in2, 0 : i32, memref<8x4x4x1024xf32>, 4096 : i32, 1 : i32>, i32) -> ()
 // CHECK-NEXT:     func.return
 // CHECK-NEXT:   }
 // CHECK-NEXT: }

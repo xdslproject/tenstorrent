@@ -105,17 +105,17 @@ builtin.module {
       }
       %60 = memref.load %program[] : memref<!tthost.program>
       %61 = memref.load %core[] : memref<!tthost.corecoord>
-      %62 = "tthost.create_kernel"(%60, %61) <{kernel_name = "reader_kernel_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %62 = "tthost.create_kernel"(%60, %61) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %kernel_din = memref.alloc() : memref<!tthost.kernel>
       memref.store %62, %kernel_din[] : memref<!tthost.kernel>
       %63 = memref.load %program[] : memref<!tthost.program>
       %64 = memref.load %core[] : memref<!tthost.corecoord>
-      %65 = "tthost.create_kernel"(%63, %64) <{kernel_name = "writer_kernel_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %65 = "tthost.create_kernel"(%63, %64) <{kernel_name = "writer.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %kernel_dout = memref.alloc() : memref<!tthost.kernel>
       memref.store %65, %kernel_dout[] : memref<!tthost.kernel>
       %66 = memref.load %program[] : memref<!tthost.program>
       %67 = memref.load %core[] : memref<!tthost.corecoord>
-      %68 = "tthost.create_compute_kernel"(%66, %67) <{kernel_name = "add_two_int_tiles_kernel.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<HiFi4>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %68 = "tthost.create_compute_kernel"(%66, %67) <{kernel_name = "compute.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<HiFi4>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %kernel_comp = memref.alloc() : memref<!tthost.kernel>
       memref.store %68, %kernel_comp[] : memref<!tthost.kernel>
       %69 = memref.load %cq[] : memref<!tthost.command_queue>
@@ -165,28 +165,35 @@ builtin.module {
   }
 }
 
-// CHECK:      #include "tt_metal/host_api.hpp"
-// CHECK-NEXT: #include "tt_metal/impl/device/device.hpp"
-// CHECK-NEXT: #include "tt_metal/common/bfloat16.hpp"
-// CHECK:      using namespace tt;
-// CHECK-NEXT: using namespace tt::tt_metal;
+
 // CHECK:      std::int32_t main() {
-// CHECK-NEXT:     IDevice* device = CreateDevice(0);
+// CHECK-NEXT:     IDevice* device_0 = CreateDevice(0);
+// CHECK-NEXT:     IDevice* device = device_0;
 // CHECK-NEXT:     CommandQueue & cq = device->command_queue();
-// CHECK-NEXT:     Program program = CreateProgram();
-// CHECK-NEXT:     CoreCoord core = {0, 0};
+// CHECK-NEXT:     Program program_1 = CreateProgram();
+// CHECK-NEXT:     Program& program = program_1;
+// CHECK-NEXT:     CoreCoord core = CoreCoord{0, 0};
 // CHECK-NEXT:     std::int32_t dt_size = 4;
 // CHECK-NEXT:     std::int32_t single_tile_size = dt_size * 100;
 // CHECK-NEXT:     InterleavedBufferConfig dram_config {.device=device, .size=single_tile_size, .page_size=single_tile_size, .buffer_type = BufferType::DRAM};
-// CHECK-NEXT:     std::shared_ptr<Buffer> src0_dram_buffer = CreateBuffer(dram_config);
-// CHECK-NEXT:     std::shared_ptr<Buffer> src1_dram_buffer = CreateBuffer(dram_config);
-// CHECK-NEXT:     std::shared_ptr<Buffer> dest_dram_buffer = CreateBuffer(dram_config);
-// CHECK-NEXT:     CircularBufferConfig cb0_config = CircularBufferConfig(1*400, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 400);
-// CHECK-NEXT:     CircularBufferConfig cb1_config = CircularBufferConfig(1*400, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 400);
-// CHECK-NEXT:     CircularBufferConfig cb2_config = CircularBufferConfig(1*400, {{[{][{]}}2, tt::DataFormat::Int32{{[}][}]}}).set_page_size(2, 400);
-// CHECK-NEXT:     CBHandle cb0 = tt_metal::CreateCircularBuffer(program, core, cb0_config);
-// CHECK-NEXT:     CBHandle cb1 = tt_metal::CreateCircularBuffer(program, core, cb1_config);
-// CHECK-NEXT:     CBHandle cb2 = tt_metal::CreateCircularBuffer(program, core, cb2_config);
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_2 = CreateBuffer(dram_config);
+// CHECK-NEXT:     std::shared_ptr<Buffer> src0_dram_buffer = buffer_2;
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_3 = CreateBuffer(dram_config);
+// CHECK-NEXT:     std::shared_ptr<Buffer> src1_dram_buffer = buffer_3;
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_4 = CreateBuffer(dram_config);
+// CHECK-NEXT:     std::shared_ptr<Buffer> dest_dram_buffer = buffer_4;
+// CHECK-NEXT:     CircularBufferConfig cb_config_5 = CircularBufferConfig(1 * 400, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 400);
+// CHECK-NEXT:     CircularBufferConfig cb0_config = cb_config_5;
+// CHECK-NEXT:     CircularBufferConfig cb_config_6 = CircularBufferConfig(1 * 400, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 400);
+// CHECK-NEXT:     CircularBufferConfig cb1_config = cb_config_6;
+// CHECK-NEXT:     CircularBufferConfig cb_config_7 = CircularBufferConfig(1 * 400, {{[{][{]}}2, tt::DataFormat::Int32{{[}][}]}}).set_page_size(2, 400);
+// CHECK-NEXT:     CircularBufferConfig cb2_config = cb_config_7;
+// CHECK-NEXT:     CBHandle cb_8 = tt_metal::CreateCircularBuffer(program, core, cb0_config);
+// CHECK-NEXT:     CBHandle cb0 = cb_8;
+// CHECK-NEXT:     CBHandle cb_9 = tt_metal::CreateCircularBuffer(program, core, cb1_config);
+// CHECK-NEXT:     CBHandle cb1 = cb_9;
+// CHECK-NEXT:     CBHandle cb_10 = tt_metal::CreateCircularBuffer(program, core, cb2_config);
+// CHECK-NEXT:     CBHandle cb2 = cb_10;
 // CHECK-NEXT:     std::int32_t * host_src0 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
 // CHECK-NEXT:     std::int32_t * host_src1 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
 // CHECK-NEXT:     std::int32_t * host_dst = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
@@ -195,9 +202,12 @@ builtin.module {
 // CHECK-NEXT:         host_src0[i] = i;
 // CHECK-NEXT:         host_src1[i] = 100 - i;
 // CHECK-NEXT:     }
-// CHECK-NEXT:     KernelHandle kernel_din = CreateKernel(program, "reader_kernel_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
-// CHECK-NEXT:     KernelHandle kernel_dout = CreateKernel(program, "writer_kernel_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
-// CHECK-NEXT:     KernelHandle kernel_comp = CreateKernel(program, "add_two_int_tiles_kernel.cpp", core, ComputeConfig {.math_fidelity = MathFidelity::HiFi4, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
+// CHECK-NEXT:     KernelHandle kernel_11 = CreateKernel(program, "reader.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
+// CHECK-NEXT:     KernelHandle kernel_din = kernel_11;
+// CHECK-NEXT:     KernelHandle kernel_12 = CreateKernel(program, "writer.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
+// CHECK-NEXT:     KernelHandle kernel_dout = kernel_12;
+// CHECK-NEXT:     KernelHandle kernel_13 = CreateKernel(program, "compute.cpp", core, ComputeConfig {.math_fidelity = MathFidelity::HiFi4, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
+// CHECK-NEXT:     KernelHandle kernel_comp = kernel_13;
 // CHECK-NEXT:     EnqueueWriteBuffer(cq, src0_dram_buffer, host_src0, false);
 // CHECK-NEXT:     EnqueueWriteBuffer(cq, src1_dram_buffer, host_src1, false);
 // CHECK-NEXT:     SetRuntimeArgs(program, kernel_din, core, {src0_dram_buffer->address(), src1_dram_buffer->address(), 0, 0});
