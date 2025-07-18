@@ -53,18 +53,17 @@ builtin.module {
   }
 }
 
-// CHECK:      #include "tt_metal/host_api.hpp"
-// CHECK-NEXT: #include "tt_metal/impl/device/device.hpp"
-// CHECK-NEXT: #include "tt_metal/common/bfloat16.hpp"
-// CHECK:      using namespace tt;
-// CHECK-NEXT: using namespace tt::tt_metal;
 // CHECK:      std::int32_t main() {
-// CHECK-NEXT:     CoreCoord core = {0, 0};
-// CHECK-NEXT:     IDevice* device = CreateDevice(0);
+// CHECK-NEXT:     CoreCoord core = CoreCoord{0, 0};
+// CHECK-NEXT:     IDevice* device_0 = CreateDevice(0);
+// CHECK-NEXT:     IDevice* device = device_0;
 // CHECK-NEXT:     CommandQueue & cq = device->command_queue();
-// CHECK-NEXT:     Program program = CreateProgram();
-// CHECK-NEXT:     KernelHandle dataflow = CreateKernel(program, "void_dataflow_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
-// CHECK-NEXT:     KernelHandle dataflow1 = CreateKernel(program, "void_dataflow_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
+// CHECK-NEXT:     Program program_1 = CreateProgram();
+// CHECK-NEXT:     Program& program = program_1;
+// CHECK-NEXT:     KernelHandle kernel_2 = CreateKernel(program, "void_dataflow_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
+// CHECK-NEXT:     KernelHandle dataflow = kernel_2;
+// CHECK-NEXT:     KernelHandle kernel_3 = CreateKernel(program, "void_dataflow_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_1, .noc=NOC::RISCV_1_default});
+// CHECK-NEXT:     KernelHandle dataflow1 = kernel_3;
 // CHECK-NEXT:     SetRuntimeArgs(program, dataflow, core, {});
 // CHECK-NEXT:     SetRuntimeArgs(program, dataflow, core, {});
 // CHECK-NEXT:     EnqueueProgram(cq, program, false);

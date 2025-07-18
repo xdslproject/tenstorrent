@@ -21,7 +21,7 @@ builtin.module {
 // CHECK:      void kernel_main() {
 // CHECK-NEXT:     DPRINT_DATA0(DPRINT << "Hello, I am running a void data movement kernel on NOC 0." << ENDL());
 // CHECK-NEXT: }
-// CHECK-NEXT: #include "dataflow_api.h"
+// CHECK:      #include "dataflow_api.h"
 // CHECK-NEXT: #include "debug/dprint.h"
 // CHECK:      void kernel_main() {
 // CHECK-NEXT:     DPRINT_DATA1(DPRINT << "Hello, I am running a void data movement kernel on NOC 1." << ENDL());
