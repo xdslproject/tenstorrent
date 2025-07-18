@@ -1,4 +1,13 @@
-from xdsl.dialects.builtin import IntegerType, Signedness, i1, i8, i32, i64, MemRefType, IntegerAttr
+from xdsl.dialects.builtin import (
+    IntegerType,
+    Signedness,
+    i1,
+    i8,
+    i32,
+    i64,
+    MemRefType,
+    IntegerAttr,
+)
 from xdsl.ir import SSAValue, Operation, Dialect, Attribute
 from xdsl.irdl import (
     IRDLOperation,

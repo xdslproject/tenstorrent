@@ -2,7 +2,14 @@ from typing import List, Tuple, Optional, Dict
 
 from xdsl.context import Context
 from xdsl.dialects import builtin, arith, func
-from xdsl.dialects.builtin import FixedBitwidthType, BoolAttr, FunctionType, Float32Type, Float16Type, BFloat16Type
+from xdsl.dialects.builtin import (
+    FixedBitwidthType,
+    BoolAttr,
+    FunctionType,
+    Float32Type,
+    Float16Type,
+    BFloat16Type,
+)
 from xdsl.dialects.linalg import MatmulOp, AddOp
 from xdsl.ir import Region, Block
 from xdsl.passes import ModulePass
@@ -567,14 +574,11 @@ class LinalgToTT(RewritePattern):
 
         raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")
 
-
     @staticmethod
     def get_ops(linalg_op: Operation, tensix_matrix: bool) -> Tuple[type, type]:
-
         table = LINALG_TO_TT_MATRIX if tensix_matrix else LINALG_TO_TT_VECTOR
 
         return table[type(linalg_op)]
-
 
     @staticmethod
     def runs_on_tensix_matrix(linalg_op: Operation) -> bool:
@@ -586,7 +590,6 @@ class LinalgToTT(RewritePattern):
         operand_type = ct.get_element_type()
 
         return type(linalg_op) in valid_ops and operand_type in valid_types
-
 
 
 @dataclass(frozen=True)

@@ -194,7 +194,6 @@ class AddInt32(IRDLOperation):
         super().__init__(operands=[idst0, idst1])
 
 
-
 @irdl_op_definition
 class SubInitNof(IRDLOperation):
     name = "comp.sub_tiles_init_nof"
