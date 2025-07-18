@@ -2,67 +2,64 @@
 
 builtin.module {
   builtin.module attributes {kernel_type = "data_in"} {
-    func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
-      %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{dram = true}> : (ui32, ui32) -> ui64
-      %src0_dram_noc_addr = memref.alloc() : memref<ui64>
-      memref.store %6, %src0_dram_noc_addr[] : memref<ui64>
-      %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{dram = true}> : (ui32, ui32) -> ui64
-      %src1_dram_noc_addr = memref.alloc() : memref<ui64>
-      memref.store %7, %src1_dram_noc_addr[] : memref<ui64>
-      %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{dram = true}> : (ui32, ui32) -> ui64
-      %dst_dram_noc_addr = memref.alloc() : memref<ui64>
-      memref.store %8, %dst_dram_noc_addr[] : memref<ui64>
+    func.func @kernel_main(%0 : i32, %1 : i32, %2 : i32, %3 : i32, %4 : i32, %5 : i32) {
+      %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{dram = true}> : (i32, i32) -> i64
+      %src0_dram_noc_addr = memref.alloc() : memref<i64>
+      memref.store %6, %src0_dram_noc_addr[] : memref<i64>
+      %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{dram = true}> : (i32, i32) -> i64
+      %src1_dram_noc_addr = memref.alloc() : memref<i64>
+      memref.store %7, %src1_dram_noc_addr[] : memref<i64>
+      %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{dram = true}> : (i32, i32) -> i64
+      %dst_dram_noc_addr = memref.alloc() : memref<i64>
+      memref.store %8, %dst_dram_noc_addr[] : memref<i64>
       %9 = arith.constant 0 : i32
-      %10 = "cb.get_write_pointer"(%9) : (i32) -> ui32
-      %l1_write_addr_in0 = memref.alloc() : memref<ui32>
-      memref.store %10, %l1_write_addr_in0[] : memref<ui32>
+      %10 = "cb.get_write_pointer"(%9) : (i32) -> i32
+      %l1_write_addr_in0 = memref.alloc() : memref<i32>
+      memref.store %10, %l1_write_addr_in0[] : memref<i32>
       %11 = arith.constant 1 : i32
-      %12 = "cb.get_write_pointer"(%11) : (i32) -> ui32
-      %l1_write_addr_in1 = memref.alloc() : memref<ui32>
-      memref.store %12, %l1_write_addr_in1[] : memref<ui32>
+      %12 = "cb.get_write_pointer"(%11) : (i32) -> i32
+      %l1_write_addr_in1 = memref.alloc() : memref<i32>
+      memref.store %12, %l1_write_addr_in1[] : memref<i32>
       %13 = arith.constant 2 : i32
-      %14 = "cb.get_write_pointer"(%13) : (i32) -> ui32
-      %l1_write_addr_in2 = memref.alloc() : memref<ui32>
-      memref.store %14, %l1_write_addr_in2[] : memref<ui32>
-      %15 = memref.load %src0_dram_noc_addr[] : memref<ui64>
-      %16 = memref.load %l1_write_addr_in0[] : memref<ui32>
+      %14 = "cb.get_write_pointer"(%13) : (i32) -> i32
+      %l1_write_addr_in2 = memref.alloc() : memref<i32>
+      memref.store %14, %l1_write_addr_in2[] : memref<i32>
+      %15 = memref.load %src0_dram_noc_addr[] : memref<i64>
+      %16 = memref.load %l1_write_addr_in0[] : memref<i32>
       %17 = arith.constant 400 : i32
-      %18 = builtin.unrealized_conversion_cast %17 : i32 to ui32
-      "dm.noc_async_read"(%15, %16, %18) : (ui64, ui32, ui32) -> ()
-      %19 = memref.load %src1_dram_noc_addr[] : memref<ui64>
-      %20 = memref.load %l1_write_addr_in1[] : memref<ui32>
-      %21 = arith.constant 400 : i32
-      %22 = builtin.unrealized_conversion_cast %21 : i32 to ui32
-      "dm.noc_async_read"(%19, %20, %22) : (ui64, ui32, ui32) -> ()
-      %23 = memref.load %l1_write_addr_in0[] : memref<ui32>
-      %src0_data = builtin.unrealized_conversion_cast %23 : ui32 to memref<100xi32>
-      %24 = memref.load %l1_write_addr_in1[] : memref<ui32>
-      %src1_data = builtin.unrealized_conversion_cast %24 : ui32 to memref<100xi32>
-      %25 = memref.load %l1_write_addr_in2[] : memref<ui32>
-      %dst_data = builtin.unrealized_conversion_cast %25 : ui32 to memref<100xi32>
+      "dm.noc_async_read"(%15, %16, %17) : (i64, i32, i32) -> ()
+      %18 = memref.load %src1_dram_noc_addr[] : memref<i64>
+      %19 = memref.load %l1_write_addr_in1[] : memref<i32>
+      %20 = arith.constant 400 : i32
+      "dm.noc_async_read"(%18, %19, %20) : (i64, i32, i32) -> ()
+      %21 = memref.load %l1_write_addr_in0[] : memref<i32>
+      %src0_data = builtin.unrealized_conversion_cast %21 : i32 to memref<100xi32>
+      %22 = memref.load %l1_write_addr_in1[] : memref<i32>
+      %src1_data = builtin.unrealized_conversion_cast %22 : i32 to memref<100xi32>
+      %23 = memref.load %l1_write_addr_in2[] : memref<i32>
+      %dst_data = builtin.unrealized_conversion_cast %23 : i32 to memref<100xi32>
       "dm.noc_async_read_barrier"() : () -> ()
-      %26 = arith.constant 0 : i32
-      %27 = arith.constant 100 : i32
-      %28 = arith.constant 1 : i32
+      %24 = arith.constant 0 : i32
+      %25 = arith.constant 100 : i32
+      %26 = arith.constant 1 : i32
       %x = memref.alloc() : memref<i32>
-      scf.for %29 = %26 to %27 step %28  : i32 {
-        memref.store %29, %x[] : memref<i32>
-        %30 = memref.load %x[] : memref<i32>
-        %31 = arith.index_cast %30 : i32 to index
-        %32 = memref.load %src0_data[%31] : memref<100xi32>
-        %33 = memref.load %x[] : memref<i32>
-        %34 = arith.index_cast %33 : i32 to index
-        %35 = memref.load %src1_data[%34] : memref<100xi32>
-        %36 = arith.addi %32, %35 : i32
-        %37 = memref.load %x[] : memref<i32>
-        %38 = arith.index_cast %37 : i32 to index
-        memref.store %36, %dst_data[%38] : memref<100xi32>
+      scf.for %27 = %24 to %25 step %26  : i32 {
+        memref.store %27, %x[] : memref<i32>
+        %28 = memref.load %x[] : memref<i32>
+        %29 = arith.index_cast %28 : i32 to index
+        %30 = memref.load %src0_data[%29] : memref<100xi32>
+        %31 = memref.load %x[] : memref<i32>
+        %32 = arith.index_cast %31 : i32 to index
+        %33 = memref.load %src1_data[%32] : memref<100xi32>
+        %34 = arith.addi %30, %33 : i32
+        %35 = memref.load %x[] : memref<i32>
+        %36 = arith.index_cast %35 : i32 to index
+        memref.store %34, %dst_data[%36] : memref<100xi32>
       }
-      %39 = memref.load %l1_write_addr_in2[] : memref<ui32>
-      %40 = memref.load %dst_dram_noc_addr[] : memref<ui64>
-      %41 = arith.constant 400 : i32
-      %42 = builtin.unrealized_conversion_cast %41 : i32 to ui32
-      "dm.noc_async_write"(%39, %40, %42) : (ui32, ui64, ui32) -> ()
+      %37 = memref.load %l1_write_addr_in2[] : memref<i32>
+      %38 = memref.load %dst_dram_noc_addr[] : memref<i64>
+      %39 = arith.constant 400 : i32
+      "dm.noc_async_write"(%37, %38, %39) : (i32, i64, i32) -> ()
       "dm.noc_async_write_barrier"() : () -> ()
       func.return
     }
@@ -176,7 +173,7 @@ builtin.module {
       "tthost.enqueue_write_buffer"(%62, %63, %host_src1, %64) : (!tthost.command_queue, !tthost.buffer, memref<100xi32>, i1) -> ()
       %65 = memref.load %program[] : memref<!tthost.program>
       %66 = memref.load %core[] : memref<!tthost.corecoord>
-      %67 = "tthost.create_kernel"(%65, %66) <{kernel_name = "single_assignment_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+      %67 = "tthost.create_kernel"(%65, %66) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
       %kernel = memref.alloc() : memref<!tthost.kernel>
       memref.store %67, %kernel[] : memref<!tthost.kernel>
       %68 = memref.load %program[] : memref<!tthost.program>
@@ -210,23 +207,27 @@ builtin.module {
   }
 }
 
-// CHECK:      #include <stdint.h>
-// CHECK-NEXT: #include "dataflow_api.h"
 // CHECK:      void kernel_main() {
-// CHECK-NEXT:     uint32_t fn_arg_0 = get_arg_val<uint32_t>(0);
-// CHECK-NEXT:     uint32_t fn_arg_1 = get_arg_val<uint32_t>(1);
-// CHECK-NEXT:     uint32_t fn_arg_2 = get_arg_val<uint32_t>(2);
-// CHECK-NEXT:     uint32_t fn_arg_3 = get_arg_val<uint32_t>(3);
-// CHECK-NEXT:     uint32_t fn_arg_4 = get_arg_val<uint32_t>(4);
-// CHECK-NEXT:     uint32_t fn_arg_5 = get_arg_val<uint32_t>(5);
-// CHECK-NEXT:     uint64_t src0_dram_noc_addr = get_noc_addr_from_bank_id<true>(fn_arg_3, fn_arg_0);
-// CHECK-NEXT:     uint64_t src1_dram_noc_addr = get_noc_addr_from_bank_id<true>(fn_arg_4, fn_arg_1);
-// CHECK-NEXT:     uint64_t dst_dram_noc_addr = get_noc_addr_from_bank_id<true>(fn_arg_5, fn_arg_2);
-// CHECK-NEXT:     uint32_t l1_write_addr_in0 = get_write_ptr(0);
-// CHECK-NEXT:     uint32_t l1_write_addr_in1 = get_write_ptr(1);
-// CHECK-NEXT:     uint32_t l1_write_addr_in2 = get_write_ptr(2);
-// CHECK-NEXT:     noc_async_read(src0_dram_noc_addr, l1_write_addr_in0, static_cast<std::uint32_t>(400));
-// CHECK-NEXT:     noc_async_read(src1_dram_noc_addr, l1_write_addr_in1, static_cast<std::uint32_t>(400));
+// CHECK-NEXT:     std::int32_t fn_arg_0 = get_arg_val<std::int32_t>(0);
+// CHECK-NEXT:     std::int32_t fn_arg_1 = get_arg_val<std::int32_t>(1);
+// CHECK-NEXT:     std::int32_t fn_arg_2 = get_arg_val<std::int32_t>(2);
+// CHECK-NEXT:     std::int32_t fn_arg_3 = get_arg_val<std::int32_t>(3);
+// CHECK-NEXT:     std::int32_t fn_arg_4 = get_arg_val<std::int32_t>(4);
+// CHECK-NEXT:     std::int32_t fn_arg_5 = get_arg_val<std::int32_t>(5);
+// CHECK-NEXT:     std::int64_t noc_addr_0 = get_noc_addr_from_bank_id<true>(fn_arg_3, fn_arg_0);
+// CHECK-NEXT:     std::int64_t src0_dram_noc_addr = noc_addr_0;
+// CHECK-NEXT:     std::int64_t noc_addr_1 = get_noc_addr_from_bank_id<true>(fn_arg_4, fn_arg_1);
+// CHECK-NEXT:     std::int64_t src1_dram_noc_addr = noc_addr_1;
+// CHECK-NEXT:     std::int64_t noc_addr_2 = get_noc_addr_from_bank_id<true>(fn_arg_5, fn_arg_2);
+// CHECK-NEXT:     std::int64_t dst_dram_noc_addr = noc_addr_2;
+// CHECK-NEXT:     std::int32_t write_ptr_3 = get_write_ptr(0);
+// CHECK-NEXT:     std::int32_t l1_write_addr_in0 = write_ptr_3;
+// CHECK-NEXT:     std::int32_t write_ptr_4 = get_write_ptr(1);
+// CHECK-NEXT:     std::int32_t l1_write_addr_in1 = write_ptr_4;
+// CHECK-NEXT:     std::int32_t write_ptr_5 = get_write_ptr(2);
+// CHECK-NEXT:     std::int32_t l1_write_addr_in2 = write_ptr_5;
+// CHECK-NEXT:     noc_async_read(src0_dram_noc_addr, l1_write_addr_in0, 400);
+// CHECK-NEXT:     noc_async_read(src1_dram_noc_addr, l1_write_addr_in1, 400);
 // CHECK-NEXT:     std::int32_t * src0_data = (std::int32_t*) l1_write_addr_in0;
 // CHECK-NEXT:     std::int32_t * src1_data = (std::int32_t*) l1_write_addr_in1;
 // CHECK-NEXT:     std::int32_t * dst_data = (std::int32_t*) l1_write_addr_in2;
@@ -235,30 +236,36 @@ builtin.module {
 // CHECK-NEXT:     for (x = 0; x < 100; x += 1) {
 // CHECK-NEXT:         dst_data[x] = src0_data[x] + src1_data[x];
 // CHECK-NEXT:     }
-// CHECK-NEXT:     noc_async_write(l1_write_addr_in2, dst_dram_noc_addr, static_cast<std::uint32_t>(400));
+// CHECK-NEXT:     noc_async_write(l1_write_addr_in2, dst_dram_noc_addr, 400);
 // CHECK-NEXT:     noc_async_write_barrier();
 // CHECK-NEXT: }
-// CHECK-NEXT: #include "tt_metal/host_api.hpp"
-// CHECK-NEXT: #include "tt_metal/impl/device/device.hpp"
-// CHECK-NEXT: #include "tt_metal/common/bfloat16.hpp"
-// CHECK:      using namespace tt;
-// CHECK-NEXT: using namespace tt::tt_metal;
 // CHECK:      std::int32_t main() {
-// CHECK-NEXT:     CoreCoord core = {0, 0};
+// CHECK-NEXT:     CoreCoord core = CoreCoord{0, 0};
 // CHECK-NEXT:     std::int32_t single_tile_size = 4 * 100;
-// CHECK-NEXT:     IDevice* device = CreateDevice(0);
+// CHECK-NEXT:     IDevice* device_6 = CreateDevice(0);
+// CHECK-NEXT:     IDevice* device = device_6;
 // CHECK-NEXT:     CommandQueue & command_queue = device->command_queue();
-// CHECK-NEXT:     Program program = CreateProgram();
+// CHECK-NEXT:     Program program_7 = CreateProgram();
+// CHECK-NEXT:     Program& program = program_7;
 // CHECK-NEXT:     InterleavedBufferConfig dram_configuration {.device=device, .size=single_tile_size, .page_size=single_tile_size, .buffer_type = BufferType::DRAM};
-// CHECK-NEXT:     std::shared_ptr<Buffer> src0_dram_buffer = CreateBuffer(dram_configuration);
-// CHECK-NEXT:     std::shared_ptr<Buffer> src1_dram_buffer = CreateBuffer(dram_configuration);
-// CHECK-NEXT:     std::shared_ptr<Buffer> dst_dram_buffer = CreateBuffer(dram_configuration);
-// CHECK-NEXT:     CircularBufferConfig cb_0_config = CircularBufferConfig(1*400, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 400);
-// CHECK-NEXT:     CBHandle cb = tt_metal::CreateCircularBuffer(program, core, cb_0_config);
-// CHECK-NEXT:     CircularBufferConfig cb_1_config = CircularBufferConfig(1*400, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 400);
-// CHECK-NEXT:     CBHandle cb1 = tt_metal::CreateCircularBuffer(program, core, cb_1_config);
-// CHECK-NEXT:     CircularBufferConfig cb_2_config = CircularBufferConfig(1*400, {{[{][{]}}2, tt::DataFormat::Int32{{[}][}]}}).set_page_size(2, 400);
-// CHECK-NEXT:     CBHandle cb2 = tt_metal::CreateCircularBuffer(program, core, cb_2_config);
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_8 = CreateBuffer(dram_configuration);
+// CHECK-NEXT:     std::shared_ptr<Buffer> src0_dram_buffer = buffer_8;
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_9 = CreateBuffer(dram_configuration);
+// CHECK-NEXT:     std::shared_ptr<Buffer> src1_dram_buffer = buffer_9;
+// CHECK-NEXT:     std::shared_ptr<Buffer> buffer_10 = CreateBuffer(dram_configuration);
+// CHECK-NEXT:     std::shared_ptr<Buffer> dst_dram_buffer = buffer_10;
+// CHECK-NEXT:     CircularBufferConfig cb_config_11 = CircularBufferConfig(1 * 400, {{[{][{]}}0, tt::DataFormat::Int32{{[}][}]}}).set_page_size(0, 400);
+// CHECK-NEXT:     CircularBufferConfig cb_0_config = cb_config_11;
+// CHECK-NEXT:     CBHandle cb_12 = tt_metal::CreateCircularBuffer(program, core, cb_0_config);
+// CHECK-NEXT:     CBHandle cb = cb_12;
+// CHECK-NEXT:     CircularBufferConfig cb_config_13 = CircularBufferConfig(1 * 400, {{[{][{]}}1, tt::DataFormat::Int32{{[}][}]}}).set_page_size(1, 400);
+// CHECK-NEXT:     CircularBufferConfig cb_1_config = cb_config_13;
+// CHECK-NEXT:     CBHandle cb_14 = tt_metal::CreateCircularBuffer(program, core, cb_1_config);
+// CHECK-NEXT:     CBHandle cb1 = cb_14;
+// CHECK-NEXT:     CircularBufferConfig cb_config_15 = CircularBufferConfig(1 * 400, {{[{][{]}}2, tt::DataFormat::Int32{{[}][}]}}).set_page_size(2, 400);
+// CHECK-NEXT:     CircularBufferConfig cb_2_config = cb_config_15;
+// CHECK-NEXT:     CBHandle cb_16 = tt_metal::CreateCircularBuffer(program, core, cb_2_config);
+// CHECK-NEXT:     CBHandle cb2 = cb_16;
 // CHECK-NEXT:     std::int32_t * host_src0 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
 // CHECK-NEXT:     std::int32_t * host_src1 = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
 // CHECK-NEXT:     std::int32_t * host_dst = (std::int32_t*) malloc(sizeof(std::int32_t)*100);
@@ -269,7 +276,8 @@ builtin.module {
 // CHECK-NEXT:     }
 // CHECK-NEXT:     EnqueueWriteBuffer(command_queue, src0_dram_buffer, host_src0, false);
 // CHECK-NEXT:     EnqueueWriteBuffer(command_queue, src1_dram_buffer, host_src1, false);
-// CHECK-NEXT:     KernelHandle kernel = CreateKernel(program, "single_assignment_kernel.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
+// CHECK-NEXT:     KernelHandle kernel_17 = CreateKernel(program, "reader.cpp", core, DataMovementConfig{.processor = DataMovementProcessor::RISCV_0, .noc=NOC::RISCV_0_default});
+// CHECK-NEXT:     KernelHandle kernel = kernel_17;
 // CHECK-NEXT:     SetRuntimeArgs(program, kernel, core, {src0_dram_buffer->address(), src1_dram_buffer->address(), dst_dram_buffer->address(), 0, 0, 0});
 // CHECK-NEXT:     EnqueueProgram(command_queue, program, false);
 // CHECK-NEXT:     Finish(command_queue);
