@@ -45,11 +45,14 @@ builtin.module {
 }
 
 // CHECK:      std::int32_t main() {
-// CHECK-NEXT:     CoreCoord core = {0, 0};
-// CHECK-NEXT:     IDevice* device = CreateDevice(0);
+// CHECK-NEXT:     CoreCoord core = CoreCoord{0, 0};
+// CHECK-NEXT:     IDevice* device_0 = CreateDevice(0);
+// CHECK-NEXT:     IDevice* device = device_0;
 // CHECK-NEXT:     CommandQueue & cq = device->command_queue();
-// CHECK-NEXT:     Program program = CreateProgram();
-// CHECK-NEXT:     KernelHandle void_compute_kernel = CreateKernel(program, "void_compute_kernel.cpp", core, ComputeConfig {.math_fidelity = MathFidelity::HiFi4, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
+// CHECK-NEXT:     Program program_1 = CreateProgram();
+// CHECK-NEXT:     Program& program = program_1;
+// CHECK-NEXT:     KernelHandle kernel_2 = CreateKernel(program, "void_compute_kernel.cpp", core, ComputeConfig {.math_fidelity = MathFidelity::HiFi4, .fp32_dest_acc_en = false, .math_approx_mode = false, .compile_args = {}});
+// CHECK-NEXT:     KernelHandle void_compute_kernel = kernel_2;
 // CHECK-NEXT:     SetRuntimeArgs(program, void_compute_kernel, core, {});
 // CHECK-NEXT:     EnqueueProgram(cq, program, false);
 // CHECK-NEXT:     printf("Hello, Core {0, 0} on Device 0, I am sending you a compute kernel. Standby awaiting communication.\n");

@@ -318,15 +318,11 @@ class LinalgToTT(RewritePattern):
         true_attr = BoolAttr(1, i1)
         one = arith.ConstantOp.from_int_and_width(1, 32)
         zero_8 = arith.ConstantOp.from_int_and_width(0, 8)
-        zero_ui8 = builtin.UnrealizedConversionCastOp(
-            operands=[zero_8],
-            result_types=[IntegerType(8, signedness=Signedness.UNSIGNED)],
-        )
 
         cb = arith.ConstantOp.from_int_and_width(cb, 32)
 
         src_noc_addr = data_movement.DMGetNocAddrFromBankId(
-            true_attr, bank, addr, zero_ui8
+            true_attr, bank, addr, zero_8
         )
 
         write_ptr = circular_buffer.CBGetWritePointer(cb)
@@ -339,7 +335,6 @@ class LinalgToTT(RewritePattern):
         return [
             one,
             zero_8,
-            zero_ui8,
             cb,
             src_noc_addr,
             write_ptr,
@@ -354,7 +349,7 @@ class LinalgToTT(RewritePattern):
         Generates a kernel which reads data from two addresses in DRAM bank 0,
         and populates CB0 and CB1 each with a single page of data.
         """
-        arg_types = [uint32, uint32, uint32] * (2 if binop else 1)
+        arg_types = [i32, i32, i32] * (2 if binop else 1)
         block = Block(arg_types=arg_types)
 
         bank_id0 = block.args[0]
@@ -393,7 +388,7 @@ class LinalgToTT(RewritePattern):
         consumes the page and writes it to the specified address in DRAM bank 0.
         """
         true_attr = BoolAttr(1, i1)
-        arg_types = [uint32, uint32, uint32]
+        arg_types = [i32, i32, i32]
         block = Block(arg_types=arg_types)
 
         bank_id = block.args[0]
@@ -446,28 +441,12 @@ class LinalgToTT(RewritePattern):
         zero = arith.ConstantOp.from_int_and_width(0, 32)
         one = arith.ConstantOp.from_int_and_width(1, 32)
 
-        zero_u = builtin.UnrealizedConversionCastOp(
-            operands=[zero], result_types=[uint32]
-        )
-        one_u = builtin.UnrealizedConversionCastOp(
-            operands=[one], result_types=[uint32]
-        )
-
         cb_in0 = arith.ConstantOp.from_int_and_width(self.cb_in0_id, 32)
-        cb_in1_id = arith.ConstantOp.from_int_and_width(self.cb_in1_id, 32)
+        cb_in1 = arith.ConstantOp.from_int_and_width(self.cb_in1_id, 32)
         cb_out = arith.ConstantOp.from_int_and_width(self.cb_out_id, 32)
-        cb_in0_u = builtin.UnrealizedConversionCastOp(
-            operands=[cb_in0], result_types=[uint32]
-        )
-        cb_in1_u = builtin.UnrealizedConversionCastOp(
-            operands=[cb_in1_id], result_types=[uint32]
-        )
-        cb_out_u = builtin.UnrealizedConversionCastOp(
-            operands=[cb_out], result_types=[uint32]
-        )
 
-        idst0 = zero_u
-        idst1 = one_u
+        idst0 = zero
+        idst1 = one
 
         true = arith.ConstantOp.from_int_and_width(1, i1)
         false = arith.ConstantOp.from_int_and_width(0, i1)
@@ -479,45 +458,45 @@ class LinalgToTT(RewritePattern):
         tt_init_op_type = op_mapped[0]
         tt_op_type = op_mapped[1]
 
-        bin_op_cmn_init = compute.BinaryOpInitCommon(cb_in0_u, cb_in1_u, cb_out_u)
+        bin_op_cmn_init = compute.BinaryOpInitCommon(cb_in0, cb_in1, cb_out)
         sfpu_init = compute.InitSFPU(cb_in0, cb_out)
         tt_init_op_args = LinalgToTT.get_init_args(
-            tt_init_op_type, cb_in0_u, cb_in1_u, cb_out_u, zero_u, one_u, true, false
+            tt_init_op_type, cb_in0, cb_in1, cb_out, zero, one, true, false
         )
         bin_op_init = tt_init_op_type(*tt_init_op_args)
 
         # wait for a single block of tiles in each input CB
         wait0 = circular_buffer.CBWaitFront(cb_in0, one)
-        wait1 = circular_buffer.CBWaitFront(cb_in1_id, one)
+        wait1 = circular_buffer.CBWaitFront(cb_in1, one)
 
         # acquire 8 tile registers
         acquire_regs = compute.RegsAcquire()
-        copy_tile0 = compute.Copy(cb_in0_u, zero_u, idst0)
-        copy_tile1 = compute.Copy(cb_in1_u, zero_u, idst1)
+        copy_tile0 = compute.Copy(cb_in0, zero, idst0)
+        copy_tile1 = compute.Copy(cb_in1, zero, idst1)
 
         # add the first tiles in cb0 and cb1, storing the result tile in dst[0]
         tt_op_args = LinalgToTT.get_op_args(
-            tt_op_type, cb_in0_u, cb_in1_u, cb_out_u, zero_u, one_u, true, false
+            tt_op_type, cb_in0, cb_in1, cb_out, zero, one, true, false
         )
         do_tt_op = tt_op_type(*tt_op_args)
 
         # commit the result, signals the packer
         commit = compute.RegsCommit()
         regs_wait = compute.RegsWait()
-        pack = compute.PackTile(BoolAttr(0, i1), zero_u, cb_out_u, zero_u)
+        pack = compute.PackTile(BoolAttr(0, i1), zero, cb_out, zero)
         release = compute.RegsRelease()
 
         # tt.cb_pop_front(cb0, 1)
         cb_pop0 = circular_buffer.CBPopFront(cb_in0, one)
-        cb_pop1 = circular_buffer.CBPopFront(cb_in1_id, one)
+        cb_pop1 = circular_buffer.CBPopFront(cb_in1, one)
 
         push = circular_buffer.CBPushBack(cb_out, one)
 
         # TODO: handle unary op init, check unary ops available on compute cores
         # TODO: check if bin_op_init is required for SFPU calls or only FPU
         operations = []
-        operations += [zero, one, cb_in0, cb_in1_id, cb_out, zero_u]
-        operations += [one_u, cb_in0_u, cb_in1_u, cb_out_u, true, false]
+        operations += [zero, one, cb_in0, cb_in1, cb_out]
+        operations += [true, false]
         operations += [sfpu_init] if use_tvector else []
         operations += [bin_op_cmn_init] if binop and use_tmatrix else []
         operations += [bin_op_init, wait1] if binop else []

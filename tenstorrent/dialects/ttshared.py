@@ -18,8 +18,6 @@ from xdsl.irdl import (
     ParameterDef,
 )
 
-uint32 = IntegerType(32, signedness=Signedness.UNSIGNED)
-
 
 @irdl_attr_definition
 class ConstExprType(
@@ -48,12 +46,12 @@ class GetCompileTimeArgVal(IRDLOperation):
 
     # really this input should also be ConstExpr, but may
     # introduce a lot of overhead assuming most assignments
-    # are const-expressible, however for future features may be required
-    index = operand_def(uint32)
-    result = result_def(ConstExprType(uint32))
+    # are const-expressible, however, for future features may be required
+    index = operand_def(i32)
+    result = result_def(ConstExprType(i32))
 
     def __init__(self, i):
-        super().__init__(operands=[i], result_types=[ConstExprType(uint32)])
+        super().__init__(operands=[i], result_types=[ConstExprType(i32)])
 
 
 TTShared = Dialect(

@@ -108,17 +108,17 @@ run_from_examples(__file__)
 # CHECK-NEXT:       }
 # CHECK-NEXT:       %60 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %61 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %62 = "tthost.create_kernel"(%60, %61) <{kernel_name = "reader_kernel_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %62 = "tthost.create_kernel"(%60, %61) <{kernel_name = "reader.cpp", riscv_core = #tthost.riscv_core<datamovement_0>, noc_id = #builtin.int<0>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %kernel_din = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %62, %kernel_din[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %63 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %64 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %65 = "tthost.create_kernel"(%63, %64) <{kernel_name = "writer_kernel_kernel.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %65 = "tthost.create_kernel"(%63, %64) <{kernel_name = "writer.cpp", riscv_core = #tthost.riscv_core<datamovement_1>, noc_id = #builtin.int<1>}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %kernel_dout = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %65, %kernel_dout[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %66 = memref.load %program[] : memref<!tthost.program>
 # CHECK-NEXT:       %67 = memref.load %core[] : memref<!tthost.corecoord>
-# CHECK-NEXT:       %68 = "tthost.create_compute_kernel"(%66, %67) <{kernel_name = "add_two_int_tiles_kernel.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<HiFi4>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
+# CHECK-NEXT:       %68 = "tthost.create_compute_kernel"(%66, %67) <{kernel_name = "compute.cpp", riscv_core = #tthost.riscv_core<compute>, math_fidelity = #tthost.math_fidelity<HiFi4>, fp32_dest_acc_en = false, math_approx_mode = false}> : (!tthost.program, !tthost.corecoord) -> !tthost.kernel
 # CHECK-NEXT:       %kernel_comp = memref.alloc() : memref<!tthost.kernel>
 # CHECK-NEXT:       memref.store %68, %kernel_comp[] : memref<!tthost.kernel>
 # CHECK-NEXT:       %69 = memref.load %cq[] : memref<!tthost.command_queue>

@@ -5,67 +5,64 @@ run_from_examples(__file__)
 
 # CHECK:      builtin.module {
 # CHECK-NEXT:   builtin.module attributes {kernel_type = "data_in"} {
-# CHECK-NEXT:     func.func @kernel_main(%0 : ui32, %1 : ui32, %2 : ui32, %3 : ui32, %4 : ui32, %5 : ui32) {
-# CHECK-NEXT:       %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{dram = true}> : (ui32, ui32) -> ui64
-# CHECK-NEXT:       %src0_dram_noc_addr = memref.alloc() : memref<ui64>
-# CHECK-NEXT:       memref.store %6, %src0_dram_noc_addr[] : memref<ui64>
-# CHECK-NEXT:       %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{dram = true}> : (ui32, ui32) -> ui64
-# CHECK-NEXT:       %src1_dram_noc_addr = memref.alloc() : memref<ui64>
-# CHECK-NEXT:       memref.store %7, %src1_dram_noc_addr[] : memref<ui64>
-# CHECK-NEXT:       %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{dram = true}> : (ui32, ui32) -> ui64
-# CHECK-NEXT:       %dst_dram_noc_addr = memref.alloc() : memref<ui64>
-# CHECK-NEXT:       memref.store %8, %dst_dram_noc_addr[] : memref<ui64>
+# CHECK-NEXT:     func.func @kernel_main(%0 : i32, %1 : i32, %2 : i32, %3 : i32, %4 : i32, %5 : i32) {
+# CHECK-NEXT:       %6 = "dm.get_noc_addr_from_bank_id"(%3, %0) <{dram = true}> : (i32, i32) -> i64
+# CHECK-NEXT:       %src0_dram_noc_addr = memref.alloc() : memref<i64>
+# CHECK-NEXT:       memref.store %6, %src0_dram_noc_addr[] : memref<i64>
+# CHECK-NEXT:       %7 = "dm.get_noc_addr_from_bank_id"(%4, %1) <{dram = true}> : (i32, i32) -> i64
+# CHECK-NEXT:       %src1_dram_noc_addr = memref.alloc() : memref<i64>
+# CHECK-NEXT:       memref.store %7, %src1_dram_noc_addr[] : memref<i64>
+# CHECK-NEXT:       %8 = "dm.get_noc_addr_from_bank_id"(%5, %2) <{dram = true}> : (i32, i32) -> i64
+# CHECK-NEXT:       %dst_dram_noc_addr = memref.alloc() : memref<i64>
+# CHECK-NEXT:       memref.store %8, %dst_dram_noc_addr[] : memref<i64>
 # CHECK-NEXT:       %9 = arith.constant 0 : i32
-# CHECK-NEXT:       %10 = "cb.get_write_pointer"(%9) : (i32) -> ui32
-# CHECK-NEXT:       %l1_write_addr_in0 = memref.alloc() : memref<ui32>
-# CHECK-NEXT:       memref.store %10, %l1_write_addr_in0[] : memref<ui32>
+# CHECK-NEXT:       %10 = "cb.get_write_pointer"(%9) : (i32) -> i32
+# CHECK-NEXT:       %l1_write_addr_in0 = memref.alloc() : memref<i32>
+# CHECK-NEXT:       memref.store %10, %l1_write_addr_in0[] : memref<i32>
 # CHECK-NEXT:       %11 = arith.constant 1 : i32
-# CHECK-NEXT:       %12 = "cb.get_write_pointer"(%11) : (i32) -> ui32
-# CHECK-NEXT:       %l1_write_addr_in1 = memref.alloc() : memref<ui32>
-# CHECK-NEXT:       memref.store %12, %l1_write_addr_in1[] : memref<ui32>
+# CHECK-NEXT:       %12 = "cb.get_write_pointer"(%11) : (i32) -> i32
+# CHECK-NEXT:       %l1_write_addr_in1 = memref.alloc() : memref<i32>
+# CHECK-NEXT:       memref.store %12, %l1_write_addr_in1[] : memref<i32>
 # CHECK-NEXT:       %13 = arith.constant 2 : i32
-# CHECK-NEXT:       %14 = "cb.get_write_pointer"(%13) : (i32) -> ui32
-# CHECK-NEXT:       %l1_write_addr_in2 = memref.alloc() : memref<ui32>
-# CHECK-NEXT:       memref.store %14, %l1_write_addr_in2[] : memref<ui32>
-# CHECK-NEXT:       %15 = memref.load %src0_dram_noc_addr[] : memref<ui64>
-# CHECK-NEXT:       %16 = memref.load %l1_write_addr_in0[] : memref<ui32>
+# CHECK-NEXT:       %14 = "cb.get_write_pointer"(%13) : (i32) -> i32
+# CHECK-NEXT:       %l1_write_addr_in2 = memref.alloc() : memref<i32>
+# CHECK-NEXT:       memref.store %14, %l1_write_addr_in2[] : memref<i32>
+# CHECK-NEXT:       %15 = memref.load %src0_dram_noc_addr[] : memref<i64>
+# CHECK-NEXT:       %16 = memref.load %l1_write_addr_in0[] : memref<i32>
 # CHECK-NEXT:       %17 = arith.constant 400 : i32
-# CHECK-NEXT:       %18 = builtin.unrealized_conversion_cast %17 : i32 to ui32
-# CHECK-NEXT:       "dm.noc_async_read"(%15, %16, %18) : (ui64, ui32, ui32) -> ()
-# CHECK-NEXT:       %19 = memref.load %src1_dram_noc_addr[] : memref<ui64>
-# CHECK-NEXT:       %20 = memref.load %l1_write_addr_in1[] : memref<ui32>
-# CHECK-NEXT:       %21 = arith.constant 400 : i32
-# CHECK-NEXT:       %22 = builtin.unrealized_conversion_cast %21 : i32 to ui32
-# CHECK-NEXT:       "dm.noc_async_read"(%19, %20, %22) : (ui64, ui32, ui32) -> ()
-# CHECK-NEXT:       %23 = memref.load %l1_write_addr_in0[] : memref<ui32>
-# CHECK-NEXT:       %src0_data = builtin.unrealized_conversion_cast %23 : ui32 to memref<100xi32>
-# CHECK-NEXT:       %24 = memref.load %l1_write_addr_in1[] : memref<ui32>
-# CHECK-NEXT:       %src1_data = builtin.unrealized_conversion_cast %24 : ui32 to memref<100xi32>
-# CHECK-NEXT:       %25 = memref.load %l1_write_addr_in2[] : memref<ui32>
-# CHECK-NEXT:       %dst_data = builtin.unrealized_conversion_cast %25 : ui32 to memref<100xi32>
+# CHECK-NEXT:       "dm.noc_async_read"(%15, %16, %17) : (i64, i32, i32) -> ()
+# CHECK-NEXT:       %18 = memref.load %src1_dram_noc_addr[] : memref<i64>
+# CHECK-NEXT:       %19 = memref.load %l1_write_addr_in1[] : memref<i32>
+# CHECK-NEXT:       %20 = arith.constant 400 : i32
+# CHECK-NEXT:       "dm.noc_async_read"(%18, %19, %20) : (i64, i32, i32) -> ()
+# CHECK-NEXT:       %21 = memref.load %l1_write_addr_in0[] : memref<i32>
+# CHECK-NEXT:       %src0_data = builtin.unrealized_conversion_cast %21 : i32 to memref<100xi32>
+# CHECK-NEXT:       %22 = memref.load %l1_write_addr_in1[] : memref<i32>
+# CHECK-NEXT:       %src1_data = builtin.unrealized_conversion_cast %22 : i32 to memref<100xi32>
+# CHECK-NEXT:       %23 = memref.load %l1_write_addr_in2[] : memref<i32>
+# CHECK-NEXT:       %dst_data = builtin.unrealized_conversion_cast %23 : i32 to memref<100xi32>
 # CHECK-NEXT:       "dm.noc_async_read_barrier"() : () -> ()
-# CHECK-NEXT:       %26 = arith.constant 0 : i32
-# CHECK-NEXT:       %27 = arith.constant 100 : i32
-# CHECK-NEXT:       %28 = arith.constant 1 : i32
+# CHECK-NEXT:       %24 = arith.constant 0 : i32
+# CHECK-NEXT:       %25 = arith.constant 100 : i32
+# CHECK-NEXT:       %26 = arith.constant 1 : i32
 # CHECK-NEXT:       %x = memref.alloc() : memref<i32>
-# CHECK-NEXT:       scf.for %29 = %26 to %27 step %28  : i32 {
-# CHECK-NEXT:         memref.store %29, %x[] : memref<i32>
-# CHECK-NEXT:         %30 = memref.load %x[] : memref<i32>
-# CHECK-NEXT:         %31 = arith.index_cast %30 : i32 to index
-# CHECK-NEXT:         %32 = memref.load %src0_data[%31] : memref<100xi32>
-# CHECK-NEXT:         %33 = memref.load %x[] : memref<i32>
-# CHECK-NEXT:         %34 = arith.index_cast %33 : i32 to index
-# CHECK-NEXT:         %35 = memref.load %src1_data[%34] : memref<100xi32>
-# CHECK-NEXT:         %36 = arith.addi %32, %35 : i32
-# CHECK-NEXT:         %37 = memref.load %x[] : memref<i32>
-# CHECK-NEXT:         %38 = arith.index_cast %37 : i32 to index
-# CHECK-NEXT:         memref.store %36, %dst_data[%38] : memref<100xi32>
+# CHECK-NEXT:       scf.for %27 = %24 to %25 step %26  : i32 {
+# CHECK-NEXT:         memref.store %27, %x[] : memref<i32>
+# CHECK-NEXT:         %28 = memref.load %x[] : memref<i32>
+# CHECK-NEXT:         %29 = arith.index_cast %28 : i32 to index
+# CHECK-NEXT:         %30 = memref.load %src0_data[%29] : memref<100xi32>
+# CHECK-NEXT:         %31 = memref.load %x[] : memref<i32>
+# CHECK-NEXT:         %32 = arith.index_cast %31 : i32 to index
+# CHECK-NEXT:         %33 = memref.load %src1_data[%32] : memref<100xi32>
+# CHECK-NEXT:         %34 = arith.addi %30, %33 : i32
+# CHECK-NEXT:         %35 = memref.load %x[] : memref<i32>
+# CHECK-NEXT:         %36 = arith.index_cast %35 : i32 to index
+# CHECK-NEXT:         memref.store %34, %dst_data[%36] : memref<100xi32>
 # CHECK-NEXT:       }
-# CHECK-NEXT:       %39 = memref.load %l1_write_addr_in2[] : memref<ui32>
-# CHECK-NEXT:       %40 = memref.load %dst_dram_noc_addr[] : memref<ui64>
-# CHECK-NEXT:       %41 = arith.constant 400 : i32
-# CHECK-NEXT:       %42 = builtin.unrealized_conversion_cast %41 : i32 to ui32
-# CHECK-NEXT:       "dm.noc_async_write"(%39, %40, %42) : (ui32, ui64, ui32) -> ()
+# CHECK-NEXT:       %37 = memref.load %l1_write_addr_in2[] : memref<i32>
+# CHECK-NEXT:       %38 = memref.load %dst_dram_noc_addr[] : memref<i64>
+# CHECK-NEXT:       %39 = arith.constant 400 : i32
+# CHECK-NEXT:       "dm.noc_async_write"(%37, %38, %39) : (i32, i64, i32) -> ()
 # CHECK-NEXT:       "dm.noc_async_write_barrier"() : () -> ()
 # CHECK-NEXT:       func.return
 # CHECK-NEXT:     }

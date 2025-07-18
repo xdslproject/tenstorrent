@@ -42,8 +42,8 @@ class TypeChecker(ast.NodeVisitor):
             noc_semaphore_wait.__name__: NoneType(),
             noc_async_read_barrier.__name__: NoneType(),
             noc_async_write_barrier.__name__: NoneType(),
-            get_noc_addr_from_bank_id.__name__: uint64,
-            get_noc_address.__name__: uint64,
+            get_noc_addr_from_bank_id.__name__: i64,
+            get_noc_address.__name__: i64,
             copy.__name__: NoneType(),
             copy_to_dst_init_short_with_dt.__name__: NoneType(),
             copy_to_dst_init_short.__name__: NoneType(),
@@ -206,9 +206,9 @@ class TypeChecker(ast.NodeVisitor):
             "GetMemoryAddress": IndexType(),
             "CBConfig": CircularBufferConfig(),
             "CreateCircularBuffer": CBHandle(),
-            "cb_get_write_ptr": uint32,
-            "cb_get_read_ptr": uint32,
-            get_compile_time_arg_val.__name__: ConstExprType(uint32),
+            "cb_get_write_ptr": i32,
+            "cb_get_read_ptr": i32,
+            get_compile_time_arg_val.__name__: ConstExprType(i32),
             InterleavedAddrGen.__name__: None,
         }
 
@@ -372,7 +372,7 @@ class TypeChecker(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node):
         for arg in node.args.args:
-            self.types[arg.arg] = uint32
+            self.types[arg.arg] = i32
 
         for child in node.body:
             self.visit(child)
