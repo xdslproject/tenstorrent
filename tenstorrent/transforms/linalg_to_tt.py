@@ -1,7 +1,7 @@
 from typing import List, Tuple, Optional, Dict
 
 from xdsl.context import Context
-from xdsl.dialects import builtin, arith, func
+from xdsl.dialects import builtin, arith, func, linalg
 from xdsl.dialects.builtin import (
     FixedBitwidthType,
     BoolAttr,
@@ -10,7 +10,6 @@ from xdsl.dialects.builtin import (
     Float16Type,
     BFloat16Type,
 )
-from xdsl.dialects.linalg import MatmulOp, AddOp
 from xdsl.ir import Region, Block
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
@@ -43,19 +42,19 @@ COMP_KERNEL_NAME = "MAIN"
 
 # linalg.op -> (compute.init_op, compute.op)
 LINALG_TO_TT_MATRIX: Dict[type, Tuple[type, type]] = {
-    MatmulOp: (compute.MMInit, compute.Matmul),
-    AddOp: (compute.AddInit, compute.Add),
+    linalg.MatmulOp: (compute.MMInit, compute.Matmul),
+    linalg.AddOp: (compute.AddInit, compute.Add),
 }
 
 LINALG_TO_TT_VECTOR: Dict[type, Tuple[type, type]] = {
     # TODO: create xDSL definitions of the Vector Unit calls
     # TODO: this won't scale... need to look at datatype and select,
     #       so this should be a function really not just a lookup table
-    AddOp: (compute.AddInt32Init, compute.AddInt32)
+    linalg.AddOp: (compute.AddInt32Init, compute.AddInt32)
 }
 
 
-REWRITE_TYPE = MatmulOp | AddOp
+REWRITE_TYPE = linalg.MatmulOp | linalg.AddOp
 
 
 class LinalgToTT(RewritePattern):
@@ -582,7 +581,7 @@ class LinalgToTT(RewritePattern):
 
     @staticmethod
     def runs_on_tensix_matrix(linalg_op: Operation) -> bool:
-        valid_ops = [MatmulOp, AddOp]  # TODO: think supports sub/div/softmax
+        valid_ops = [linalg.MatmulOp, linalg.AddOp]  # TODO: think supports sub/div/softmax
         valid_types = [Float32Type(), Float16Type(), BFloat16Type()]
 
         ct = linalg_op.operands[0].type
