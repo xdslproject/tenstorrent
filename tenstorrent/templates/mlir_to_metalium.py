@@ -19,7 +19,7 @@ def create_device_dram_buffer(host_memref: MemRefType) -> List[Operation]:
     """
     Provides the MLIR code for creating a device-side DRAM buffer using
     the Metalium API. Returns the operations needed to create the buffer
-    in-order (size, dram_config, dram_buffer).
+    in-order (page_size, size, dram_config, dram_buffer).
     """
     # get the buffer size
     assert isinstance(host_memref.get_element_type(), FixedBitwidthType)
@@ -28,10 +28,12 @@ def create_device_dram_buffer(host_memref: MemRefType) -> List[Operation]:
     size_op = arith.ConstantOp.from_int_and_width(buffer_size, 32)
 
     # create a DRAM config (needs the size above)
-    dram_config_op = host.TTCreateDRAMConfig(size_op, size_op)
+    single_tile_size = arith.ConstantOp.from_int_and_width(32 * 32 * dt_size, 32)
+    single_tile_size.results[0].name_hint = 'page_size'
+    dram_config_op = host.TTCreateDRAMConfig(size_op, single_tile_size)
     dram_buffer_op = host.TTCreateBuffer(dram_config_op)
 
-    return [size_op, dram_config_op, dram_buffer_op]
+    return [single_tile_size, size_op, dram_config_op, dram_buffer_op]
 
 
 def populate_dram_buffer(
@@ -82,8 +84,9 @@ def prepare_tensor_storage(
 
     operations += populate_dram_buffer(cq, host_mem, dram_buffer)
 
-    # TODO: generalise these in the future...
-    page_count = arith.ConstantOp.from_int_and_width(1, 32)
+    elems = host_mem.type.element_count()
+    pages = elems // 1024 + (elems % 1024 != 0)
+    page_count = arith.ConstantOp.from_int_and_width(pages, 32)
     page_size = operations[0]  # reuse SSA that dram buffer uses for size
 
     if isinstance(cb_index, int):
