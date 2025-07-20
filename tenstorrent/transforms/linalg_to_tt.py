@@ -44,6 +44,7 @@ COMP_KERNEL_NAME = "MAIN"
 LINALG_TO_TT_MATRIX: Dict[type, Tuple[type, type]] = {
     linalg.MatmulOp: (compute.MMInit, compute.Matmul),
     linalg.AddOp: (compute.AddInit, compute.Add),
+    linalg.SubOp: (compute.SubInit, compute.Sub),
 }
 
 LINALG_TO_TT_VECTOR: Dict[type, Tuple[type, type]] = {
@@ -54,7 +55,7 @@ LINALG_TO_TT_VECTOR: Dict[type, Tuple[type, type]] = {
 }
 
 
-REWRITE_TYPE = linalg.MatmulOp | linalg.AddOp
+REWRITE_TYPE = linalg.MatmulOp | linalg.AddOp | linalg.SubOp
 
 
 class LinalgToTT(RewritePattern):
@@ -587,6 +588,9 @@ class LinalgToTT(RewritePattern):
         if op_t == AddInt32Init:
             return ()
 
+        if op_t == SubInit:
+            return cb0, cb1, false
+
         raise NotImplementedError(f"Unhandled args for init op: {op_t.__name__}")
 
     @staticmethod
@@ -605,6 +609,9 @@ class LinalgToTT(RewritePattern):
         if op_t == AddInt32:
             return zero, one
 
+        if op_t == Sub:
+            return cb0, cb1, zero, zero, zero
+
         raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")
 
     @staticmethod
@@ -618,7 +625,8 @@ class LinalgToTT(RewritePattern):
         valid_ops = [
             linalg.MatmulOp,
             linalg.AddOp,
-        ]  # TODO: think supports sub/div/softmax
+            linalg.SubOp,
+        ]  # TODO: think supports div/softmax
         valid_types = [Float32Type(), Float16Type(), BFloat16Type()]
 
         ct = linalg_op.operands[0].type
