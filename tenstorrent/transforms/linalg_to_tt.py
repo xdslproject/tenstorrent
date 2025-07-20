@@ -615,7 +615,10 @@ class LinalgToTT(RewritePattern):
 
     @staticmethod
     def runs_on_tensix_matrix(linalg_op: Operation) -> bool:
-        valid_ops = [linalg.MatmulOp, linalg.AddOp]  # TODO: think supports sub/div/softmax
+        valid_ops = [
+            linalg.MatmulOp,
+            linalg.AddOp,
+        ]  # TODO: think supports sub/div/softmax
         valid_types = [Float32Type(), Float16Type(), BFloat16Type()]
 
         ct = linalg_op.operands[0].type

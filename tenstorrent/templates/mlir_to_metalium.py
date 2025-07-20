@@ -29,7 +29,7 @@ def create_device_dram_buffer(host_memref: MemRefType) -> List[Operation]:
 
     # create a DRAM config (needs the size above)
     single_tile_size = arith.ConstantOp.from_int_and_width(32 * 32 * dt_size, 32)
-    single_tile_size.results[0].name_hint = 'page_size'
+    single_tile_size.results[0].name_hint = "page_size"
     dram_config_op = host.TTCreateDRAMConfig(size_op, single_tile_size)
     dram_buffer_op = host.TTCreateBuffer(dram_config_op)
 
