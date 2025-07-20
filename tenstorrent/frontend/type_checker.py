@@ -1,16 +1,18 @@
 import ast
 from typing import Dict
 from xdsl.utils.hints import isa
+from xdsl.ir.core import Attribute
 from xdsl.dialects.builtin import (
     IntegerType,
     Float32Type,
     IndexType,
     NoneType,
-    MemRefType,
+    MemRefType, i32, i64, i1, ContainerType
 )
 
 from .dummy import *
 from tenstorrent.dialects import *
+from tenstorrent.dialects.ttshared import ConstExprType
 
 TYPE_STR_TO_MLIR_TYPE = {
     "int": IntegerType(32),
@@ -190,22 +192,22 @@ class TypeChecker(ast.NodeVisitor):
             untilize_block.__name__: NoneType(),
             untilize_uninit.__name__: NoneType(),
             pack_tile.__name__: NoneType(),
-            "CreateDevice": Device(),
-            "Core": CoreCoord(),
-            "DRAMConfig": DRAMBufferConfig(),
-            "CreateBuffer": Buffer(),
-            "GetCommandQueue": CommandQueue(),
+            "CreateDevice": host.Device(),
+            "Core": host.CoreCoord(),
+            "DRAMConfig": host.DRAMBufferConfig(),
+            "CreateBuffer": host.Buffer(),
+            "GetCommandQueue": host.CommandQueue(),
             "EnqueueWriteBuffer": None,
             "EnqueueReadBuffer": None,
-            "CreateProgram": Program(),
-            "Kernel": Kernel(),
+            "CreateProgram": host.Program(),
+            "Kernel": host.Kernel(),
             "SetRuntimeArgs": None,
             "EnqueueProgram": None,
             "Finish": None,
             "CloseDevice": None,
             "GetMemoryAddress": IndexType(),
-            "CBConfig": CircularBufferConfig(),
-            "CreateCircularBuffer": CBHandle(),
+            "CBConfig": host.CircularBufferConfig(),
+            "CreateCircularBuffer": host.CBHandle(),
             "cb_get_write_ptr": i32,
             "cb_get_read_ptr": i32,
             get_compile_time_arg_val.__name__: ConstExprType(i32),

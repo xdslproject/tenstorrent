@@ -15,7 +15,7 @@ from xdsl.dialects import builtin, arith
 from xdsl.ir.core import Attribute
 from xdsl.utils.type import have_compatible_shape
 
-from tenstorrent.dialects import ConstExprType
+from tenstorrent.dialects.ttshared import ConstExprType
 
 
 def cast_if_needed(
