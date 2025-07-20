@@ -8,9 +8,9 @@ from xdsl.dialects.builtin import (
     IndexType,
     FloatAttr,
     Float32Type,
-    BoolAttr,
+    BoolAttr, IntegerType, i32, IntegerAttr, MemRefType, i1,
 )
-from xdsl.ir import Region, Block
+from xdsl.ir import Region, Block, Operation, Attribute, SSAValue
 from xdsl.irdl import AnyOf, EqAttrConstraint
 from xdsl.utils.hints import isa
 
@@ -86,7 +86,7 @@ class PythonToMLIR(ast.NodeVisitor):
         }
 
         self._operations: Dict[
-            Attribute, Dict[type(ast.operator), type(IRDLOperation)]
+            Attribute, Dict[type(ast.operator), type(Operation)]
         ] = {
             IntegerType(32): {
                 ast.Add: arith.AddiOp,
@@ -104,171 +104,171 @@ class PythonToMLIR(ast.NodeVisitor):
 
         self._functions: Dict[str, type] = {
             # shared
-            cb_push_back.__name__: CBPushBack,
-            cb_reserve_back.__name__: CBReserveBack,
-            cb_pop_front.__name__: CBPopFront,
-            cb_wait_front.__name__: CBWaitFront,
-            cb_pages_reservable_at_back.__name__: CBPagesReservableAtBack,
-            cb_pages_available_at_front.__name__: CBPagesAvailableAtFront,
+            cb_push_back.__name__: circular_buffer.CBPushBack,
+            cb_reserve_back.__name__: circular_buffer.CBReserveBack,
+            cb_pop_front.__name__: circular_buffer.CBPopFront,
+            cb_wait_front.__name__: circular_buffer.CBWaitFront,
+            cb_pages_reservable_at_back.__name__: circular_buffer.CBPagesReservableAtBack,
+            cb_pages_available_at_front.__name__: circular_buffer.CBPagesAvailableAtFront,
             # TODO: new class for data movement cores
-            noc_async_read.__name__: DMNocAsyncRead,
-            noc_async_write.__name__: DMNocAsyncWrite,
-            noc_semaphore_set.__name__: DMNocSemaphoreSet,
-            noc_semaphore_set_multicast.__name__: DMNocSemaphoreSetMulticast,
-            noc_async_write_multicast.__name__: DMNocAsyncWriteMulticast,
-            noc_semaphore_wait.__name__: DMNocSemaphoreWait,
-            noc_semaphore_inc.__name__: DMNocSemaphoreInc,
-            noc_async_read_barrier.__name__: DMNocAsyncReadBarrier,
-            noc_async_write_barrier.__name__: DMNocAsyncWriteBarrier,
-            get_noc_addr_from_bank_id.__name__: DMGetNocAddrFromBankId,
-            get_compile_time_arg_val.__name__: GetCompileTimeArgVal,
+            noc_async_read.__name__: data_movement.DMNocAsyncRead,
+            noc_async_write.__name__: data_movement.DMNocAsyncWrite,
+            noc_semaphore_set.__name__: data_movement.DMNocSemaphoreSet,
+            noc_semaphore_set_multicast.__name__: data_movement.DMNocSemaphoreSetMulticast,
+            noc_async_write_multicast.__name__: data_movement.DMNocAsyncWriteMulticast,
+            noc_semaphore_wait.__name__: data_movement.DMNocSemaphoreWait,
+            noc_semaphore_inc.__name__: data_movement.DMNocSemaphoreInc,
+            noc_async_read_barrier.__name__: data_movement.DMNocAsyncReadBarrier,
+            noc_async_write_barrier.__name__: data_movement.DMNocAsyncWriteBarrier,
+            get_noc_addr_from_bank_id.__name__: data_movement.DMGetNocAddrFromBankId,
+            get_compile_time_arg_val.__name__: ttshared.GetCompileTimeArgVal,
             # TODO: Should separate into different classes here for compute
-            binary_op_init_common.__name__: BinaryOpInitCommon,
-            pack_tile.__name__: PackTile,
-            copy.__name__: Copy,
-            copy_to_dst_init_short_with_dt.__name__: CopyToDSTInitShortWithDT,
-            copy_to_dst_init_short.__name__: CopyToDSTInitShort,
-            copy_init.__name__: CopyInit,
-            acquire_dst.__name__: AcquireDST,
-            release_dst.__name__: ReleaseDST,
-            regs_acquire.__name__: RegsAcquire,
-            regs_wait.__name__: RegsWait,
-            regs_commit.__name__: RegsCommit,
-            regs_release.__name__: RegsRelease,
-            abs_init.__name__: AbsInit,
-            abs.__name__: Abs,
-            add_init_nof.__name__: AddInitNof,
-            add_init.__name__: AddInit,
-            add.__name__: Add,
-            sub_init_nof.__name__: SubInitNof,
-            sub_init.__name__: SubInit,
-            sub.__name__: Sub,
-            mul_init_f.__name__: MulInitF,
-            mul_init.__name__: MulInit,
-            mul.__name__: Mul,
-            add_bcast_cols_init_short.__name__: AddBcastColsInitShort,
-            add_bcast_rows_init_short.__name__: AddBcastRowsInitShort,
-            add_bcast.__name__: AddBcast,
-            sub_bcast_cols_init_short.__name__: SubBcastColsInitShort,
-            sub_bcast.__name__: SubBcast,
-            mul_bcast_cols_init_short.__name__: MulBcastColsInitShort,
-            mul_bcast_rows_init_short.__name__: MulBcastRowsInitShort,
-            mul_bcast.__name__: MulBcast,
-            mul_bcast_scalar_init_short.__name__: MulBcastScalarInitShort,
-            mul_bcast_scalar.__name__: MulBcastScalar,
-            mm_init.__name__: MMInit,
-            mm_init_short_with_dt.__name__: MMInitShortWithDT,
-            mm_init_short.__name__: MMInitShort,
-            matmul.__name__: Matmul,
-            mm_block_init.__name__: MMBlockInit,
-            mm_block_init_short.__name__: MMBlockInitShort,
-            mm_block_init_short_with_dt.__name__: MMBlockInitShortWithDT,
-            matmul_block.__name__: MatmulBlock,
-            exp_init.__name__: ExpInit,
-            exp.__name__: Exp,
-            exp2init.__name__: Exp2Init,
-            exp2.__name__: Exp2,
-            exp_m1init.__name__: ExpM1Init,
-            exp_m1.__name__: ExpM1,
-            relu_init.__name__: ReluInit,
-            relu.__name__: Relu,
-            relu_max_init.__name__: ReluMaxInit,
-            relu_max.__name__: ReluMax,
-            relu_min_init.__name__: ReluMinInit,
-            relu_min.__name__: ReluMin,
-            leaky_relu_init.__name__: LeakyReluInit,
-            elu_init.__name__: EluInit,
-            elu.__name__: Elu,
-            erf_init.__name__: ErfInit,
-            erf.__name__: Erf,
-            erfc_init.__name__: ErfcInit,
-            erfc.__name__: Erfc,
-            erfinv_init.__name__: ErfinvInit,
-            erfinv.__name__: Erfinv,
-            gelu_init.__name__: GeluInit,
-            gelu.__name__: Gelu,
-            heaviside_init.__name__: HeavisideInit,
-            heaviside.__name__: Heaviside,
-            is_inf_init.__name__: IsInfInit,
-            is_inf.__name__: IsInf,
-            is_posinf_init.__name__: IsPosinfInit,
-            is_posinf.__name__: IsPosinf,
-            is_neginf_init.__name__: IsNeginfInit,
-            is_neginf.__name__: IsNeginf,
-            is_finite_init.__name__: IsFiniteInit,
-            is_finite.__name__: IsFinite,
-            is_na_n.__name__: IsNaN,
-            i0init.__name__: I0Init,
-            i0.__name__: I0,
-            logical_not_unary_init.__name__: LogicalNotUnaryInit,
-            logical_not_unary.__name__: LogicalNotUnary,
-            recip_init.__name__: RecipInit,
-            recip.__name__: Recip,
-            sign_init.__name__: SignInit,
-            sign.__name__: Sign,
-            sqrt_init.__name__: SqrtInit,
-            sqrt.__name__: Sqrt,
-            r_sqrt_init.__name__: RSqrtInit,
-            r_sqrt.__name__: RSqrt,
-            sigmoid_init.__name__: SigmoidInit,
-            sigmoid.__name__: Sigmoid,
-            log_init.__name__: LogInit,
-            log.__name__: Log,
-            log_with_base_init.__name__: LogWithBaseInit,
-            log_with_base.__name__: LogWithBase,
-            power_init.__name__: PowerInit,
-            power.__name__: Power,
-            r_sub_init.__name__: RSubInit,
-            r_sub.__name__: RSub,
-            sign_bit_init.__name__: SignBitInit,
-            sign_bit.__name__: SignBit,
-            square_init.__name__: SquareInit,
-            square.__name__: Square,
-            reduce.__name__: Reduce,
-            transpose_wh_init.__name__: TransposeWHInit,
-            transpose_wh.__name__: TransposeWH,
-            tanh_init.__name__: TanhInit,
-            tanh.__name__: Tanh,
-            tan_init.__name__: TanInit,
-            tan.__name__: Tan,
-            sin_init.__name__: SinInit,
-            sin.__name__: Sin,
-            cos_init.__name__: CosInit,
-            cos.__name__: Cos,
-            asin_init.__name__: AsinInit,
-            asin.__name__: Asin,
-            atan_init.__name__: AtanInit,
-            atan.__name__: Atan,
-            acos_init.__name__: AcosInit,
-            acos.__name__: Acos,
-            ltz_init.__name__: LtzInit,
-            ltz.__name__: Ltz,
-            eqz_init.__name__: EqzInit,
-            eqz.__name__: Eqz,
-            lez_init.__name__: LezInit,
-            lez.__name__: Lez,
-            gtz_init.__name__: GtzInit,
-            gtz.__name__: Gtz,
-            gez_init.__name__: GezInit,
-            gez.__name__: Gez,
-            nez_init.__name__: NezInit,
-            nez.__name__: Nez,
-            unary_ne_init.__name__: UnaryNeInit,
-            unary_ne.__name__: UnaryNe,
-            unary_gt_init.__name__: UnaryGtInit,
-            unary_gt.__name__: UnaryGt,
-            unary_lt_init.__name__: UnaryLtInit,
-            unary_lt.__name__: UnaryLt,
-            tilize_init.__name__: TilizeInit,
-            tilize_init_short.__name__: TilizeInitShort,
-            tilize_init_short_with_dt.__name__: TilizeInitShortWithDT,
-            tilize_block.__name__: TilizeBlock,
-            tilize_uninit.__name__: TilizeUninit,
-            tilize_uninit_with_dt.__name__: TilizeUninitWithDT,
-            untilize_init.__name__: UntilizeInit,
-            untilize_init_short.__name__: UntilizeInitShort,
-            untilize_block.__name__: UntilizeBlock,
-            untilize_uninit.__name__: UntilizeUninit,
+            binary_op_init_common.__name__: compute.BinaryOpInitCommon,
+            pack_tile.__name__: compute.PackTile,
+            copy.__name__: compute.Copy,
+            copy_to_dst_init_short_with_dt.__name__: compute.CopyToDSTInitShortWithDT,
+            copy_to_dst_init_short.__name__: compute.CopyToDSTInitShort,
+            copy_init.__name__: compute.CopyInit,
+            acquire_dst.__name__: compute.AcquireDST,
+            release_dst.__name__: compute.ReleaseDST,
+            regs_acquire.__name__: compute.RegsAcquire,
+            regs_wait.__name__: compute.RegsWait,
+            regs_commit.__name__: compute.RegsCommit,
+            regs_release.__name__: compute.RegsRelease,
+            abs_init.__name__: compute.AbsInit,
+            abs.__name__: compute.Abs,
+            add_init_nof.__name__: compute.AddInitNof,
+            add_init.__name__: compute.AddInit,
+            add.__name__: compute.Add,
+            sub_init_nof.__name__: compute.SubInitNof,
+            sub_init.__name__: compute.SubInit,
+            sub.__name__: compute.Sub,
+            mul_init_f.__name__: compute.MulInitF,
+            mul_init.__name__: compute.MulInit,
+            mul.__name__: compute.Mul,
+            add_bcast_cols_init_short.__name__: compute.AddBcastColsInitShort,
+            add_bcast_rows_init_short.__name__: compute.AddBcastRowsInitShort,
+            add_bcast.__name__: compute.AddBcast,
+            sub_bcast_cols_init_short.__name__: compute.SubBcastColsInitShort,
+            sub_bcast.__name__: compute.SubBcast,
+            mul_bcast_cols_init_short.__name__: compute.MulBcastColsInitShort,
+            mul_bcast_rows_init_short.__name__: compute.MulBcastRowsInitShort,
+            mul_bcast.__name__: compute.MulBcast,
+            mul_bcast_scalar_init_short.__name__: compute.MulBcastScalarInitShort,
+            mul_bcast_scalar.__name__: compute.MulBcastScalar,
+            mm_init.__name__: compute.MMInit,
+            mm_init_short_with_dt.__name__: compute.MMInitShortWithDT,
+            mm_init_short.__name__: compute.MMInitShort,
+            matmul.__name__: compute.Matmul,
+            mm_block_init.__name__: compute.MMBlockInit,
+            mm_block_init_short.__name__: compute.MMBlockInitShort,
+            mm_block_init_short_with_dt.__name__: compute.MMBlockInitShortWithDT,
+            matmul_block.__name__: compute.MatmulBlock,
+            exp_init.__name__: compute.ExpInit,
+            exp.__name__: compute.Exp,
+            exp2init.__name__: compute.Exp2Init,
+            exp2.__name__: compute.Exp2,
+            exp_m1init.__name__: compute.ExpM1Init,
+            exp_m1.__name__: compute.ExpM1,
+            relu_init.__name__: compute.ReluInit,
+            relu.__name__: compute.Relu,
+            relu_max_init.__name__: compute.ReluMaxInit,
+            relu_max.__name__: compute.ReluMax,
+            relu_min_init.__name__: compute.ReluMinInit,
+            relu_min.__name__: compute.ReluMin,
+            leaky_relu_init.__name__: compute.LeakyReluInit,
+            elu_init.__name__: compute.EluInit,
+            elu.__name__: compute.Elu,
+            erf_init.__name__: compute.ErfInit,
+            erf.__name__: compute.Erf,
+            erfc_init.__name__: compute.ErfcInit,
+            erfc.__name__: compute.Erfc,
+            erfinv_init.__name__: compute.ErfinvInit,
+            erfinv.__name__: compute.Erfinv,
+            gelu_init.__name__: compute.GeluInit,
+            gelu.__name__: compute.Gelu,
+            heaviside_init.__name__: compute.HeavisideInit,
+            heaviside.__name__: compute.Heaviside,
+            is_inf_init.__name__: compute.IsInfInit,
+            is_inf.__name__: compute.IsInf,
+            is_posinf_init.__name__: compute.IsPosinfInit,
+            is_posinf.__name__: compute.IsPosinf,
+            is_neginf_init.__name__: compute.IsNeginfInit,
+            is_neginf.__name__: compute.IsNeginf,
+            is_finite_init.__name__: compute.IsFiniteInit,
+            is_finite.__name__: compute.IsFinite,
+            is_na_n.__name__: compute.IsNaN,
+            i0init.__name__: compute.I0Init,
+            i0.__name__: compute.I0,
+            logical_not_unary_init.__name__: compute.LogicalNotUnaryInit,
+            logical_not_unary.__name__: compute.LogicalNotUnary,
+            recip_init.__name__: compute.RecipInit,
+            recip.__name__: compute.Recip,
+            sign_init.__name__: compute.SignInit,
+            sign.__name__: compute.Sign,
+            sqrt_init.__name__: compute.SqrtInit,
+            sqrt.__name__: compute.Sqrt,
+            r_sqrt_init.__name__: compute.RSqrtInit,
+            r_sqrt.__name__: compute.RSqrt,
+            sigmoid_init.__name__: compute.SigmoidInit,
+            sigmoid.__name__: compute.Sigmoid,
+            log_init.__name__: compute.LogInit,
+            log.__name__: compute.Log,
+            log_with_base_init.__name__: compute.LogWithBaseInit,
+            log_with_base.__name__: compute.LogWithBase,
+            power_init.__name__: compute.PowerInit,
+            power.__name__: compute.Power,
+            r_sub_init.__name__: compute.RSubInit,
+            r_sub.__name__: compute.RSub,
+            sign_bit_init.__name__: compute.SignBitInit,
+            sign_bit.__name__: compute.SignBit,
+            square_init.__name__: compute.SquareInit,
+            square.__name__: compute.Square,
+            reduce.__name__: compute.Reduce,
+            transpose_wh_init.__name__: compute.TransposeWHInit,
+            transpose_wh.__name__: compute.TransposeWH,
+            tanh_init.__name__: compute.TanhInit,compute.
+            tanh.__name__: compute.Tanh,
+            tan_init.__name__: compute.TanInit,
+            tan.__name__: compute.Tan,
+            sin_init.__name__: compute.SinInit,
+            sin.__name__: compute.Sin,
+            cos_init.__name__: compute.CosInit,
+            cos.__name__: compute.Cos,
+            asin_init.__name__: compute.AsinInit,
+            asin.__name__: compute.Asin,
+            atan_init.__name__: compute.AtanInit,
+            atan.__name__: compute.Atan,
+            acos_init.__name__: compute.AcosInit,
+            acos.__name__: compute.Acos,
+            ltz_init.__name__: compute.LtzInit,
+            ltz.__name__: compute.Ltz,
+            eqz_init.__name__: compute.EqzInit,
+            eqz.__name__: compute.Eqz,
+            lez_init.__name__: compute.LezInit,
+            lez.__name__: compute.Lez,
+            gtz_init.__name__: compute.GtzInit,
+            gtz.__name__: compute.Gtz,
+            gez_init.__name__: compute.GezInit,
+            gez.__name__: compute.Gez,
+            nez_init.__name__: compute.NezInit,
+            nez.__name__: compute.Nez,
+            unary_ne_init.__name__: compute.UnaryNeInit,
+            unary_ne.__name__: compute.UnaryNe,
+            unary_gt_init.__name__: compute.UnaryGtInit,
+            unary_gt.__name__: compute.UnaryGt,
+            unary_lt_init.__name__: compute.UnaryLtInit,
+            unary_lt.__name__: compute.UnaryLt,
+            tilize_init.__name__: compute.TilizeInit,
+            tilize_init_short.__name__: compute.TilizeInitShort,
+            tilize_init_short_with_dt.__name__: compute.TilizeInitShortWithDT,
+            tilize_block.__name__: compute.TilizeBlock,
+            tilize_uninit.__name__: compute.TilizeUninit,
+            tilize_uninit_with_dt.__name__: compute.TilizeUninitWithDT,
+            untilize_init.__name__: compute.UntilizeInit,
+            untilize_init_short.__name__: compute.UntilizeInitShort,
+            untilize_block.__name__: compute.UntilizeBlock,
+            untilize_uninit.__name__: compute.UntilizeUninit,
         }
 
     def get_type(self, variable_name: str):
@@ -683,9 +683,9 @@ class PythonToMLIR(ast.NodeVisitor):
 
         rv_core_flag = None
         if node.args[3].attr == "DataMovement_0":
-            rv_core_flag = RISCVCoreFlags.DATAMOVEMENT_0
+            rv_core_flag = host.RISCVCoreFlags.DATAMOVEMENT_0
         elif node.args[3].attr == "DataMovement_1":
-            rv_core_flag = RISCVCoreFlags.DATAMOVEMENT_1
+            rv_core_flag = host.RISCVCoreFlags.DATAMOVEMENT_1
         else:
             assert False
 
@@ -696,14 +696,14 @@ class PythonToMLIR(ast.NodeVisitor):
         assert noc_id == 0 or noc_id == 1
 
         kernel_name = (
-            "reader" if rv_core_flag == RISCVCoreFlags.DATAMOVEMENT_0 else "writer"
+            "reader" if rv_core_flag == host.RISCVCoreFlags.DATAMOVEMENT_0 else "writer"
         )
 
-        kernel_create = TTCreateKernel(
+        kernel_create = host.TTCreateKernel(
             program_ssa,
             core_ssa,
             f"{kernel_name}.cpp",
-            RISCVCoreFlagsAttr([rv_core_flag]),
+            host.RISCVCoreFlagsAttr([rv_core_flag]),
             noc_id,
         )
 
@@ -715,18 +715,18 @@ class PythonToMLIR(ast.NodeVisitor):
 
         assert isa(node.args[1], ast.Name)
 
-        mf_flag = MathFidelityFlags(node.args[3].attr)
+        mf_flag = host.MathFidelityFlags(node.args[3].attr)
         fp32_acc = node.args[4].value
         math_apx = node.args[5].value
 
         assert fp32_acc in [0, 1]
         assert math_apx in [0, 1]
 
-        kernel_create = TTCreateComputeKernel(
+        kernel_create = host.TTCreateComputeKernel(
             program_ssa,
             core_ssa,
             "compute.cpp",
-            MathFidelityFlagsAttr([mf_flag]),
+            host.MathFidelityFlagsAttr([mf_flag]),
             IntegerAttr(fp32_acc, i1),
             IntegerAttr(math_apx, i1),
         )
@@ -758,13 +758,13 @@ class PythonToMLIR(ast.NodeVisitor):
         assert isa(node.args[3], ast.Name)
         data_type = node.args[3].id
 
-        cbConfig = TTCreateCBConfig(
+        cb_config = host.TTCreateCBConfig(
             num_pages_ssa, page_size_ssa, cb_index_ssa, data_type
         )
 
         return num_pages_ops + page_size_ops + cb_index_ops + [
-            cbConfig
-        ], cbConfig.results[0]
+            cb_config
+        ], cb_config.results[0]
 
     def handle_convert_to_array(self, node):
         source_ops, source_ssa = self.visit(node.args[0])
@@ -797,41 +797,41 @@ class PythonToMLIR(ast.NodeVisitor):
         if isa(node.func, ast.Attribute):
             name = node.func.attr
             if name == Core.__name__:
-                return self.handle_host_call(node, TTHostCore, 2)
+                return self.handle_host_call(node, host.TTHostCore, 2)
             if name == "DRAMConfig":
-                return self.handle_host_call(node, TTCreateDRAMConfig, 2)
+                return self.handle_host_call(node, host.TTCreateDRAMConfig, 2)
             if name == "CreateBuffer":
-                return self.handle_host_call(node, TTCreateBuffer, 1)
+                return self.handle_host_call(node, host.TTCreateBuffer, 1)
             if name == "CreateDevice":
-                return self.handle_host_call(node, TTCreateDevice, 1)
+                return self.handle_host_call(node, host.TTCreateDevice, 1)
             if name == "GetCommandQueue":
-                return self.handle_host_call(node, TTGetCommandQueue, 1)
+                return self.handle_host_call(node, host.TTGetCommandQueue, 1)
             if name == "EnqueueWriteBuffer":
-                return self.handle_host_call(node, TTEnqueueWriteBuffer, 4)
+                return self.handle_host_call(node, host.TTEnqueueWriteBuffer, 4)
             if name == "EnqueueReadBuffer":
-                return self.handle_host_call(node, TTEnqueueReadBuffer, 4)
+                return self.handle_host_call(node, host.TTEnqueueReadBuffer, 4)
             if name == "CreateProgram":
-                return self.handle_host_call(node, TTCreateProgram, 0)
+                return self.handle_host_call(node, host.TTCreateProgram, 0)
             if name == "Kernel":
                 return self.handle_create_kernel(node)
             if name == "SetRuntimeArgs":
-                return self.handle_host_call(node, TTSetRuntimeArgs, None)
+                return self.handle_host_call(node, host.TTSetRuntimeArgs, None)
             if name == "EnqueueProgram":
-                return self.handle_host_call(node, TTEnqueueProgram, 3)
+                return self.handle_host_call(node, host.TTEnqueueProgram, 3)
             if name == "Finish":
-                return self.handle_host_call(node, TTFinish, 1)
+                return self.handle_host_call(node, host.TTFinish, 1)
             if name == "CloseDevice":
-                return self.handle_host_call(node, TTCloseDevice, 1)
+                return self.handle_host_call(node, host.TTCloseDevice, 1)
             if name == "GetMemoryAddress":
-                return self.handle_host_call(node, TTGetMemoryAddress, 1)
+                return self.handle_host_call(node, host.TTGetMemoryAddress, 1)
             if name == "CBConfig":
                 return self.handle_create_cb_config(node)
             if name == "CreateCircularBuffer":
-                return self.handle_host_call(node, TTCreateCircularBuffer, 3)
+                return self.handle_host_call(node, host.TTCreateCircularBuffer, 3)
             if name == "cb_get_write_ptr":
-                return self.handle_host_call(node, CBGetWritePointer, 1)
+                return self.handle_host_call(node, circular_buffer.CBGetWritePointer, 1)
             if name == "cb_get_read_ptr":
-                return self.handle_host_call(node, CBGetReadPointer, 1)
+                return self.handle_host_call(node, circular_buffer.CBGetReadPointer, 1)
             if name == "to_array":
                 return self.handle_convert_to_array(node)
         elif isa(node.func, ast.Name) and node.func.id == "print":
