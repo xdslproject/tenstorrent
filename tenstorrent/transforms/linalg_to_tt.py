@@ -1,7 +1,7 @@
 from typing import List, Tuple, Optional, Dict
 
 from xdsl.context import Context
-from xdsl.dialects import builtin, arith, func
+from xdsl.dialects import builtin, arith, func, linalg, scf
 from xdsl.dialects.builtin import (
     FixedBitwidthType,
     BoolAttr,
@@ -10,7 +10,6 @@ from xdsl.dialects.builtin import (
     Float16Type,
     BFloat16Type,
 )
-from xdsl.dialects.linalg import MatmulOp, AddOp
 from xdsl.ir import Region, Block
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
@@ -43,19 +42,19 @@ COMP_KERNEL_NAME = "MAIN"
 
 # linalg.op -> (compute.init_op, compute.op)
 LINALG_TO_TT_MATRIX: Dict[type, Tuple[type, type]] = {
-    MatmulOp: (compute.MMInit, compute.Matmul),
-    AddOp: (compute.AddInit, compute.Add),
+    linalg.MatmulOp: (compute.MMInit, compute.Matmul),
+    linalg.AddOp: (compute.AddInit, compute.Add),
 }
 
 LINALG_TO_TT_VECTOR: Dict[type, Tuple[type, type]] = {
     # TODO: create xDSL definitions of the Vector Unit calls
     # TODO: this won't scale... need to look at datatype and select,
     #       so this should be a function really not just a lookup table
-    AddOp: (compute.AddInt32Init, compute.AddInt32)
+    linalg.AddOp: (compute.AddInt32Init, compute.AddInt32)
 }
 
 
-REWRITE_TYPE = MatmulOp | AddOp
+REWRITE_TYPE = linalg.MatmulOp | linalg.AddOp
 
 
 class LinalgToTT(RewritePattern):
@@ -68,6 +67,8 @@ class LinalgToTT(RewritePattern):
         self.cb_in0_id = 0
         self.cb_in1_id = 1
         self.cb_out_id = 2
+
+        self.num_pages = 1
 
     def get_ops_replaced(self):
         ops_replaced = self._ops_replaced
@@ -106,6 +107,9 @@ class LinalgToTT(RewritePattern):
         if not i == 0:
             host_f_name += f"_{i}"
 
+        # buffers are now correct in host code allocation...
+        elems = t0.element_count()
+        self.num_pages = elems // 1024 + (elems % 1024 != 0)
         host_code = self.generate_host_code(i, *host_code_args)
         data_in_code = self.generate_data_in(binop)
         data_out_code = self.generate_data_out()
@@ -251,12 +255,12 @@ class LinalgToTT(RewritePattern):
         dram_bank = zero  # TODO: generalise later, multi-core sharding, etc.
         cb_setups = (setup_cb0, setup_cb1, setup_cb16)
 
-        sizes = [x[0] for x in cb_setups if x]
-        dram_buffers = [x[2] for x in cb_setups if x]
+        page_sizes = [x[0] for x in cb_setups if x]
+        dram_buffers = [x[3] for x in cb_setups if x]
         d_addrs = [host.TTGetMemoryAddress(b) for b in dram_buffers]
 
         LinalgToTT.set_name_hints("dram_addr", d_addrs)
-        LinalgToTT.set_name_hints("size", sizes)
+        LinalgToTT.set_name_hints("size", page_sizes)
 
         operations += d_addrs
 
@@ -267,11 +271,11 @@ class LinalgToTT(RewritePattern):
         set_compute_args = host.TTSetRuntimeArgs(program, kernels[2], core)
 
         set_dout_args = host.TTSetRuntimeArgs(
-            program, kernels[1], core, *(dram_bank, d_addrs[-1], sizes[-1])
+            program, kernels[1], core, *(dram_bank, d_addrs[-1], page_sizes[-1])
         )
 
         din_args = (dram_bank, dram_bank) if binop else (dram_bank,)
-        din_args += tuple(d_addrs[:2]) + tuple(sizes[:2])
+        din_args += tuple(d_addrs[:2]) + tuple(page_sizes[:2])
         set_din_args = host.TTSetRuntimeArgs(
             program,
             kernels[0],
@@ -376,6 +380,16 @@ class LinalgToTT(RewritePattern):
                 bank_id1, mem_addr1, size_bytes1, self.cb_in1_id
             )
 
+        if self.num_pages != 1:
+            loop_ops = operations + [scf.YieldOp()]
+            zero = arith.ConstantOp.from_int_and_width(0, 32)
+            one = arith.ConstantOp.from_int_and_width(1, 32)
+            ub = arith.ConstantOp.from_int_and_width(self.num_pages, 32)
+
+            operations = [zero, one, ub]
+            b = Block(loop_ops, arg_types=[i32])
+            operations += [scf.ForOp(zero, ub, one, [], b)]
+
         block.add_ops(operations + [func.ReturnOp()])
 
         return builtin.ModuleOp(
@@ -419,19 +433,22 @@ class LinalgToTT(RewritePattern):
         write_barrier = data_movement.DMNocAsyncWriteBarrier()
         pop = circular_buffer.CBPopFront(cb_out, one)
 
-        block.add_ops(
-            [
-                dst_noc_addr,
-                one,
-                cb_out,
-                l1_read_addr,
-                wait,
-                write,
-                write_barrier,
-                pop,
-                func.ReturnOp(),
-            ]
-        )
+        operations = [dst_noc_addr, one, cb_out, l1_read_addr]
+        loop_ops = [wait, write, write_barrier, pop]
+
+        if self.num_pages != 1:
+            zero = arith.ConstantOp.from_int_and_width(0, 32)
+            ub = arith.ConstantOp.from_int_and_width(self.num_pages, 32)
+
+            b = Block(loop_ops + [scf.YieldOp()], arg_types=[i32])
+            loop = scf.ForOp(zero, ub, one, [], b)
+            operations += [zero, ub, loop]
+        else:
+            operations += loop_ops
+
+        operations += [func.ReturnOp()]
+
+        block.add_ops(operations)
 
         return builtin.ModuleOp(
             [
@@ -506,17 +523,20 @@ class LinalgToTT(RewritePattern):
         operations += [true, false]
         operations += [sfpu_init] if use_tvector else []
         operations += [bin_op_cmn_init] if binop and use_tmatrix else []
-        operations += [bin_op_init, wait1] if binop else []
-        operations += [
+        operations += [bin_op_init] if binop else []
+
+        loop_ops = []
+        loop_ops += [wait1] if binop else []
+        loop_ops += [
             wait0,
             acquire_regs,
         ]
 
         # copy tiles if using the Vector unit
-        operations += [copy_tile0] if use_tvector else []
-        operations += [copy_tile1] if use_tvector and binop else []
+        loop_ops += [copy_tile0] if use_tvector else []
+        loop_ops += [copy_tile1] if use_tvector and binop else []
 
-        operations += [
+        loop_ops += [
             do_tt_op,
             commit,
             regs_wait,
@@ -524,8 +544,21 @@ class LinalgToTT(RewritePattern):
             release,
             cb_pop0,
         ]
-        operations += [cb_pop1] if binop else []
-        operations += [push, func.ReturnOp()]
+        loop_ops += [cb_pop1] if binop else []
+        loop_ops += [push]
+
+        if self.num_pages != 1:
+            zero = arith.ConstantOp.from_int_and_width(0, 32)
+            one = arith.ConstantOp.from_int_and_width(1, 32)
+            ub = arith.ConstantOp.from_int_and_width(self.num_pages, 32)
+
+            b = Block(loop_ops + [scf.YieldOp()], arg_types=[i32])
+            loop = scf.ForOp(zero, ub, one, [], b)
+            operations += [zero, one, ub, loop]
+        else:
+            operations += loop_ops
+
+        operations += [func.ReturnOp()]
 
         return builtin.ModuleOp(
             [
@@ -582,7 +615,7 @@ class LinalgToTT(RewritePattern):
 
     @staticmethod
     def runs_on_tensix_matrix(linalg_op: Operation) -> bool:
-        valid_ops = [MatmulOp, AddOp]  # TODO: think supports sub/div/softmax
+        valid_ops = [linalg.MatmulOp, linalg.AddOp]  # TODO: think supports sub/div/softmax
         valid_types = [Float32Type(), Float16Type(), BFloat16Type()]
 
         ct = linalg_op.operands[0].type
