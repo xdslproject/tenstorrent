@@ -7,7 +7,11 @@ from xdsl.dialects.builtin import (
     Float32Type,
     IndexType,
     NoneType,
-    MemRefType, i32, i64, i1, ContainerType
+    MemRefType,
+    i32,
+    i64,
+    i1,
+    ContainerType,
 )
 
 from .dummy import *

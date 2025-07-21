@@ -1,16 +1,19 @@
-from typing import List, Tuple, Optional, Dict
+from dataclasses import dataclass
+from typing import List, Tuple, Dict
 
 from xdsl.context import Context
 from xdsl.dialects import builtin, arith, func, linalg, scf
 from xdsl.dialects.builtin import (
-    FixedBitwidthType,
     BoolAttr,
     FunctionType,
     Float32Type,
     Float16Type,
     BFloat16Type,
+    MemRefType,
+    i1,
+    i32,
 )
-from xdsl.ir import Region, Block
+from xdsl.ir import Region, Block, Operation, SSAValue
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
     RewritePattern,
@@ -150,7 +153,7 @@ class LinalgToTT(RewritePattern):
             program,
             core,
             f"reader{suffix}.cpp",
-            RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_0]),
+            host.RISCVCoreFlagsAttr([host.RISCVCoreFlags.DATAMOVEMENT_0]),
             0,
         )
         kernel_din.results[0].name_hint = "reader_kernel"
@@ -159,7 +162,7 @@ class LinalgToTT(RewritePattern):
             program,
             core,
             f"writer{suffix}.cpp",
-            RISCVCoreFlagsAttr([RISCVCoreFlags.DATAMOVEMENT_1]),
+            host.RISCVCoreFlagsAttr([host.RISCVCoreFlags.DATAMOVEMENT_1]),
             1,
         )
         kernel_dout.results[0].name_hint = "writer_kernel"
@@ -170,7 +173,7 @@ class LinalgToTT(RewritePattern):
             program,
             core,
             f"compute{suffix}.cpp",
-            MathFidelityFlagsAttr([MathFidelityFlags.LOFI]),
+            host.MathFidelityFlagsAttr([host.MathFidelityFlags.LOFI]),
             false_attr,
             false_attr,
         )
@@ -577,18 +580,18 @@ class LinalgToTT(RewritePattern):
     def get_init_args(
         op_t, cb0, cb1, cb_out, zero, one, true, false
     ) -> Tuple[SSAValue, ...]:
-        if op_t == MMInit:
+        if op_t == compute.MMInit:
             # cb0, cb1, cb_out, transpose
             return cb0, cb1, cb_out, zero
 
-        if op_t == AddInit:
+        if op_t == compute.AddInit:
             # cb0, cb1, accumulate to dst
             return cb0, cb1, false
 
-        if op_t == AddInt32Init:
+        if op_t == compute.AddInt32Init:
             return ()
 
-        if op_t == SubInit:
+        if op_t == compute.SubInit:
             return cb0, cb1, false
 
         raise NotImplementedError(f"Unhandled args for init op: {op_t.__name__}")
@@ -597,19 +600,19 @@ class LinalgToTT(RewritePattern):
     def get_op_args(
         op_t, cb0, cb1, cb_out, zero, one, true, false
     ) -> Tuple[SSAValue, ...]:
-        if op_t == Matmul:
+        if op_t == compute.Matmul:
             # cb0, cb1, tile0, tile1, dst[i], transpose
             return cb0, cb1, zero, zero, zero, zero
 
-        if op_t == Add:
+        if op_t == compute.Add:
             # cb0, cb1, tile0, tile1, dst[i]
             return cb0, cb1, zero, zero, zero
 
         # idst0, idst1
-        if op_t == AddInt32:
+        if op_t == compute.AddInt32:
             return zero, one
 
-        if op_t == Sub:
+        if op_t == compute.Sub:
             return cb0, cb1, zero, zero, zero
 
         raise NotImplementedError(f"Unhandled args for op: {op_t.__name__}")

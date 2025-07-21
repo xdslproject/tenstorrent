@@ -8,7 +8,12 @@ from xdsl.dialects.builtin import (
     IndexType,
     FloatAttr,
     Float32Type,
-    BoolAttr, IntegerType, i32, IntegerAttr, MemRefType, i1,
+    BoolAttr,
+    IntegerType,
+    i32,
+    IntegerAttr,
+    MemRefType,
+    i1,
 )
 from xdsl.ir import Region, Block, Operation, Attribute, SSAValue
 from xdsl.irdl import AnyOf, EqAttrConstraint
@@ -85,9 +90,7 @@ class PythonToMLIR(ast.NodeVisitor):
             ast.NotEq: arith.CMPF_COMPARISON_OPERATIONS[6],
         }
 
-        self._operations: Dict[
-            Attribute, Dict[type(ast.operator), type(Operation)]
-        ] = {
+        self._operations: Dict[Attribute, Dict[type(ast.operator), type(Operation)]] = {
             IntegerType(32): {
                 ast.Add: arith.AddiOp,
                 ast.Mult: arith.MuliOp,
@@ -227,7 +230,7 @@ class PythonToMLIR(ast.NodeVisitor):
             reduce.__name__: compute.Reduce,
             transpose_wh_init.__name__: compute.TransposeWHInit,
             transpose_wh.__name__: compute.TransposeWH,
-            tanh_init.__name__: compute.TanhInit,compute.
+            tanh_init.__name__: compute.TanhInit,
             tanh.__name__: compute.Tanh,
             tan_init.__name__: compute.TanInit,
             tan.__name__: compute.Tan,
