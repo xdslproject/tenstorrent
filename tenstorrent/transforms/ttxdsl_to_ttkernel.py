@@ -2,9 +2,9 @@ from typing import Type, Dict, Tuple, List
 
 from xdsl.context import Context
 from xdsl.dialects import builtin, memref
-from xdsl.dialects.builtin import Float32Type, FunctionType
+from xdsl.dialects.builtin import Float32Type, FunctionType, IntegerAttr, MemRefType
 from xdsl.dialects.func import FuncOp, ReturnOp
-from xdsl.ir import BlockArgument, Block
+from xdsl.ir import BlockArgument, Block, Operation
 from xdsl.passes import ModulePass
 from xdsl.pattern_rewriter import (
     PatternRewriteWalker,
@@ -23,7 +23,7 @@ class ReplaceTTxOps(RewritePattern):
         self.cb_port_ctr = 0
         self._block_arg_index = 0
         self.cb_port_type = "in"
-        self.handled_ops: Dict[Type[Operation], Type[IRDLOperation]] = {
+        self.handled_ops: Dict[Type[Operation], Type[Operation]] = {
             compute.BinaryOpInitCommon: ttkernel.BinaryOpInitCommonOp,
             compute.AddInit: ttkernel.AddTilesInitOp,
             circular_buffer.CBWaitFront: ttkernel.CBWaitFrontOp,
@@ -74,10 +74,10 @@ class ReplaceTTxOps(RewritePattern):
 
                 rewriter.replace_op(operation, new_op, operation.results)
                 for (name, param), arg in zip(op_def.operands, operation.operands):
-                    if param.constr.constr.attr == CBType:
+                    if param.constr.constr.attr == ttkernel.CBType:
                         # TODO: use a CBType not an i32
                         # memref<8x4x4x1024xf32>
-                        default_cb_type = CBType(
+                        default_cb_type = ttkernel.CBType(
                             self.get_next_cb_port(),
                             IntegerAttr(0, 32),
                             MemRefType(Float32Type(), [8, 4, 4, 1024]),
@@ -103,8 +103,8 @@ class ReplaceTTxOps(RewritePattern):
 
     def get_next_cb_port(self):
         identifier = f"cb_{self.cb_port_type}{self.cb_port_ctr}"
-        flag = next((f for f in CBPortFlags if f.value == identifier))
-        cb_port = CBPortAttr([CBPortFlagsAttrBase([flag])])
+        flag = next((f for f in ttkernel.CBPortFlags if f.value == identifier))
+        cb_port = ttkernel.CBPortAttr([ttkernel.CBPortFlagsAttrBase([flag])])
 
         # set up the next cb port
         self.cb_port_ctr += 1
